@@ -1,0 +1,29 @@
+{
+  "name": "iocondo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Piattaforma gestionale e app condominiale (monorepo)",
+  "packageManager": "npm@10.9.2",
+  "engines": { "node": ">=20" },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:admin": "turbo run dev --filter=@iocondo/admin-web",
+    "dev:mobile": "turbo run dev --filter=@iocondo/condomino-mobile",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "gen:types": "node scripts/generate-types.mjs",
+    "db:push": "supabase db push --linked",
+    "functions:serve": "supabase functions serve",
+    "functions:deploy": "supabase functions deploy",
+    "clean": "turbo run clean && node -e \"require('fs').rmSync('node_modules',{recursive:true,force:true})\""
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "~5.6.3"
+  }
+}

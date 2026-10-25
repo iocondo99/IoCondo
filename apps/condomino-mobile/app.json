@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "IoCondo",
+    "slug": "iocondo-condomino",
+    "scheme": "iocondo",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true }
+  }
+}
