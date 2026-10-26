@@ -1,5 +1,17 @@
-import { assertOk, getCurrentUserId, ServiceError, unwrap, type TypedSupabaseClient } from '@iocondo/supabase-client';
-import type { IPrenotazioneSpazio, IRegistroPacco, IRisorsaPrenotabile } from '@iocondo/shared-types';
+import {
+  assertOk,
+  getCurrentUserId,
+  invokeFunction,
+  ServiceError,
+  unwrap,
+  type TypedSupabaseClient,
+} from '@iocondo/supabase-client';
+import type {
+  ILogStoricoImmobile,
+  IPrenotazioneSpazio,
+  IRegistroPacco,
+  IRisorsaPrenotabile,
+} from '@iocondo/shared-types';
 
 /** Servizi di condominio: prenotazione spazi comuni (REQ-C05) e pacchi in portineria. */
 export function createServiziService(db: TypedSupabaseClient) {
@@ -84,6 +96,33 @@ export function createServiziService(db: TypedSupabaseClient) {
           .eq('id', id)
           .select('*')
           .single(),
+      );
+    },
+
+    /** Attiva la push notification di sollecito ritiro pacco al residente tramite Edge Function. */
+    async sollecitaRitiroPacco(input: {
+      condominio_id: string;
+      unita_id: string;
+      titolo: string;
+      corpo: string;
+    }): Promise<{ destinatari: number; push_inviate: number }> {
+      return invokeFunction<{ destinatari: number; push_inviate: number }>(db, 'notifiche-push', {
+        condominio_id: input.condominio_id,
+        unita_id: input.unita_id,
+        titolo: input.titolo,
+        corpo: input.corpo,
+        tipo: 'PORTINERIA_PACCO',
+      });
+    },
+
+    // ---- Storico Immobile (UC-11: la RLS espone al subentrante solo gli eventi PUBBLICI)
+    async listStoricoImmobile(unitaId: string): Promise<ILogStoricoImmobile[]> {
+      return unwrap(
+        await db
+          .from('log_storico_immobile')
+          .select('*')
+          .eq('unita_id', unitaId)
+          .order('data_evento', { ascending: false }),
       );
     },
   };

@@ -547,7 +547,33 @@ begin
                 or (visibilita = 'PUBBLICO' and public.has_unita_access(unita_id)) $p$,
             $p$ public.is_admin_of(public.cond_of_unita(unita_id)) $p$,
             $p$ public.is_admin_of(public.cond_of_unita(unita_id)) $p$,
-            $p$ public.is_admin_of(public.cond_of_unita(unita_id)) $p$)
+            $p$ public.is_admin_of(public.cond_of_unita(unita_id)) $p$),
+        -- appello e deleghe assemblea (UC-10)
+        ('assemblee_presenze',
+            $p$ public.has_cond_access(public.cond_of_assemblea(assemblea_id)) $p$,
+            $p$ public.is_admin_of(public.cond_of_assemblea(assemblea_id))
+                or (utente_id = auth.uid() and public.has_unita_access(unita_id)) $p$,
+            $p$ public.is_admin_of(public.cond_of_assemblea(assemblea_id))
+                or (utente_id = auth.uid() and public.has_unita_access(unita_id)) $p$,
+            $p$ public.is_admin_of(public.cond_of_assemblea(assemblea_id)) $p$),
+        -- sinistri assicurativi (Excel A17)
+        ('sinistri_assicurativi',
+            $p$ public.has_cond_access(condominio_id) $p$,
+            $p$ public.is_admin_of(condominio_id) $p$,
+            $p$ public.is_admin_of(condominio_id) $p$,
+            $p$ public.is_admin_of(condominio_id) $p$),
+        -- piani di rateizzazione personalizzati (Excel C26 / privacy UC-11: solo il debitore e l'admin)
+        ('piani_rateizzazione',
+            $p$ utente_id = auth.uid() or public.is_admin_of(condominio_id) $p$,
+            $p$ public.is_admin_of(condominio_id) or (utente_id = auth.uid() and stato = 'RICHIESTO' and public.has_unita_access(unita_id)) $p$,
+            $p$ public.is_admin_of(condominio_id) $p$,
+            $p$ public.is_admin_of(condominio_id) $p$),
+        -- import CSV/Excel (UC-09)
+        ('import_jobs',
+            $p$ public.is_admin_of(condominio_id) $p$,
+            $p$ public.is_admin_of(condominio_id) $p$,
+            $p$ public.is_admin_of(condominio_id) $p$,
+            $p$ public.is_admin_of(condominio_id) $p$)
         ) as v(tbl, sel_expr, ins_expr, upd_expr, del_expr)
     loop
         execute format('drop policy if exists %I on public.%I', r.tbl || '_select', r.tbl);

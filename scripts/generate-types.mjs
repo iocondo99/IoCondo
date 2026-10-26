@@ -35,6 +35,7 @@ const SING = {
   partecipanti: 'Partecipante', eventi: 'Evento', assemblee: 'Assemblea', punti: 'Punto', pacchi: 'Pacco',
   risorse: 'Risorsa', prenotabili: 'Prenotabile', prenotazioni: 'Prenotazione', spazi: 'Spazio',
   generati: 'Generato', configurazioni: 'Configurazione', logs: 'Log', rooms: 'Room', tokens: 'Token',
+  sinistri: 'Sinistro', assicurativi: 'Assicurativo', presenze: 'Presenza', jobs: 'Job',
 };
 const pascal = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const ifaceName = (table) => 'I' + table.split('_').map((p) => SING[p] ?? pascal(p)).join('');
@@ -135,10 +136,8 @@ out += `    };
       profili_pubblici: {
         Row: {
           id: string | null;
-          nome: string | null;
-          cognome: string | null;
+          nome_cognome: string | null;
           avatar_url: string | null;
-          condominio_id: string | null;
         };
         Relationships: [];
       };
@@ -147,7 +146,9 @@ out += `    };
       is_superadmin: { Args: Record<string, never>; Returns: boolean };
       is_admin_of: { Args: { p_cond: string }; Returns: boolean };
       has_cond_access: { Args: { p_cond: string }; Returns: boolean };
+      has_role_in: { Args: { p_cond: string; p_codice: string }; Returns: boolean };
       has_unita_access: { Args: { p_unita: string }; Returns: boolean };
+      can_read_documento: { Args: { p_doc: string }; Returns: boolean };
       risultati_voto: {
         Args: { p_punto: string };
         Returns: {
@@ -158,14 +159,22 @@ out += `    };
           percentuale_millesimi: number;
         }[];
       };
+      quorum_assemblea: {
+        Args: { p_assemblea: string };
+        Returns: {
+          presenti_teste: number;
+          totale_unita: number;
+          presenti_millesimi: number;
+          totale_millesimi: number;
+          quorum_seconda_convocazione: boolean;
+        }[];
+      };
       pagamento_completato: {
         Args: {
-          p_rata_id: string;
+          p_provider_ref: string;
           p_importo: number;
-          p_transazione_bancaria_id?: string | null;
-          p_stripe_pi_id?: string | null;
         };
-        Returns: void;
+        Returns: Json;
       };
     };
     Enums: { [_ in never]: never };

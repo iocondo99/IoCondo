@@ -333,8 +333,8 @@ insert into public.chat_messaggi (id, room_id, mittente_id, testo_messaggio, "ti
     (pg_temp.id(60,192), pg_temp.id(60,181), pg_temp.id(10,5), 'Dovrebbe venire il 28, l''ha scritto l''amministratore in bacheca.', '2026-10-20 19:10+02'),
     (pg_temp.id(60,193), pg_temp.id(60,182), pg_temp.id(10,11), 'L''ascensore adesso funziona, grazie a chi ha segnalato.', '2026-10-01 17:00+02');
 
-insert into public.assemblee_testata (id, condominio_id, data, luogo, link_meet, stato, tipo, modalita) values
-    (pg_temp.id(60,201), pg_temp.id(30,1), '2026-11-20 18:30+01', 'Sala condominiale - Via Appia Nuova 120, Roma', 'https://meet.google.com/mock-roma-ass', 'CONVOCATA', 'STRAORDINARIA', 'IBRIDA');
+insert into public.assemblee_testata (id, condominio_id, tabella_millesimale_id, data, luogo, link_meet, stato, tipo, modalita) values
+    (pg_temp.id(60,201), pg_temp.id(30,1), pg_temp.id(40,2), '2026-11-20 18:30+01', 'Sala condominiale - Via Appia Nuova 120, Roma', 'https://meet.google.com/mock-roma-ass', 'CONVOCATA', 'STRAORDINARIA', 'IBRIDA');
 
 insert into public.assemblee_punti_odg (id, assemblea_id, ordine, titolo_punto, descrizione, votazione_aperta) values
     (pg_temp.id(60,211), pg_temp.id(60,201), 1, 'Approvazione lavori revisione ascensore Scala A', 'Preventivo Ascensori Lombardi 4.000 EUR ripartiti su Tabella B.', true),
@@ -368,4 +368,23 @@ insert into public.log_storico_immobile (id, unita_id, tipo_evento, descrizione,
     (pg_temp.id(60,281), pg_temp.id(33,1), 'GUASTO',    'Ticket: perdita d''acqua dal soffitto del bagno (colonna di scarico)', 'PUBBLICO',  '2026-10-19 08:30+02'),
     (pg_temp.id(60,282), pg_temp.id(33,1), 'PAGAMENTO', 'Ricevuta rata ordinaria 1/2026', 'PUBBLICO',  '2026-09-18 10:12+02'),
     (pg_temp.id(60,283), pg_temp.id(33,5), 'SOLLECITO', 'Sollecito di pagamento livello 1 - rata 1/2026', 'RISERVATO', '2026-10-16 09:00+02');
+
+-- Presenze e deleghe assemblea ibrida (UC-10)
+insert into public.assemblee_presenze (id, assemblea_id, unita_id, utente_id, delegato_utente_id, modalita_presenza) values
+    (pg_temp.id(60,291), pg_temp.id(60,201), pg_temp.id(33,1), pg_temp.id(10,4), null,              'PRESENZA'),
+    (pg_temp.id(60,292), pg_temp.id(60,201), pg_temp.id(33,2), pg_temp.id(10,5), null,              'ONLINE'),
+    (pg_temp.id(60,293), pg_temp.id(60,201), pg_temp.id(33,4), pg_temp.id(10,7), pg_temp.id(10,4), 'DELEGA');
+
+-- Sinistri assicurativi (Excel A17)
+insert into public.sinistri_assicurativi (id, condominio_id, polizza_id, ticket_id, numero_pratica, descrizione, importo_stimato, stato, data_apertura) values
+    (pg_temp.id(60,301), pg_temp.id(30,1), pg_temp.id(60,141), pg_temp.id(50,1), 'SIN-2026-0098', 'Danni da infiltrazione acqua colonna di scarico bagno int. 1', 1450.00, 'PERIZIA', '2026-10-20');
+
+-- Piani di rateizzazione personalizzati (Excel C26)
+insert into public.piani_rateizzazione (id, condominio_id, unita_id, utente_id, importo_totale, numero_rate, stato, note) values
+    (pg_temp.id(60,311), pg_temp.id(30,1), pg_temp.id(33,5), pg_temp.id(10,8), 900.00, 3, 'ATTIVO', 'Piano rientro rata 1/2026 concordato con studio amministratore');
+
+-- Storico job di importazione CSV (UC-09)
+insert into public.import_jobs (id, condominio_id, eseguito_da, tipo_import, nome_file, righe_totali, righe_importate, stato) values
+    (pg_temp.id(60,321), pg_temp.id(30,1), pg_temp.id(10,2), 'MILLESIMI', 'tabella_a_b_roma_appia.csv', 10, 10, 'COMPLETATO');
+
 

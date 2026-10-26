@@ -415,6 +415,8 @@ export interface ITicketIntervento {
   data_prevista: string | null;
   importo_consuntivo: number | null;
   note_fornitore: string | null;
+  fattura_url: string | null;
+  foto_lavoro_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -517,9 +519,11 @@ export interface IRaccoltaDifferenziata {
 export interface IAssembleaTestata {
   id: string;
   condominio_id: string;
+  tabella_millesimale_id: string | null;
   data: string;
   luogo: string | null;
   link_meet: string | null;
+  verbale_url: string | null;
   stato: 'BOZZA' | 'CONVOCATA' | 'IN_CORSO' | 'CONCLUSA' | 'ANNULLATA';
   tipo: 'ORDINARIA' | 'STRAORDINARIA';
   modalita: 'PRESENZA' | 'ONLINE' | 'IBRIDA';
@@ -603,6 +607,57 @@ export interface IFatturaSdiInbound {
   xml_raw: string | null;
   importo_tot: number | null;
   stato_prima_nota: 'DA_REGISTRARE' | 'REGISTRATA' | 'SCARTATA';
+  created_at: string;
+}
+
+export interface IAssembleaPresenza {
+  id: string;
+  assemblea_id: string;
+  unita_id: string;
+  utente_id: string | null;
+  delegato_utente_id: string | null;
+  modalita_presenza: 'PRESENZA' | 'ONLINE' | 'DELEGA';
+  check_in_at: string;
+}
+
+export interface ISinistroAssicurativo {
+  id: string;
+  condominio_id: string;
+  polizza_id: string;
+  ticket_id: string | null;
+  numero_pratica: string | null;
+  descrizione: string;
+  importo_stimato: number | null;
+  importo_liquidato: number | null;
+  stato: 'APERTO' | 'PERIZIA' | 'LIQUIDATO' | 'RESPINTO' | 'CHIUSO';
+  data_apertura: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IPianoRateizzazione {
+  id: string;
+  condominio_id: string;
+  unita_id: string;
+  utente_id: string;
+  importo_totale: number;
+  numero_rate: number;
+  stato: 'RICHIESTO' | 'ATTIVO' | 'COMPLETATO' | 'REVOCATO';
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IImportJob {
+  id: string;
+  condominio_id: string;
+  eseguito_da: string | null;
+  tipo_import: 'ANAGRAFICHE' | 'MILLESIMI' | 'SALDI_PREGRESSI';
+  nome_file: string;
+  righe_totali: number;
+  righe_importate: number;
+  stato: 'IN_CORSO' | 'COMPLETATO' | 'ERRORE';
+  dettaglio_errori: Json;
   created_at: string;
 }
 
@@ -849,7 +904,7 @@ export interface Database {
       };
       ticket_interventi: {
         Row: Plain<ITicketIntervento>;
-        Insert: Plain<Omit<ITicketIntervento, 'id' | 'data_prevista' | 'importo_consuntivo' | 'note_fornitore' | 'created_at' | 'updated_at'> & Partial<Pick<ITicketIntervento, 'id' | 'data_prevista' | 'importo_consuntivo' | 'note_fornitore' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<ITicketIntervento, 'id' | 'data_prevista' | 'importo_consuntivo' | 'note_fornitore' | 'fattura_url' | 'foto_lavoro_url' | 'created_at' | 'updated_at'> & Partial<Pick<ITicketIntervento, 'id' | 'data_prevista' | 'importo_consuntivo' | 'note_fornitore' | 'fattura_url' | 'foto_lavoro_url' | 'created_at' | 'updated_at'>>>;
         Update: Plain<Partial<ITicketIntervento>>;
         Relationships: [];
       };
@@ -921,7 +976,7 @@ export interface Database {
       };
       assemblee_testata: {
         Row: Plain<IAssembleaTestata>;
-        Insert: Plain<Omit<IAssembleaTestata, 'id' | 'luogo' | 'link_meet' | 'stato' | 'tipo' | 'modalita' | 'created_at' | 'updated_at'> & Partial<Pick<IAssembleaTestata, 'id' | 'luogo' | 'link_meet' | 'stato' | 'tipo' | 'modalita' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<IAssembleaTestata, 'id' | 'tabella_millesimale_id' | 'luogo' | 'link_meet' | 'verbale_url' | 'stato' | 'tipo' | 'modalita' | 'created_at' | 'updated_at'> & Partial<Pick<IAssembleaTestata, 'id' | 'tabella_millesimale_id' | 'luogo' | 'link_meet' | 'verbale_url' | 'stato' | 'tipo' | 'modalita' | 'created_at' | 'updated_at'>>>;
         Update: Plain<Partial<IAssembleaTestata>>;
         Relationships: [];
       };
@@ -973,15 +1028,37 @@ export interface Database {
         Update: Plain<Partial<IFatturaSdiInbound>>;
         Relationships: [];
       };
+      assemblee_presenze: {
+        Row: Plain<IAssembleaPresenza>;
+        Insert: Plain<Omit<IAssembleaPresenza, 'id' | 'utente_id' | 'delegato_utente_id' | 'modalita_presenza' | 'check_in_at'> & Partial<Pick<IAssembleaPresenza, 'id' | 'utente_id' | 'delegato_utente_id' | 'modalita_presenza' | 'check_in_at'>>>;
+        Update: Plain<Partial<IAssembleaPresenza>>;
+        Relationships: [];
+      };
+      sinistri_assicurativi: {
+        Row: Plain<ISinistroAssicurativo>;
+        Insert: Plain<Omit<ISinistroAssicurativo, 'id' | 'ticket_id' | 'numero_pratica' | 'importo_stimato' | 'importo_liquidato' | 'stato' | 'data_apertura' | 'created_at' | 'updated_at'> & Partial<Pick<ISinistroAssicurativo, 'id' | 'ticket_id' | 'numero_pratica' | 'importo_stimato' | 'importo_liquidato' | 'stato' | 'data_apertura' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<ISinistroAssicurativo>>;
+        Relationships: [];
+      };
+      piani_rateizzazione: {
+        Row: Plain<IPianoRateizzazione>;
+        Insert: Plain<Omit<IPianoRateizzazione, 'id' | 'numero_rate' | 'stato' | 'note' | 'created_at' | 'updated_at'> & Partial<Pick<IPianoRateizzazione, 'id' | 'numero_rate' | 'stato' | 'note' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<IPianoRateizzazione>>;
+        Relationships: [];
+      };
+      import_jobs: {
+        Row: Plain<IImportJob>;
+        Insert: Plain<Omit<IImportJob, 'id' | 'eseguito_da' | 'righe_totali' | 'righe_importate' | 'stato' | 'dettaglio_errori' | 'created_at'> & Partial<Pick<IImportJob, 'id' | 'eseguito_da' | 'righe_totali' | 'righe_importate' | 'stato' | 'dettaglio_errori' | 'created_at'>>>;
+        Update: Plain<Partial<IImportJob>>;
+        Relationships: [];
+      };
     };
     Views: {
       profili_pubblici: {
         Row: {
           id: string | null;
-          nome: string | null;
-          cognome: string | null;
+          nome_cognome: string | null;
           avatar_url: string | null;
-          condominio_id: string | null;
         };
         Relationships: [];
       };
@@ -990,7 +1067,9 @@ export interface Database {
       is_superadmin: { Args: Record<string, never>; Returns: boolean };
       is_admin_of: { Args: { p_cond: string }; Returns: boolean };
       has_cond_access: { Args: { p_cond: string }; Returns: boolean };
+      has_role_in: { Args: { p_cond: string; p_codice: string }; Returns: boolean };
       has_unita_access: { Args: { p_unita: string }; Returns: boolean };
+      can_read_documento: { Args: { p_doc: string }; Returns: boolean };
       risultati_voto: {
         Args: { p_punto: string };
         Returns: {
@@ -1001,14 +1080,22 @@ export interface Database {
           percentuale_millesimi: number;
         }[];
       };
+      quorum_assemblea: {
+        Args: { p_assemblea: string };
+        Returns: {
+          presenti_teste: number;
+          totale_unita: number;
+          presenti_millesimi: number;
+          totale_millesimi: number;
+          quorum_seconda_convocazione: boolean;
+        }[];
+      };
       pagamento_completato: {
         Args: {
-          p_rata_id: string;
+          p_provider_ref: string;
           p_importo: number;
-          p_transazione_bancaria_id?: string | null;
-          p_stripe_pi_id?: string | null;
         };
-        Returns: void;
+        Returns: Json;
       };
     };
     Enums: { [_ in never]: never };

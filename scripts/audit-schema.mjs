@@ -24,6 +24,7 @@ for (const m of s1.matchAll(re)) {
   for (const c of fks) {
     const pk = new RegExp(`^\\s*${c}\\s+[^\\n]*primary key`, 'm').test(body);
     const idx = new RegExp(`create (unique )?index[^;]*\\(\\s*${c}\\b`).test(after) ||
+      new RegExp(`create (unique )?index[^;]*on\\s+public\\.${t}\\s*\\(\\s*${c}\\b`).test(s1) ||
       new RegExp(`unique\\s*\\(\\s*${c}\\b`).test(body) || new RegExp(`primary key \\(\\s*${c}\\b`).test(body) || pk;
     if (!idx) missing.push(`${t}.${c}`);
   }

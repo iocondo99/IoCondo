@@ -3,10 +3,19 @@ import { createServerSupabase } from '@iocondo/supabase-client';
 
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({ request: req });
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Se le variabili non sono configurate (es. build/preview offline), non bloccare le route
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return res;
+  }
+
   const db = createServerSupabase(
     {
-      url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-      anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
     },
     {
       getAll: () => req.cookies.getAll(),
@@ -18,12 +27,16 @@ export async function middleware(req: NextRequest) {
     },
   );
 
-  const { data: { user } } = await db.auth.getUser();
+  const {
+    data: { user },
+  } = await db.auth.getUser();
 
-  // Se l'utente non è loggato e tenta di accedere ad aree protette, redirect a login
-  const isPublic = req.nextUrl.pathname.startsWith('/login') ||
-                   req.nextUrl.pathname.startsWith('/auth') ||
-                   req.nextUrl.pathname === '/';
+  // UC-08: /fornitore/[token] è accessibile tramite Magic Link senza login
+  const isPublic =
+    req.nextUrl.pathname.startsWith('/login') ||
+    req.nextUrl.pathname.startsWith('/auth') ||
+    req.nextUrl.pathname.startsWith('/fornitore') ||
+    req.nextUrl.pathname === '/';
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', req.url));

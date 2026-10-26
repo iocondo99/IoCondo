@@ -568,6 +568,8 @@ create table public.ticket_interventi (
     data_prevista     date,
     importo_consuntivo numeric(12,2) check (importo_consuntivo is null or importo_consuntivo >= 0),
     note_fornitore    text,
+    fattura_url       text,
+    foto_lavoro_url   text,
     created_at        timestamptz not null default now(),
     updated_at        timestamptz not null default now()
 );
@@ -701,18 +703,21 @@ alter table public.raccolta_differenziata enable row level security;
 -- =====================================================================
 
 create table public.assemblee_testata (
-    id            uuid primary key default uuid_generate_v4(),
-    condominio_id uuid not null references public.condomini (id) on delete cascade,
-    data          timestamptz not null,
-    luogo         text,
-    link_meet     text,
-    stato         text not null default 'CONVOCATA' check (stato in ('BOZZA','CONVOCATA','IN_CORSO','CONCLUSA','ANNULLATA')),
-    tipo          text not null default 'ORDINARIA' check (tipo in ('ORDINARIA','STRAORDINARIA')),
-    modalita      text not null default 'PRESENZA' check (modalita in ('PRESENZA','ONLINE','IBRIDA')),
-    created_at    timestamptz not null default now(),
-    updated_at    timestamptz not null default now()
+    id                     uuid primary key default uuid_generate_v4(),
+    condominio_id          uuid not null references public.condomini (id) on delete cascade,
+    tabella_millesimale_id uuid references public.tabelle_millesimali (id) on delete set null,
+    data                   timestamptz not null,
+    luogo                  text,
+    link_meet              text,
+    verbale_url            text,
+    stato                  text not null default 'CONVOCATA' check (stato in ('BOZZA','CONVOCATA','IN_CORSO','CONCLUSA','ANNULLATA')),
+    tipo                   text not null default 'ORDINARIA' check (tipo in ('ORDINARIA','STRAORDINARIA')),
+    modalita               text not null default 'PRESENZA' check (modalita in ('PRESENZA','ONLINE','IBRIDA')),
+    created_at             timestamptz not null default now(),
+    updated_at             timestamptz not null default now()
 );
 create index on public.assemblee_testata (condominio_id);
+create index on public.assemblee_testata (tabella_millesimale_id);
 alter table public.assemblee_testata enable row level security;
 
 create table public.assemblee_punti_odg (
@@ -814,3 +819,116 @@ create table public.fatture_sdi_inbound (
 );
 create index on public.fatture_sdi_inbound (condominio_id);
 alter table public.fatture_sdi_inbound enable row level security;
+
+-- Appello, presenze e deleghe in assemblea ibrida (UC-10 / Excel Feature Assemblea)
+create table public.assemblee_presenze (
+    id                 uuid primary key default uuid_generate_v4(),
+    assemblea_id       uuid not null references public.assemblee_testata (id) on delete cascade,
+    unita_id           uuid not null references public.unita_immobiliari (id) on delete cascade,
+    utente_id          uuid references public.utenti (id) on delete set null,
+    delegato_utente_id uuid references public.utenti (id) on delete set null,
+    modalita_presenza  text not null default 'PRESENZA' check (modalita_presenza in ('PRESENZA','ONLINE','DELEGA')),
+    check_in_at        timestamptz not null default now(),
+    unique (assemblea_id, unita_id)
+);
+create index on public.assemblee_presenze (assemblea_id);
+create index on public.assemblee_presenze (unita_id);
+create index on public.assemblee_presenze (utente_id);
+create index on public.assemblee_presenze (delegato_utente_id);
+alter table public.assemblee_presenze enable row level security;
+
+-- Gestione sinistri assicurativi (Excel Feature A17)
+create table public.sinistri_assicurativi (
+    id                  uuid primary key default uuid_generate_v4(),
+    condominio_id       uuid not null references public.condomini (id) on delete cascade,
+    polizza_id          uuid not null references public.polizze_assicurative (id) on delete restrict,
+    ticket_id           uuid references public.ticket_testata (id) on delete set null,
+    numero_pratica      text,
+    descrizione         text not null,
+    importo_stimato     numeric(12,2) check (importo_stimato is null or importo_stimato >= 0),
+    importo_liquidato   numeric(12,2) check (importo_liquidato is null or importo_liquidato >= 0),
+    stato               text not null default 'APERTO' check (stato in ('APERTO','PERIZIA','LIQUIDATO','RESPINTO','CHIUSO')),
+    data_apertura       date not null default current_date,
+    created_at          timestamptz not null default now(),
+    updated_at          timestamptz not null default now()
+);
+create index on public.sinistri_assicurativi (condominio_id);
+create index on public.sinistri_assicurativi (polizza_id);
+create index on public.sinistri_assicurativi (ticket_id);
+alter table public.sinistri_assicurativi enable row level security;
+
+-- Piani di rateizzazione personalizzati per il condomino (Excel Feature C26)
+create table public.piani_rateizzazione (
+    id                uuid primary key default uuid_generate_v4(),
+    condominio_id     uuid not null references public.condomini (id) on delete cascade,
+    unita_id          uuid not null references public.unita_immobiliari (id) on delete cascade,
+    utente_id         uuid not null references public.utenti (id) on delete cascade,
+    importo_totale    numeric(12,2) not null check (importo_totale > 0),
+    numero_rate       integer not null default 3 check (numero_rate between 2 and 36),
+    stato             text not null default 'ATTIVO' check (stato in ('RICHIESTO','ATTIVO','COMPLETATO','REVOCATO')),
+    note              text,
+    created_at        timestamptz not null default now(),
+    updated_at        timestamptz not null default now()
+);
+create index on public.piani_rateizzazione (condominio_id);
+create index on public.piani_rateizzazione (unita_id);
+create index on public.piani_rateizzazione (utente_id);
+alter table public.piani_rateizzazione enable row level security;
+
+-- Importazione massiva CSV/Excel di anagrafiche e tabelle millesimali (UC-09 / REQ-A07)
+create table public.import_jobs (
+    id                uuid primary key default uuid_generate_v4(),
+    condominio_id     uuid not null references public.condomini (id) on delete cascade,
+    eseguito_da       uuid references public.utenti (id) on delete set null,
+    tipo_import       text not null check (tipo_import in ('ANAGRAFICHE','MILLESIMI','SALDI_PREGRESSI')),
+    nome_file         text not null,
+    righe_totali      integer not null default 0 check (righe_totali >= 0),
+    righe_importate   integer not null default 0 check (righe_importate >= 0),
+    stato             text not null default 'COMPLETATO' check (stato in ('IN_CORSO','COMPLETATO','ERRORE')),
+    dettaglio_errori  jsonb not null default '[]'::jsonb,
+    created_at        timestamptz not null default now()
+);
+create index on public.import_jobs (condominio_id);
+create index on public.import_jobs (eseguito_da);
+alter table public.import_jobs enable row level security;
+
+-- Indici completi su tutte le Foreign Key per performance join e RLS
+create index on public.licenze_saas (piano_id);
+create index on public.utente_entita_ruolo (ruolo_id);
+create index on public.unita_immobiliari (tipologia_id);
+create index on public.inviti_pendenti (ruolo_proposto);
+create index on public.inviti_pendenti (unita_id);
+create index on public.inviti_pendenti (invitato_da);
+create index on public.notifiche (condominio_id);
+create index on public.documenti_metadata (caricato_da);
+create index on public.documenti_permessi (ruolo_target_id);
+create index on public.documenti_permessi (utente_target_id);
+create index on public.tabelle_millesimali (palazzo_id);
+create index on public.tabelle_millesimali (scala_colonna_id);
+create index on public.movimenti_contabili (fornitore_id);
+create index on public.movimenti_contabili (doc_allegato_id);
+create index on public.rate_testata (tabella_millesimale_id);
+create index on public.saldi_pregressi (unita_id);
+create index on public.saldi_pregressi (utente_id);
+create index on public.pagamenti_rate (utente_id);
+create index on public.solleciti_morosita (rata_dettaglio_id);
+create index on public.polizze_assicurative (doc_id);
+create index on public.ticket_testata (categoria_id);
+create index on public.ticket_messaggi (mittente_id);
+create index on public.ticket_allegati (caricato_da);
+create index on public.bacheca_post (palazzo_id);
+create index on public.bacheca_post (autore_id);
+create index on public.bacheca_commenti (autore_id);
+create index on public.sondaggi (condominio_id);
+create index on public.sondaggi (autore_id);
+create index on public.sondaggi_voti (opzione_id);
+create index on public.sondaggi_voti (utente_id);
+create index on public.chat_rooms (palazzo_id);
+create index on public.chat_messaggi (mittente_id);
+create index on public.eventi_calendario (palazzo_id);
+create index on public.eventi_calendario (creato_da);
+create index on public.assemblee_voti (unita_id);
+create index on public.assemblee_voti (utente_id);
+create index on public.registro_pacchi (registrato_da);
+create index on public.prenotazioni_spazi (risorsa_id);
+

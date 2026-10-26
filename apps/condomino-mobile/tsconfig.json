@@ -7,7 +7,12 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      "expo-print": ["./src/lib/expo-print.ts"],
+      "expo-image-picker": ["./src/lib/expo-image-picker.ts"],
+      "expo-haptics": ["./src/lib/expo-haptics.ts"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "expo-env.d.ts"]
 }

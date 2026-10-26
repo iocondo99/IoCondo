@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "buildCommand": "npx turbo run build --filter=@iocondo/admin-web",
+  "outputDirectory": "apps/admin-web/.next",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  }
+}

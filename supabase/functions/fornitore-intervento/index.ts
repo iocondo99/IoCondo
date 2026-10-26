@@ -9,6 +9,8 @@ interface ActionInput {
   azione: 'get' | 'chiudi';
   importo_consuntivo?: number;
   note_fornitore?: string;
+  fattura_url?: string;
+  foto_lavoro_url?: string;
 }
 
 serve(async (req) => {
@@ -75,18 +77,34 @@ serve(async (req) => {
   if (body.azione === 'chiudi') {
     const importo = typeof body.importo_consuntivo === 'number' && body.importo_consuntivo >= 0 ? body.importo_consuntivo : null;
     const note = body.note_fornitore?.trim() || null;
+    const fatturaUrl = body.fattura_url?.trim() || null;
+    const fotoLavoroUrl = body.foto_lavoro_url?.trim() || null;
 
-    // Aggiorna l'intervento
+    // Aggiorna l'intervento con consuntivo, note e URL documenti (UC-08)
     const { error: updIErr } = await db
       .from('ticket_interventi')
       .update({
         importo_consuntivo: importo,
         note_fornitore: note,
+        fattura_url: fatturaUrl,
+        foto_lavoro_url: fotoLavoroUrl,
         updated_at: new Date().toISOString(),
       })
       .eq('id', intervento.id);
 
     if (updIErr) throw new HttpError(500, 'Errore aggiornamento intervento', updIErr.message);
+
+    // Registra automaticamente foto lavoro finito e PDF fattura negli allegati del ticket per il cloud dell'Admin
+    const allegatiToInsert: Array<{ ticket_id: string; url_storage: string; tipo_file: 'FOTO' | 'FATTURA' }> = [];
+    if (fotoLavoroUrl) {
+      allegatiToInsert.push({ ticket_id: ticket.id, url_storage: fotoLavoroUrl, tipo_file: 'FOTO' });
+    }
+    if (fatturaUrl) {
+      allegatiToInsert.push({ ticket_id: ticket.id, url_storage: fatturaUrl, tipo_file: 'FATTURA' });
+    }
+    if (allegatiToInsert.length > 0) {
+      await db.from('ticket_allegati').insert(allegatiToInsert);
+    }
 
     // Marca il ticket come RISOLTO
     const { error: updTkErr } = await db

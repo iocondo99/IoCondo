@@ -1,12 +1,38 @@
 {
   "expo": {
-    "name": "IoCondo",
+    "name": "IoCondo — Condòmino & Portiere",
     "slug": "iocondo-condomino",
     "scheme": "iocondo",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
-    "plugins": ["expo-router"],
-    "experiments": { "typedRoutes": true }
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "it.iocondo.condomino",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Usa la fotocamera per fotografare il guasto condominiale senza dover scrivere.",
+        "NSPhotoLibraryUsageDescription": "Allega una foto del guasto dalla tua galleria."
+      }
+    },
+    "android": {
+      "package": "it.iocondo.condomino",
+      "permissions": [
+        "CAMERA",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Consenti a IoCondo di scattare una foto del guasto da inviare all'amministratore."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

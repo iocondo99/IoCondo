@@ -8,8 +8,8 @@ import { createSupabaseClient } from '@iocondo/supabase-client';
  */
 export const supabase = createSupabaseClient(
   {
-    url: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
-    anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    url: process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'public-anon-placeholder-key',
   },
   { auth: { storage: AsyncStorage } },
 );
