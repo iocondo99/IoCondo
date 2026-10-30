@@ -2,6 +2,21 @@
 
 Stack: React Native (Expo SDK 58, React 19, Web e Mobile), Supabase, Vercel.
 
+## Architettura
+- Un'unica app Expo (apps/app, pacchetto @iocondo/app) per tutti i ruoli:
+  Super Admin, Admin, Condomino, Portiere, Fornitore. Per ora solo web,
+  deploy su Vercel. apps/admin-web (Next.js) resta invariata finché non verrà
+  sostituita.
+- packages/data (@iocondo/data): servizi Supabase e hook di sola logica,
+  senza dipendenze da Expo. I servizi non creano il client: lo riceve l'app.
+- packages/supabase-client: unica factory del client; storage sessione per
+  piattaforma in @iocondo/supabase-client/storage (localStorage su web,
+  AsyncStorage su nativo).
+- packages/shared-types: tipi del DB e dei ruoli. SUPER_ADMIN è il flag
+  utenti.is_superadmin e FORNITORE è accesso via magic link: nessuno dei due
+  è una riga di ruoli_piattaforma.
+- Nessun dato demo, nemmeno nei contesti; nessun pagamento simulato.
+
 ## Piattaforma
 - Un'unica codebase React Native (Expo) che gira su iOS, Android e Web.
 - Mobile-first e responsive: ogni schermata deve funzionare su smartphone,
@@ -15,7 +30,7 @@ Stack: React Native (Expo SDK 58, React 19, Web e Mobile), Supabase, Vercel.
 - Layout desktop: sidebar navy. Layout smartphone: barra in basso.
 - Ogni componente e ogni schermata deve funzionare su web, Android e iOS.
   Nessun codice web-only (HTML, CSS, div) in packages/ui e nell'app
-  condomino-mobile.
+  apps/app.
 - Differenze tra web, Android e iOS si gestiscono con layout responsive
   (useBreakpoint) e, solo se necessario, file .web.tsx / .native.tsx o
   Platform.select. Mai due versioni separate dello stesso componente.
@@ -30,7 +45,10 @@ frontend-design: usala solo per la cura dei dettagli, non per cambiare stile.
 
 ## Promemoria operativi
 - Token solo da packages/ui/src/tokens.ts, icone solo Lucide.
-- Mai dati dimostrativi nella UI: dati reali da Supabase (solo progetto di sviluppo).
+- Mai dati dimostrativi nella UI: dati reali da Supabase. Per ora esiste un solo
+  progetto Supabase (MVP): trattalo come ambiente di prova, senza dati reali.
+  Nessuna operazione distruttiva e nessuna migrazione applicata senza mia
+  conferma esplicita.
 - Dopo ogni modifica UI: verifica con Playwright a 1440, 820 e 390px
   e applica la checklist della sezione 23.
 - Non eseguire mai comandi git non richiesti (stash, reset, checkout, clean,

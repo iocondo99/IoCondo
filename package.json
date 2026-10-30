@@ -14,9 +14,10 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:admin": "turbo run dev --filter=@iocondo/admin-web",
-    "dev:mobile": "turbo run dev --filter=@iocondo/condomino-mobile",
+    "dev:app": "turbo run dev --filter=@iocondo/app",
     "build": "turbo run build",
     "lint": "turbo run lint",
+    "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "gen:types": "node scripts/generate-types.mjs",
     "db:push": "supabase db push --linked",

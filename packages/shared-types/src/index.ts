@@ -1120,3 +1120,27 @@ export type IAssemblea = IAssembleaTestata;
 export type IProfiloPubblico = Database['public']['Views']['profili_pubblici']['Row'];
 
 export type RuoloCodice = 'CONDOMINO' | 'ADMIN' | 'PORTIERE';
+
+/**
+ * Ruoli dell'app. `RuoloCodice` specchia `ruoli_piattaforma` (CHECK a 3 codici); gli altri due
+ * non sono righe di quella tabella: SUPER_ADMIN = flag `utenti.is_superadmin`,
+ * FORNITORE = accesso via `fornitori_tokens` (magic link) / tabella `fornitori`.
+ */
+export type RuoloApp = RuoloCodice | 'SUPER_ADMIN' | 'FORNITORE';
+
+export const RUOLI_APP: readonly RuoloApp[] = ['SUPER_ADMIN', 'ADMIN', 'CONDOMINO', 'PORTIERE', 'FORNITORE'];
+
+// ============================== Navigazione per ruolo ==============================
+/** Voce di navigazione (sidebar su desktop, barra in basso su smartphone). `icon` = nome icona Lucide. */
+export interface INavVoce {
+  id: string;
+  label: string;
+  icon: string;
+  /** Percorso expo-router (es. '/assemblee'). */
+  route: string;
+}
+
+export type NavigazioneRuolo = Record<RuoloApp, readonly INavVoce[]>;
+
+/** Voci della sidebar minima del Super Admin. */
+export type SuperAdminNavId = 'amministratori' | 'piani-abbonamenti' | 'fatture' | 'impostazioni';

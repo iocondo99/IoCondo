@@ -6,7 +6,7 @@ Monorepo (npm workspaces + Turborepo) con separazione delle responsabilità.
 IoCondo/
 ├── apps/
 │   ├── admin-web/          Next.js 14 – gestionale Amministratore  (deploy: Vercel)
-│   └── condomino-mobile/   Expo / React Native – app Condomino + Portiere
+│   └── app/                Expo (web, iOS, Android) – app unica per tutti i ruoli (@iocondo/app)
 ├── packages/
 │   ├── shared-types/       Interfacce TypeScript (generate dallo schema SQL)
 │   └── supabase-client/    UNICO punto in cui si crea il client Supabase tipizzato
