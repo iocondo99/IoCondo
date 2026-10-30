@@ -96,12 +96,6 @@ interface CondominioContextValue {
   activeEsercizio: IEsercizioContabile;
   loading: boolean;
   error: string | null;
-  theme: 'dark' | 'light';
-  toggleTheme: () => void;
-  sidebarCollapsed: boolean;
-  setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
-  commandPaletteOpen: boolean;
-  setCommandPaletteOpen: React.Dispatch<React.SetStateAction<boolean>>;
   refreshCondomini: () => Promise<void>;
 }
 
@@ -113,9 +107,6 @@ export function CondominioProvider({ children }: { children: React.ReactNode }) 
   const [activeEsercizio, setActiveEsercizio] = useState<IEsercizioContabile>(DEFAULT_ESERCIZIO);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState<boolean>(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -143,19 +134,6 @@ export function CondominioProvider({ children }: { children: React.ReactNode }) 
     void loadData();
   }, [loadData]);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setCommandPaletteOpen((prev) => !prev);
-      } else if (e.key === 'Escape') {
-        setCommandPaletteOpen(false);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
   const setActiveCondominioId = useCallback((id: string) => {
     setActiveId(id);
     const fallbackEs = FALLBACK_ESERCIZI[id];
@@ -171,16 +149,6 @@ export function CondominioProvider({ children }: { children: React.ReactNode }) 
       .catch(() => null);
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      if (typeof document !== 'undefined') {
-        document.documentElement.classList.toggle('dark', next === 'dark');
-      }
-      return next;
-    });
-  }, []);
-
   const activeCondominio =
     condomini.find((c) => c.id === activeId) ?? condomini[0] ?? DEFAULT_CONDOMINIO;
 
@@ -193,12 +161,6 @@ export function CondominioProvider({ children }: { children: React.ReactNode }) 
         activeEsercizio,
         loading,
         error,
-        theme,
-        toggleTheme,
-        sidebarCollapsed,
-        setSidebarCollapsed,
-        commandPaletteOpen,
-        setCommandPaletteOpen,
         refreshCondomini: loadData,
       }}
     >

@@ -29,7 +29,8 @@
         {
           "cameraPermission": "Consenti a IoCondo di scattare una foto del guasto da inviare all'amministratore."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

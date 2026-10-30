@@ -1,26 +1,20 @@
 import React from 'react';
 import { Stack } from 'expo-router';
+import { keepSplashScreenVisible, useAppFonts } from '@iocondo/ui';
 import { RoleProvider } from '@/context/RoleContext';
 
+keepSplashScreenVisible();
+
 export default function RootLayout() {
+  const { ready } = useAppFonts();
+  if (!ready) return null;
+
   return (
     <RoleProvider>
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: '#0F172A' },
-          headerTintColor: '#FFFFFF',
-          headerTitleStyle: { fontWeight: '900', fontSize: 20 },
-        }}
-      >
+      <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="report-issue"
-          options={{ title: 'Segnala un Guasto', presentation: 'card' }}
-        />
-        <Stack.Screen
-          name="parcels"
-          options={{ title: 'Registro Pacchi Portineria', presentation: 'card' }}
-        />
+        <Stack.Screen name="report-issue" options={{ title: 'Segnala un guasto' }} />
+        <Stack.Screen name="parcels" options={{ title: 'Registro pacchi' }} />
       </Stack>
     </RoleProvider>
   );

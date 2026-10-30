@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import './globals.css';
 import { CondominioProvider } from '@/context/CondominioContext';
 
 export const metadata = {
@@ -9,15 +8,8 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="it" className="dark">
-      <body
-        style={{
-          margin: 0,
-          backgroundColor: '#09090b',
-          color: '#fafafa',
-          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-        }}
-      >
+    <html lang="it">
+      <body>
         <CondominioProvider>{children}</CondominioProvider>
       </body>
     </html>
