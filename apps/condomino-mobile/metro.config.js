@@ -1,15 +1,5 @@
-// Metro configurato per monorepo (npm workspaces): osserva la root e risolve i node_modules hoistati
+// Da SDK 52 Expo configura Metro in automatico per i monorepo (npm workspaces):
+// watchFolders e nodeModulesPaths non vanno più impostati a mano.
 const { getDefaultConfig } = require('expo/metro-config');
-const path = require('path');
 
-const projectRoot = __dirname;
-const workspaceRoot = path.resolve(projectRoot, '../..');
-
-const config = getDefaultConfig(projectRoot);
-config.watchFolders = [workspaceRoot];
-config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, 'node_modules'),
-  path.resolve(workspaceRoot, 'node_modules'),
-];
-
-module.exports = config;
+module.exports = getDefaultConfig(__dirname);

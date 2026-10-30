@@ -2,17 +2,32 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-native",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "noEmit": true,
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
     "paths": {
-      "@/*": ["./src/*"],
-      "expo-print": ["./src/lib/expo-print.ts"],
-      "expo-image-picker": ["./src/lib/expo-image-picker.ts"],
-      "expo-haptics": ["./src/lib/expo-haptics.ts"]
+      "@/*": [
+        "./src/*"
+      ],
+      "expo-print": [
+        "./src/lib/expo-print.ts"
+      ],
+      "expo-image-picker": [
+        "./src/lib/expo-image-picker.ts"
+      ],
+      "expo-haptics": [
+        "./src/lib/expo-haptics.ts"
+      ]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "expo-env.d.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ]
 }

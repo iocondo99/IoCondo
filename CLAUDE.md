@@ -1,6 +1,6 @@
 # Progetto "Tu" - Piattaforma Condominiale
 
-Stack: React Native (Expo, Web e Mobile), Supabase, Vercel.
+Stack: React Native (Expo SDK 58, React 19, Web e Mobile), Supabase, Vercel.
 
 ## Piattaforma
 - Un'unica codebase React Native (Expo) che gira su iOS, Android e Web.
