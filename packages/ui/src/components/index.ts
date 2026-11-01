@@ -25,3 +25,10 @@ export {
   type NonAutorizzatoProps,
   type StateAction,
 } from './PageStates';
+export { Tabs, type TabsProps, type TabItem } from './Tabs';
+export { Pagination, type PaginationProps } from './Pagination';
+export { Breadcrumbs, type BreadcrumbsProps, type BreadcrumbItem } from './Breadcrumbs';
+export { Dropdown, type DropdownProps, type DropdownItem } from './Dropdown';
+export { PageHeader, type PageHeaderProps, type PageHeaderAction } from './PageHeader';
+export { SearchBar, type SearchBarProps } from './SearchBar';
+export { FilterChips, type FilterChipsProps, type FilterOption } from './FilterChips';

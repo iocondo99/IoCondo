@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, type ViewStyle } from 'react-native';
 import { Icon, type IconName } from '../Icon';
 import { borderWidths, colors, radii, touchTarget } from '../tokens';
-import { cursorStyle, focusStyle, useColorTransition, type PressState } from './internal';
+import { cursorStyle, focusStyle, useColorTransition, type PressState, type ViewRef } from './internal';
 
 export type IconButtonVariant = 'ghost' | 'secondary';
 
@@ -15,6 +15,13 @@ export interface IconButtonProps {
   disabled?: boolean;
   /** Per i pulsanti che si accendono e si spengono. */
   selected?: boolean;
+  /** 44 px invece di 48: per barre compatte, come la ricerca nell'header. */
+  compact?: boolean;
+  /** Riferimento al pulsante, per riportare il focus (es. dopo la chiusura di un menu). */
+  buttonRef?: React.Ref<ViewRef>;
+  /** Il pulsante apre un menu: segnala `aria-haspopup` e `aria-expanded`. */
+  popup?: 'menu';
+  expanded?: boolean;
 }
 
 export function IconButton({
@@ -24,20 +31,28 @@ export function IconButton({
   variant = 'ghost',
   disabled = false,
   selected,
+  compact = false,
+  buttonRef,
+  popup,
+  expanded = false,
 }: IconButtonProps) {
   const transition = useColorTransition();
   return (
     <Pressable
+      ref={buttonRef}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled, selected }}
       aria-disabled={disabled}
       aria-pressed={selected}
+      aria-haspopup={popup}
+      aria-expanded={popup ? expanded : undefined}
       disabled={disabled}
       onPress={onPress}
       style={({ hovered, pressed, focused }: PressState) => {
         const style: ViewStyle[] = [
           styles.base,
+          ...(compact ? [styles.compact] : []),
           {
             backgroundColor: pressed
               ? colors.border
@@ -63,6 +78,7 @@ export function IconButton({
 }
 
 const styles = StyleSheet.create({
+  compact: { width: touchTarget.control, height: touchTarget.control },
   base: {
     width: touchTarget.comfortable,
     height: touchTarget.comfortable,

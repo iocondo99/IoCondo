@@ -245,6 +245,10 @@ export const controlSizes = {
   choice: 24,
   textareaMinHeight: 120,
   selectListMaxHeight: 240,
+  /** Spessore della linea sotto la scheda attiva di Tabs: un segno visibile anche senza colore. */
+  tabIndicator: 3,
+  /** Larghezza minima del menu a comparsa (Dropdown). */
+  menuMinWidth: 200,
   avatar: { sm: 32, md: 40, lg: 56 },
 } as const;
 

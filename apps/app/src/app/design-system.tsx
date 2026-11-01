@@ -5,23 +5,30 @@ import {
   Alert,
   Avatar,
   Badge,
+  Breadcrumbs,
   Button,
   Card,
   Checkbox,
   ConfirmDialog,
+  Dropdown,
   EmptyState,
   ErrorState,
+  FilterChips,
   IconButton,
   Input,
   LoadingState,
   Modal,
   ModalActions,
   NonAutorizzato,
+  PageHeader,
+  Pagination,
   RadioGroup,
+  SearchBar,
   Select,
   Skeleton,
   SkeletonText,
   StatCard,
+  Tabs,
   Textarea,
   useToast,
   badgeStatuses,
@@ -99,6 +106,31 @@ function DesignSystemPage() {
   const [confirmFailOpen, setConfirmFailOpen] = useState(false);
   const [confirmFieldsOpen, setConfirmFieldsOpen] = useState(false);
   const [expenseType, setExpenseType] = useState<string | null>(null);
+  const [tab, setTab] = useState('da-pagare');
+  const [page, setPage] = useState(2);
+  const [pageLong, setPageLong] = useState(5);
+  const [search, setSearch] = useState('');
+  const [searchFilled, setSearchFilled] = useState('Bilancio 2025');
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [multiFilter, setMultiFilter] = useState<string[]>(['scaduti']);
+  const [lastAction, setLastAction] = useState('Nessuna azione scelta.');
+  const demoCrumbs = (go: (name: string) => void) => [
+    { label: 'Home', onPress: () => go('Home') },
+    { label: 'Documenti', onPress: () => go('Documenti') },
+    { label: 'Bilanci', onPress: () => go('Bilanci') },
+    { label: 'Bilancio 2025' },
+  ];
+  const menuItems = [
+    { key: 'edit', label: 'Modifica documento', icon: 'pencil' as const, onPress: () => setLastAction('Scelto: Modifica documento') },
+    { key: 'open', label: 'Apri documento', icon: 'file-text' as const, onPress: () => setLastAction('Scelto: Apri documento') },
+    { key: 'busy', label: 'Condividi (non disponibile)', disabled: true, onPress: () => undefined },
+    { key: 'del', label: 'Elimina documento', destructive: true, onPress: () => setConfirmOpen(true) },
+  ];
+  const longMenuItems = Array.from({ length: 14 }, (_, index) => ({
+    key: `v${index}`,
+    label: `Voce di prova ${index + 1}`,
+    onPress: () => setLastAction(`Scelto: Voce di prova ${index + 1}`),
+  }));
   const [modalNote, setModalNote] = useState('');
   const [modalCheck, setModalCheck] = useState(false);
   const [modalRadio, setModalRadio] = useState<string | null>(null);
@@ -399,6 +431,14 @@ function DesignSystemPage() {
           }
         >
           <Input label="Telefono" placeholder="Es. 333 1234567" />
+          <Dropdown
+            label="Azioni nella finestra"
+            items={menuItems.map((item) =>
+              item.destructive
+                ? { ...item, onPress: () => void toast.show({ tone: 'info', message: 'Prova: nessun documento eliminato.' }) }
+                : item,
+            )}
+          />
           <Textarea label="Note" value={modalNote} onChangeText={setModalNote} />
           <Checkbox label="Voglio ricevere avvisi" checked={modalCheck} onChange={setModalCheck} />
           <RadioGroup label="Come vuoi essere avvisato?" options={DEMO_RADIOS} value={modalRadio} onChange={setModalRadio} />
@@ -463,6 +503,97 @@ function DesignSystemPage() {
         <Demo caption="NonAutorizzato">
           <NonAutorizzato action={{ label: 'Torna alla Home', onPress: () => undefined }} />
         </Demo>
+      </Section>
+
+      <Section title="Tabs">
+        <Tabs
+          label="Sezioni dei pagamenti"
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { key: 'da-pagare', label: 'Da pagare', content: <Text style={[textStyle('body', breakpoint), styles.lead]}>Elenco delle rate da pagare.</Text> },
+            { key: 'pagati', label: 'Pagati', icon: 'circle-check', content: <Text style={[textStyle('body', breakpoint), styles.lead]}>Elenco delle rate già pagate.</Text> },
+            { key: 'scaduti', label: 'Scaduti', content: <Text style={[textStyle('body', breakpoint), styles.lead]}>Elenco delle rate scadute.</Text> },
+            { key: 'archivio', label: 'Archivio (non disponibile)', disabled: true, content: null },
+            { key: 'altro', label: 'Altre voci con un nome molto lungo', content: <Text style={[textStyle('body', breakpoint), styles.lead]}>Contenuto dell’ultima scheda.</Text> },
+          ]}
+        />
+      </Section>
+
+      <Section title="Pagination">
+        <Demo caption="Pagina 2 di 8">
+          <Pagination page={page} pageCount={8} onChange={setPage} />
+        </Demo>
+        <Demo caption="Molte pagine">
+          <Pagination page={pageLong} pageCount={24} onChange={setPageLong} />
+        </Demo>
+        <Demo caption="Una sola pagina: non compare nulla">
+          <Pagination page={1} pageCount={1} onChange={() => undefined} />
+        </Demo>
+      </Section>
+
+      <Section title="Breadcrumbs">
+        <Demo caption="Percorso completo (su smartphone si accorcia)">
+          <Breadcrumbs items={demoCrumbs((name) => setLastAction(`Aperto: ${name}`))} />
+        </Demo>
+        <Demo caption="Percorso breve">
+          <Breadcrumbs items={[{ label: 'Home', onPress: () => undefined }, { label: 'Documenti' }]} />
+        </Demo>
+        <Text style={[textStyle('secondary', breakpoint), styles.lead]}>{lastAction}</Text>
+      </Section>
+
+      <Section title="Dropdown">
+        <Row>
+          <Dropdown label="Azioni" items={menuItems} />
+          <Dropdown label="Altre azioni" iconOnly items={menuItems} align="end" />
+          <Dropdown label="Menu lungo" items={longMenuItems} variant="primary" />
+          <Dropdown label="Non disponibile" items={menuItems} disabled />
+        </Row>
+        <Text style={[textStyle('secondary', breakpoint), styles.lead]}>{lastAction}</Text>
+      </Section>
+
+      <Section title="PageHeader">
+        <Demo caption="Completo: percorso, titolo, sottotitolo e azione">
+          <PageHeader
+            breadcrumbs={demoCrumbs(() => undefined)}
+            title="Bilancio 2025"
+            subtitle="Documento approvato dall’assemblea del 12 maggio."
+            action={{ label: 'Carica documento', icon: 'file-text', onPress: () => undefined }}
+          />
+        </Demo>
+        <Demo caption="Con pulsante Indietro">
+          <PageHeader title="Dettaglio segnalazione" subtitle="Aperta il 3 maggio." onBack={() => setLastAction('Premuto: Indietro')} />
+        </Demo>
+        <Demo caption="Solo titolo">
+          <PageHeader title="Documenti" />
+        </Demo>
+      </Section>
+
+      <Section title="SearchBar">
+        <View style={styles.fields}>
+          <SearchBar value={search} onChangeText={setSearch} onSubmit={(text) => toast.show({ tone: 'info', message: `Ricerca inviata: “${text}”.` })} />
+          <SearchBar value={searchFilled} onChangeText={setSearchFilled} showLabel label="Cerca nei documenti" />
+          <SearchBar value={search} onChangeText={setSearch} compact placeholder="Cerca…" />
+          <SearchBar value="" onChangeText={() => undefined} disabled />
+        </View>
+      </Section>
+
+      <Section title="FilterChips">
+        <View style={styles.fields}>
+          <FilterChips
+            label="Filtra per stato"
+            options={[{ value: 'da-pagare', label: 'Da pagare' }, { value: 'pagati', label: 'Pagati' }, { value: 'scaduti', label: 'Scaduti' }]}
+            value={statusFilter}
+            onChange={setStatusFilter}
+          />
+          <FilterChips
+            label="Filtra per stato (più scelte)"
+            multiple
+            options={[{ value: 'da-pagare', label: 'Da pagare' }, { value: 'pagati', label: 'Pagati' }, { value: 'scaduti', label: 'Scaduti' }]}
+            value={multiFilter}
+            onChange={setMultiFilter}
+          />
+        </View>
       </Section>
 
       <Section title="Avatar">

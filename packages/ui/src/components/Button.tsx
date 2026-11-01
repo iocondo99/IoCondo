@@ -30,6 +30,9 @@ export interface ButtonProps {
   accessibilityHint?: string;
   /** Riferimento al pulsante, per spostare il focus (es. in una finestra di conferma). */
   buttonRef?: React.Ref<ViewRef>;
+  /** Il pulsante apre un menu: segnala `aria-haspopup` e `aria-expanded` agli screen reader. */
+  popup?: 'menu';
+  expanded?: boolean;
 }
 
 interface Palette {
@@ -101,6 +104,8 @@ export function Button({
   fullWidth = false,
   accessibilityHint,
   buttonRef,
+  popup,
+  expanded = false,
 }: ButtonProps) {
   const [pending, setPending] = useState(false);
   // Il lock sul ref impedisce il doppio invio anche prima del re-render.
@@ -142,6 +147,8 @@ export function Button({
       accessibilityState={{ disabled: disabled || busy, busy }}
       aria-disabled={disabled || busy}
       aria-busy={busy}
+      aria-haspopup={popup}
+      aria-expanded={popup ? expanded : undefined}
       disabled={disabled}
       onPress={handlePress}
       style={({ hovered, pressed, focused }: PressState) => {
