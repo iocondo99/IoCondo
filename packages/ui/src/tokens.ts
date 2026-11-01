@@ -27,9 +27,17 @@ const palette = {
   amber700: '#B45309',
   amber50: '#FFFBEB',
   red700: '#B91C1C',
+  red800: '#A31818',
+  red900: '#8A1717',
   red50: '#FEF2F2',
   sky700: '#0369A1',
   sky50: '#F0F9FF',
+  sky100: '#E0F2FE',
+  teal100: '#CCFBF1',
+  teal700: '#0F766E',
+  navy100: '#DCE7F3',
+  violet100: '#EDE9FE',
+  violet700: '#6D28D9',
 } as const;
 
 export const colors = {
@@ -47,6 +55,19 @@ export const colors = {
     default: palette.actionDefault,
     hover: palette.actionHover,
     pressed: palette.actionPressed,
+  },
+  /** Pulsante distruttivo: toni dedicati per hover e pressed (niente opacità), tutti >= 4,5:1 col bianco. */
+  destructive: {
+    default: palette.red700,
+    hover: palette.red800,
+    pressed: palette.red900,
+  },
+  /** Icone-tessera delle StatCard: sfondo tenue e icona scura (contrasto >= 4,5:1). */
+  tile: {
+    blue: { background: palette.sky100, foreground: palette.sky700 },
+    teal: { background: palette.teal100, foreground: palette.teal700 },
+    navy: { background: palette.navy100, foreground: palette.navy },
+    violet: { background: palette.violet100, foreground: palette.violet700 },
   },
   background: palette.slate50,
   surface: palette.white,
@@ -158,10 +179,19 @@ export const focusRingSize = {
   offset: 2,
 } as const;
 
+/**
+ * Quanto il contorno di focus esce dal bordo del controllo (spessore + distanza).
+ * I contenitori che ritagliano (scorrimento, overflow) devono lasciare questo margine.
+ */
+export const focusRingInset = focusRingSize.width + focusRingSize.offset;
+
 /** Dimensioni di layout (sez. 5 e 21.1). */
 export const layout = {
   sidebarWidth: 240,
   headerHeight: 72,
+  /** Larghezza massima di una colonna di contenuto e di un modulo (sez. 3: righe non troppo lunghe). */
+  contentMaxWidth: 960,
+  formMaxWidth: 480,
 } as const;
 
 /** Icone (sez. 9): un'unica famiglia lineare, tratto uniforme. */
@@ -203,3 +233,67 @@ export function animationDurations(reducedMotion: boolean): Durations {
   if (!reducedMotion) return durations;
   return { fast: 0, normal: 0, slow: 0 };
 }
+
+/** Spessori di bordo (sez. 8 e 10): bordo sottile dei controlli. */
+export const borderWidths = {
+  thin: 1,
+} as const;
+
+/** Dimensioni dei componenti base (sez. 10, 12, 17). */
+export const controlSizes = {
+  /** Casella di Checkbox e cerchio di Radio: minimo WCAG; l'area di tocco è la riga intera. */
+  choice: 24,
+  textareaMinHeight: 120,
+  selectListMaxHeight: 240,
+  avatar: { sm: 32, md: 40, lg: 56 },
+} as const;
+
+/** Feedback di hover e pressed dei controlli che non hanno un colore dedicato. */
+export const interactionOpacity = {
+  hover: 0.92,
+  pressed: 0.84,
+  disabled: 0.6,
+} as const;
+
+/** Velo dietro le modali: colore e opacità (il colore resta opaco, l'opacità si applica alla vista). */
+export const overlay = {
+  color: palette.slate900,
+  opacity: 0.5,
+} as const;
+
+/** Dimensioni di Card, StatCard, Modal, Toast e stati di pagina (sez. 8, 13, 14, 19). */
+export const feedbackSizes = {
+  tile: 48,
+  stateIcon: 64,
+  modalMaxWidth: 560,
+  toastMaxWidth: 420,
+  skeletonLine: 16,
+  skeletonBlock: 96,
+  /** Larghezza del bordo laterale di un Alert persistente. */
+  alertAccent: 4,
+} as const;
+
+/** Livelli di sovrapposizione: il Toast sta sopra i contenuti della pagina. */
+export const zIndices = {
+  toast: 1000,
+} as const;
+
+/**
+ * Tempi del Toast in ms (sez. 14 e 17: tempi adeguati). Mai meno di `minimum`;
+ * i messaggi lunghi restano più a lungo, in proporzione ai caratteri.
+ */
+export const toastTiming = {
+  minimum: 5000,
+  default: 6000,
+  perCharacter: 50,
+  /** Toast in coda oltre quello visibile: i più vecchi in attesa vengono scartati. */
+  maxQueued: 4,
+} as const;
+
+export function toastDurationFor(message: string, requested?: number): number {
+  const reading = message.length * toastTiming.perCharacter;
+  return Math.max(toastTiming.minimum, requested ?? toastTiming.default, reading);
+}
+
+/** Durata di mezzo ciclo dell'animazione dello Skeleton, in ms (ferma con "riduci animazioni"). */
+export const skeletonPulseDuration = 900;

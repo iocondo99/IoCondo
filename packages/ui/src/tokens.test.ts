@@ -9,13 +9,19 @@ import {
   breakpoints,
   colors,
   durations,
+  focusRingInset,
   focusRingSize,
   iconSizes,
+  borderWidths,
+  controlSizes,
+  interactionOpacity,
   layout,
   radii,
   shadows,
   space,
   touchTarget,
+  toastDurationFor,
+  toastTiming,
   typography,
 } from './tokens.ts';
 
@@ -59,6 +65,29 @@ test('token action: valori, contrasto WCAG AA e stati più scuri', () => {
   // Hover e pressed sono via via più scuri, cioè con contrasto crescente sul bianco.
   assert.ok(contrast(colors.surface, action.hover) > contrast(colors.surface, action.default));
   assert.ok(contrast(colors.surface, action.pressed) > contrast(colors.surface, action.hover));
+});
+
+test('token destructive: valori, contrasto col bianco e stati via via più scuri', () => {
+  const { destructive } = colors;
+  assert.equal(destructive.default, colors.semantic.error.foreground);
+  assert.equal(destructive.hover, '#A31818');
+  assert.equal(destructive.pressed, '#8A1717');
+  for (const value of Object.values(destructive)) {
+    assert.ok(contrast(colors.surface, value) >= 4.5, `${value} su bianco`);
+  }
+  assert.ok(contrast(colors.surface, destructive.hover) > contrast(colors.surface, destructive.default));
+  assert.ok(contrast(colors.surface, destructive.pressed) > contrast(colors.surface, destructive.hover));
+});
+
+test('icone-tessera: valori e contrasto icona/sfondo >= 4,5:1', () => {
+  const { tile } = colors;
+  assert.deepEqual(tile.violet, { background: '#EDE9FE', foreground: '#6D28D9' });
+  assert.deepEqual(tile.blue, { background: '#E0F2FE', foreground: '#0369A1' });
+  assert.deepEqual(tile.teal, { background: '#CCFBF1', foreground: '#0F766E' });
+  assert.deepEqual(tile.navy, { background: '#DCE7F3', foreground: '#0D3B66' });
+  for (const [name, { background, foreground }] of Object.entries(tile)) {
+    assert.ok(contrast(background, foreground) >= 4.5, `tessera ${name}`);
+  }
 });
 
 test('il blu e il turchese del brand non reggono testo bianco piccolo (restano per accenti)', () => {
@@ -118,12 +147,22 @@ test('tipografia: nessun testo sotto 14 px', () => {
 
 test('aree di tocco, layout e icone', () => {
   assert.deepEqual(touchTarget, { minimum: 24, control: 44, comfortable: 48 });
-  assert.deepEqual(layout, { sidebarWidth: 240, headerHeight: 72 });
+  assert.deepEqual(layout, {
+    sidebarWidth: 240,
+    headerHeight: 72,
+    contentMaxWidth: 960,
+    formMaxWidth: 480,
+  });
   assert.equal(iconSizes.indicator, 16);
   assert.ok(iconSizes.action >= 18 && iconSizes.action <= 20);
   assert.ok(iconSizes.menu >= 20 && iconSizes.menu <= 22);
   assert.ok(iconSizes.card >= 22 && iconSizes.card <= 28);
   assert.deepEqual(focusRingSize, { width: 2, offset: 2 });
+});
+
+test('margine per il contorno di focus nei contenitori che ritagliano', () => {
+  assert.equal(focusRingInset, focusRingSize.width + focusRingSize.offset);
+  assert.equal(focusRingInset, 4);
 });
 
 test('ombre leggere: opacità bassa', () => {
@@ -157,4 +196,19 @@ test('nessun colore scritto a mano fuori da tokens.ts', () => {
     assert.doesNotMatch(source, /#[0-9A-Fa-f]{3,8}\b/, `${file} contiene un colore esadecimale`);
     assert.doesNotMatch(source, /\brgba?\(/, `${file} contiene un colore rgb`);
   }
+});
+
+test('dimensioni dei componenti base', () => {
+  assert.equal(borderWidths.thin, 1);
+  assert.ok(controlSizes.choice >= touchTarget.minimum);
+  assert.ok(controlSizes.avatar.sm < controlSizes.avatar.md);
+  assert.ok(controlSizes.avatar.md < controlSizes.avatar.lg);
+  assert.ok(interactionOpacity.pressed < interactionOpacity.hover);
+});
+
+test('toast: mai meno di 5 secondi, più a lungo se il messaggio è lungo', () => {
+  assert.ok(toastTiming.minimum >= 5000);
+  assert.equal(toastDurationFor('Salvato.'), toastTiming.default);
+  assert.equal(toastDurationFor('Salvato.', 1000), toastTiming.minimum);
+  assert.equal(toastDurationFor('x'.repeat(400)), 400 * toastTiming.perCharacter);
 });

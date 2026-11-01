@@ -75,6 +75,22 @@ Il bianco su Primary Blue #0EA5E9 ha un contrasto di 2,77:1, inferiore al 4,5:1 
 
 Dove le sezioni 5.1 (voce attiva), 7.1 (pulsante primario) e 7.3 (pulsante testuale), e la regola d’utilizzo 2, indicano il blu brillante #0EA5E9 per pulsanti, link o voce attiva, si usa il token Action. Primary Blue #0EA5E9 resta per sfondi di icone, accenti, decorazioni e per l’indicatore laterale della voce attiva della sidebar; non va mai usato come sfondo di testo bianco piccolo. Il turchese #14B8A6 (2,49:1 col bianco) non va usato come sfondo di testo bianco piccolo.
 
+Pulsante distruttivo
+
+Il pulsante distruttivo usa il rosso semantico #B91C1C (bianco 6,47:1). Hover e pressed non usano l’opacità ma due toni dedicati, derivati dallo stesso rosso con luminosità ridotta: Hover #A31818 (7,77:1 sul bianco) e Pressed #8A1717 (9,48:1).
+
+Icone-tessera delle schede riepilogative (StatCard)
+
+Sfondo tenue e icona scura, con contrasto icona/sfondo di almeno 4,5:1. Sono token condivisi (regola 9).
+
+Tessera	Sfondo	Icona	Contrasto
+Blu	#E0F2FE	#0369A1	5,17:1
+Turchese	#CCFBF1	#0F766E	4,86:1
+Navy	#DCE7F3	#0D3B66	9,14:1
+Viola	#EDE9FE	#6D28D9	5,98:1
+
+Il viola serve all’icona di “Assemblee” e non fa parte della palette di base: si usa solo per le icone-tessera.
+
 Regole d’utilizzo
 
 1. Il blu navy deve costituire la struttura visiva del prodotto.
