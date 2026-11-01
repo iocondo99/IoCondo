@@ -36,6 +36,7 @@ const palette = {
   teal100: '#CCFBF1',
   teal700: '#0F766E',
   navy100: '#DCE7F3',
+  navyHover: '#154A78',
   violet100: '#EDE9FE',
   violet700: '#6D28D9',
 } as const;
@@ -68,6 +69,11 @@ export const colors = {
     teal: { background: palette.teal100, foreground: palette.teal700 },
     navy: { background: palette.navy100, foreground: palette.navy },
     violet: { background: palette.violet100, foreground: palette.violet700 },
+  },
+  /** Sidebar (sez. 5.1): sfondo navy e hover di una tonalità più chiara (bianco su hover 10,9:1). */
+  sidebar: {
+    background: palette.navy,
+    hover: palette.navyHover,
   },
   background: palette.slate50,
   surface: palette.white,
@@ -188,7 +194,14 @@ export const focusRingInset = focusRingSize.width + focusRingSize.offset;
 /** Dimensioni di layout (sez. 5 e 21.1). */
 export const layout = {
   sidebarWidth: 240,
+  /** Sidebar compressa su tablet: solo icone, con il nome accessibile. */
+  sidebarCollapsedWidth: 72,
   headerHeight: 72,
+  /** Header e barra in basso dello smartphone. */
+  compactHeaderHeight: 64,
+  bottomBarHeight: 64,
+  /** Indicatore laterale della voce attiva della sidebar. */
+  navIndicator: 4,
   /** Larghezza massima di una colonna di contenuto e di un modulo (sez. 3: righe non troppo lunghe). */
   contentMaxWidth: 960,
   formMaxWidth: 480,

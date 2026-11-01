@@ -5,6 +5,7 @@ import { createBachecaService } from './bachecaService';
 import { createCondominiService } from './condominiService';
 import { createFornitoreService } from './fornitoreService';
 import { createRateService } from './rateService';
+import { createProfiloService } from './profiloService';
 import { createServiziService } from './serviziService';
 import { createStrutturaService } from './strutturaService';
 import { createTicketService } from './ticketService';
@@ -14,6 +15,7 @@ export function createServices(db: TypedSupabaseClient) {
   return {
     auth: createAuthService(db),
     condomini: createCondominiService(db),
+    profilo: createProfiloService(db),
     struttura: createStrutturaService(db),
     rate: createRateService(db),
     ticket: createTicketService(db),
@@ -30,6 +32,7 @@ export * from './authService';
 export * from './bachecaService';
 export * from './condominiService';
 export * from './fornitoreService';
+export * from './profiloService';
 export * from './rateService';
 export * from './serviziService';
 export * from './strutturaService';

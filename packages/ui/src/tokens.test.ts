@@ -149,7 +149,11 @@ test('aree di tocco, layout e icone', () => {
   assert.deepEqual(touchTarget, { minimum: 24, control: 44, comfortable: 48 });
   assert.deepEqual(layout, {
     sidebarWidth: 240,
+    sidebarCollapsedWidth: 72,
     headerHeight: 72,
+    compactHeaderHeight: 64,
+    bottomBarHeight: 64,
+    navIndicator: 4,
     contentMaxWidth: 960,
     formMaxWidth: 480,
   });
@@ -158,6 +162,16 @@ test('aree di tocco, layout e icone', () => {
   assert.ok(iconSizes.menu >= 20 && iconSizes.menu <= 22);
   assert.ok(iconSizes.card >= 22 && iconSizes.card <= 28);
   assert.deepEqual(focusRingSize, { width: 2, offset: 2 });
+});
+
+test('sidebar: testo bianco leggibile su sfondo e hover; hover distinguibile dallo sfondo', () => {
+  assert.equal(colors.sidebar.background, colors.brand.navy);
+  assert.ok(contrast(colors.text.inverse, colors.sidebar.background) >= 4.5);
+  assert.ok(contrast(colors.text.inverse, colors.sidebar.hover) >= 4.5);
+  assert.notEqual(colors.sidebar.hover, colors.sidebar.background);
+  // La voce attiva (testo bianco su Action) e l'indicatore (blu brillante su navy) restano distinguibili.
+  assert.ok(contrast(colors.text.inverse, colors.action.default) >= 4.5);
+  assert.ok(contrast(colors.brand.blue, colors.sidebar.background) >= 3);
 });
 
 test('margine per il contorno di focus nei contenitori che ritagliano', () => {

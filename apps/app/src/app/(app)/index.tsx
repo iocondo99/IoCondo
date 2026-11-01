@@ -1,6 +1,12 @@
-import React from 'react';
-import { HomePlaceholderScreen } from '@/screens/HomePlaceholderScreen';
+import React from "react";
+import { Redirect, type Href } from "expo-router";
+import { homeDi } from "@iocondo/data";
+import { NonAutorizzato } from "@iocondo/ui";
+import { useProfilo } from "@/context/ProfiloContext";
 
-export default function HomeRoute() {
-  return <HomePlaceholderScreen />;
+/** "/" porta alla pagina iniziale della vista attiva. */
+export default function IndiceRoute() {
+  const { vista } = useProfilo();
+  if (!vista) return <NonAutorizzato />;
+  return <Redirect href={homeDi(vista) as Href} />;
 }

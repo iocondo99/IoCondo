@@ -27,7 +27,7 @@ import { useBreakpoint } from '../useBreakpoint';
 import { Button } from './Button';
 import { IconButton } from './IconButton';
 import { placeMenu, type Placement } from './layoutMath';
-import { EmptyState } from './PageStates';
+import { EmptyState, ErrorState } from './PageStates';
 import { Skeleton } from './Skeleton';
 import {
   cursorStyle,
@@ -56,6 +56,11 @@ export interface NotificationPanelProps {
   /** Se presente ogni notifica è selezionabile (es. apre il dettaglio). */
   onSelect?: (notification: NotificationItem) => void;
   loading?: boolean;
+  /** I dati non si sono caricati: il pannello mostra l'errore e "Riprova" invece di far credere che non ci siano notifiche. */
+  error?: boolean;
+  onRetry?: () => void | Promise<unknown>;
+  /** Chiamata quando il pannello si apre (es. per aggiornare l'elenco). */
+  onOpen?: () => void;
   /** Nome del pulsante e del pannello. */
   label?: string;
 }
@@ -73,6 +78,9 @@ export function NotificationPanel({
   onMarkAllRead,
   onSelect,
   loading = false,
+  error = false,
+  onRetry,
+  onOpen,
   label = 'Notifiche',
 }: NotificationPanelProps) {
   const [open, setOpen] = useState(false);
@@ -94,6 +102,7 @@ export function NotificationPanel({
   };
 
   const openPanel = () => {
+    onOpen?.();
     if (isMobile) return setOpen(true);
     triggerRef.current?.measureInWindow((x, y, width, height) => {
       setPlacement(
@@ -192,6 +201,8 @@ export function NotificationPanel({
                 notifications={notifications}
                 unread={unread}
                 loading={loading}
+                error={error}
+                onRetry={onRetry}
                 onMarkAllRead={onMarkAllRead}
                 onSelect={onSelect ? select : undefined}
                 onClose={close}
@@ -209,6 +220,8 @@ function PanelContent({
   notifications,
   unread,
   loading,
+  error,
+  onRetry,
   onMarkAllRead,
   onSelect,
   onClose,
@@ -217,6 +230,8 @@ function PanelContent({
   notifications: readonly NotificationItem[];
   unread: number;
   loading: boolean;
+  error: boolean;
+  onRetry?: () => void | Promise<unknown>;
   onMarkAllRead: () => void | Promise<unknown>;
   onSelect?: (notification: NotificationItem) => void;
   onClose: () => void;
@@ -231,7 +246,7 @@ function PanelContent({
         </Text>
         <IconButton icon="x" accessibilityLabel="Chiudi notifiche" onPress={onClose} />
       </View>
-      {notifications.length > 0 ? (
+      {notifications.length > 0 && !error ? (
         <View style={styles.toolbar}>
           <Button
             variant="text"
@@ -255,6 +270,12 @@ function PanelContent({
             </View>
           ))}
         </View>
+      ) : error ? (
+        <ErrorState
+          title="Non riusciamo a mostrare le notifiche"
+          description="Controlla la connessione e riprova."
+          onRetry={onRetry}
+        />
       ) : notifications.length === 0 ? (
         <EmptyState
           icon="bell"

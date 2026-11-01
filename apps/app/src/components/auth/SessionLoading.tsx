@@ -3,10 +3,10 @@ import { StyleSheet, View } from 'react-native';
 import { LoadingState, colors } from '@iocondo/ui';
 
 /** Mentre si legge la sessione: mai una pagina bianca, mai un lampo della pagina protetta o del modulo. */
-export function SessionLoading() {
+export function SessionLoading({ message = 'Un momento, stiamo controllando l’accesso…' }: { message?: string }) {
   return (
     <View style={styles.root}>
-      <LoadingState message="Un momento, stiamo controllando l’accesso…" />
+      <LoadingState message={message} />
     </View>
   );
 }

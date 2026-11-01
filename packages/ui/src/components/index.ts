@@ -52,4 +52,4 @@ export {
   type FileUploadStatus,
   type PickedFile,
 } from './FileUpload';
-export { moveFocusTo } from './internal';
+export { moveFocusTo, type PressState } from './internal';

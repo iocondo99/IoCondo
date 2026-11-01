@@ -17,6 +17,7 @@ import { IconButton } from './IconButton';
 import { placeMenu, type Placement } from './layoutMath';
 import {
   cursorStyle,
+  focusStyle,
   insetFocusStyle,
   keyboardProps,
   keyOf,
@@ -37,6 +38,8 @@ export interface DropdownItem {
   disabled?: boolean;
   /** Azione distruttiva: va in fondo, separata, in rosso e con icona. */
   destructive?: boolean;
+  /** Scelta attuale (es. il condominio in uso): segnata con una spunta, non solo dal colore. */
+  selected?: boolean;
 }
 
 export interface DropdownProps {
@@ -50,6 +53,11 @@ export interface DropdownProps {
   /** Da che lato del pulsante si allinea il menu. */
   align?: 'start' | 'end';
   disabled?: boolean;
+  /**
+   * Contenuto del pulsante al posto di quello standard (es. avatar, nome e ruolo). Il pulsante resta un
+   * pulsante con `label` come nome accessibile, 48 px di altezza minima e focus visibile.
+   */
+  triggerContent?: React.ReactNode;
 }
 
 /**
@@ -69,6 +77,7 @@ export function Dropdown({
   variant = 'secondary',
   align = 'start',
   disabled = false,
+  triggerContent,
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<Placement | null>(null);
@@ -151,7 +160,17 @@ export function Dropdown({
 
   return (
     <>
-      {iconOnly ? (
+      {triggerContent ? (
+        <CustomTrigger
+          triggerRef={triggerRef}
+          label={label}
+          disabled={disabled}
+          expanded={open}
+          onPress={openMenu}
+        >
+          {triggerContent}
+        </CustomTrigger>
+      ) : iconOnly ? (
         <IconButton
           buttonRef={triggerRef}
           icon={icon ?? 'ellipsis'}
@@ -227,6 +246,51 @@ export function Dropdown({
   );
 }
 
+function CustomTrigger({
+  triggerRef,
+  label,
+  disabled,
+  expanded,
+  onPress,
+  children,
+}: {
+  triggerRef: React.Ref<ViewRef>;
+  label: string;
+  disabled: boolean;
+  expanded: boolean;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
+  const transition = useColorTransition();
+  return (
+    <Pressable
+      ref={triggerRef}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled, expanded }}
+      aria-haspopup="menu"
+      aria-expanded={expanded}
+      aria-disabled={disabled}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ hovered, pressed, focused }: PressState) => {
+        const style: ViewStyle[] = [
+          styles.customTrigger,
+          { backgroundColor: pressed ? colors.border : hovered ? colors.background : 'transparent' },
+        ];
+        if (transition) style.push(transition);
+        const cursor = cursorStyle(disabled);
+        if (cursor) style.push(cursor);
+        const ring = focusStyle(!!focused);
+        if (ring) style.push(ring);
+        return style;
+      }}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 function MenuItem({
   item,
   separated,
@@ -259,8 +323,9 @@ function MenuItem({
         ref={itemRef}
         accessibilityRole="menuitem"
         accessibilityLabel={item.label}
-        accessibilityState={{ disabled }}
+        accessibilityState={{ disabled, selected: Boolean(item.selected) }}
         aria-disabled={disabled}
+        aria-current={item.selected ? 'true' : undefined}
         disabled={disabled}
         onFocus={onFocus}
         onPress={onPress}
@@ -288,6 +353,7 @@ function MenuItem({
       >
         {icon ? <Icon name={icon} size="action" color={color} /> : null}
         <Text style={[textStyle, styles.itemText, { color }]}>{item.label}</Text>
+        {item.selected ? <Icon name="check" size="action" color={colors.action.default} /> : null}
       </Pressable>
     </>
   );
@@ -315,5 +381,15 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   itemText: { flex: 1 },
+  customTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    minHeight: touchTarget.comfortable,
+    paddingHorizontal: space[2],
+    borderRadius: radii.control,
+    borderWidth: borderWidths.thin,
+    borderColor: 'transparent',
+  },
   divider: { height: borderWidths.thin, backgroundColor: colors.border },
 });

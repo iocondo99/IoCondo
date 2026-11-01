@@ -1,7 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
-  Icon,
   colors,
   feedbackSizes,
   layout,
@@ -10,25 +9,9 @@ import {
   textStyle,
   useBreakpoint,
 } from '@iocondo/ui';
+import { BrandMark } from '@/components/Brand';
 
-/** Nome e logo sono segnaposto: il logo definitivo arriverà dopo. */
-const BRAND_NAME = 'Tu';
 const SLOGAN = 'Semplice, moderna, per tutti.';
-
-function BrandMark({ large = false }: { large?: boolean }) {
-  const { breakpoint } = useBreakpoint();
-  return (
-    <View accessible role="img" aria-label={`${BRAND_NAME}, la tua casa, più semplice`} style={styles.brand}>
-      <View style={styles.mark}>
-        <Icon name="building-2" size="card" color={colors.brand.navy} />
-      </View>
-      <View style={styles.brandText}>
-        <Text style={[textStyle(large ? 'h2' : 'h3', breakpoint), styles.brandName]}>{BRAND_NAME}</Text>
-        <Text style={[textStyle('secondary', breakpoint), styles.brandTagline]}>La tua casa, più semplice</Text>
-      </View>
-    </View>
-  );
-}
 
 /**
  * Cornice della schermata di accesso (sez. 5 e 16). Da 1200 px in su: a sinistra il pannello navy con
