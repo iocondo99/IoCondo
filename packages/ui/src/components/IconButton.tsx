@@ -19,8 +19,8 @@ export interface IconButtonProps {
   compact?: boolean;
   /** Riferimento al pulsante, per riportare il focus (es. dopo la chiusura di un menu). */
   buttonRef?: React.Ref<ViewRef>;
-  /** Il pulsante apre un menu: segnala `aria-haspopup` e `aria-expanded`. */
-  popup?: 'menu';
+  /** Il pulsante apre un menu o una finestra: segnala `aria-haspopup` e `aria-expanded`. */
+  popup?: 'menu' | 'dialog';
   expanded?: boolean;
 }
 

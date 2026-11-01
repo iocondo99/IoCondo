@@ -29,3 +29,7 @@
 - Rendere privati i bucket `foto-guasti` e `avatar-utenti` (link firmati).
 - Rivalutare la vista `profili_pubblici` (SECURITY DEFINER, accettata per ora).
 - Ricontrollare RLS e advisor con `get_advisors`.
+
+## 2026-11-01 — B3a e B3b
+- B3a e B3b completati; da provare su dispositivi (Android, iPhone), con screen reader e a zoom reale 200% prima del rilascio.
+- FileUpload: scelta file su web senza librerie; su Android e iOS con `expo-document-picker` (~58.0.4). Il selettore filtra solo per MIME: estensioni, tipo mancante e peso li controlla `fileRules.ts`.

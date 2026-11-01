@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { focusRing, useAnimationDurations } from '../accessibility';
 import { textStyle } from '../styles';
-import { colors, focusRingSize, type TextVariant } from '../tokens';
+import { colors, dataSizes, focusRingSize, type TextVariant } from '../tokens';
 import { useBreakpoint } from '../useBreakpoint';
 
 /** Tipi dei riferimenti a View e Text (in React Native 0.88 `View` come tipo non basta). */
@@ -93,4 +93,25 @@ export interface PressState {
   hovered?: boolean;
   focused?: boolean;
   pressed: boolean;
+}
+
+/** Testo letto dagli screen reader ma non visibile (annunci di stato, nomi di colonne senza intestazione). */
+export const visuallyHidden: ViewStyle = {
+  position: 'absolute',
+  width: dataSizes.visuallyHidden,
+  height: dataSizes.visuallyHidden,
+  overflow: 'hidden',
+  opacity: 0,
+};
+
+/**
+ * Su web un clic o Invio su un controllo dentro una riga selezionabile (es. il menu "Altre azioni")
+ * risale fino alla riga: la riga deve ignorarlo. Su nativo ogni Pressable è già isolato.
+ */
+export function isFromNestedControl(event: unknown): boolean {
+  const { target, currentTarget } = (event ?? {}) as { target?: unknown; currentTarget?: unknown };
+  if (!target || !currentTarget || target === currentTarget) return false;
+  const node = target as { closest?: (selector: string) => unknown };
+  const control = node.closest?.('[role="button"], [role="menuitem"], a, button, input');
+  return Boolean(control) && control !== currentTarget;
 }

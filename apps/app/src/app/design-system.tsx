@@ -41,6 +41,8 @@ import {
   useBreakpoint,
   type BadgeStatus,
 } from '@iocondo/ui';
+import { DataDemoSections } from '../design-system/DataDemos';
+import { Demo, Row, Section } from '../design-system/parts';
 
 /** Pagina di collaudo del design system: esiste solo in sviluppo. Tutti i dati qui sono finti. */
 export default function DesignSystemRoute() {
@@ -60,32 +62,6 @@ const DEMO_RADIOS = [
   { value: 'sms', label: 'SMS' },
   { value: 'posta', label: 'Lettera', disabled: true },
 ];
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  const { breakpoint } = useBreakpoint();
-  return (
-    <View style={styles.section}>
-      <Text accessibilityRole="header" style={[textStyle('h3', breakpoint), styles.sectionTitle]}>
-        {title}
-      </Text>
-      {children}
-    </View>
-  );
-}
-
-function Demo({ caption, children }: { caption: string; children: React.ReactNode }) {
-  const { breakpoint } = useBreakpoint();
-  return (
-    <View style={styles.demo}>
-      <Text style={[textStyle('label', breakpoint), styles.caption]}>{caption}</Text>
-      {children}
-    </View>
-  );
-}
-
-function Row({ children }: { children: React.ReactNode }) {
-  return <View style={styles.row}>{children}</View>;
-}
 
 function DesignSystemPage() {
   const { breakpoint, isMobile, isTablet } = useBreakpoint();
@@ -605,6 +581,8 @@ function DesignSystemPage() {
           <Avatar name="Anna Maria De Luca" imageUri="https://immagine-inesistente.invalid/foto.png" size="lg" />
         </Row>
       </Section>
+
+      <DataDemoSections />
     </ScrollView>
   );
 }

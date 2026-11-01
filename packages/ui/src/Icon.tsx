@@ -1,7 +1,10 @@
 import React from 'react';
 import { View } from 'react-native';
 import {
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
+  ArrowUpDown,
   Bell,
   CalendarDays,
   Check,
@@ -32,6 +35,7 @@ import {
   Settings,
   Trash2,
   TriangleAlert,
+  Upload,
   Users,
   Wrench,
   X,
@@ -75,6 +79,10 @@ export const iconMap = {
   lock: Lock,
   inbox: Inbox,
   'refresh-cw': RefreshCw,
+  'arrow-up': ArrowUp,
+  'arrow-down': ArrowDown,
+  'arrow-up-down': ArrowUpDown,
+  upload: Upload,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof iconMap;

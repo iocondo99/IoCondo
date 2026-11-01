@@ -12,10 +12,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc --noEmit -p tsconfig.json",
-    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test src/tokens.test.ts src/components/layoutMath.test.ts"
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test src/tokens.test.ts src/format.test.ts src/calendar.test.ts src/dataTableMath.test.ts src/fileRules.test.ts src/components/layoutMath.test.ts"
   },
   "peerDependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
+    "expo-document-picker": "~58.0.4",
     "expo-font": "~58.0.11",
     "expo-splash-screen": "~58.0.12",
     "lucide-react-native": "^1.65.0",

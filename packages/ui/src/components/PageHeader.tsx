@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { IconName } from '../Icon';
-import { colors, space } from '../tokens';
+import { borderWidths, colors, space } from '../tokens';
 import { useBreakpoint } from '../useBreakpoint';
 import { Breadcrumbs, type BreadcrumbItem } from './Breadcrumbs';
 import { Button } from './Button';
@@ -74,8 +74,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: space[4],
   },
-  /** Il pulsante testuale ha un margine interno: si compensa perché il testo si allinei al titolo. */
-  back: { alignSelf: 'flex-start', marginLeft: -space[4] },
+  /** Il pulsante testuale ha padding e bordo: si compensano perché l'icona si allinei al titolo. */
+  back: { alignSelf: 'flex-start', marginLeft: -(space[5] + borderWidths.thin) },
   column: { flexDirection: 'column', alignItems: 'stretch' },
   text: { flex: 1, gap: space[1] },
   title: { color: colors.text.primary },

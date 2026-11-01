@@ -39,3 +39,6 @@ export function shadowStyle(name: keyof typeof shadows): ViewStyle {
     elevation: spec.elevation,
   };
 }
+
+/** Cifre della stessa larghezza (Inter `tnum`): importi e date si allineano in colonna. */
+export const tabularNumbers: TextStyle = { fontVariant: ['tabular-nums'] };

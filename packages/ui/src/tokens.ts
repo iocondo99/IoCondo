@@ -301,3 +301,24 @@ export function toastDurationFor(message: string, requested?: number): number {
 
 /** Durata di mezzo ciclo dell'animazione dello Skeleton, in ms (ferma con "riduci animazioni"). */
 export const skeletonPulseDuration = 900;
+
+/** Dimensioni di tabelle, schede, pannello notifiche, calendario e caricamento file (sez. 10, 11, 14). */
+export const dataSizes = {
+  /** Altezza riga di tabella: 52-60 px (sez. 11.1). */
+  rowMinHeight: 56,
+  headerMinHeight: 48,
+  columnMinWidth: 120,
+  /** Ultima colonna: spazio per il pulsante "Altre azioni" (48 px) con il suo respiro. */
+  actionsColumnWidth: 72,
+  progressHeight: 8,
+  notificationPanelWidth: 400,
+  notificationListMaxHeight: 400,
+  /** Pallino del contatore sulla campanella. */
+  counterSize: 20,
+  /** Casella di un giorno del calendario: area di tocco da 44 px. */
+  calendarDay: touchTarget.control,
+  calendarWidth: touchTarget.control * 7,
+  dropZoneMinHeight: 128,
+  /** Lato di un elemento letto dagli screen reader ma non visibile (annunci di stato). */
+  visuallyHidden: 1,
+} as const;

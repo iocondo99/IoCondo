@@ -34,7 +34,7 @@ export function Pagination({ page, pageCount, onChange, label = 'Paginazione' }:
 
   if (total === 1) return null;
 
-  // Su smartphone sta tra i due pulsanti; da tablet in su, sotto la riga dei controlli.
+  // Sempre sotto la riga dei controlli: così su smartphone i due pulsanti stanno affiancati.
   const status = (
     <View role="status" aria-live="polite" aria-atomic style={styles.status}>
       <Text style={[statusStyle, { color: colors.text.primary }]}>{`Pagina ${current} di ${total}`}</Text>
@@ -45,42 +45,50 @@ export function Pagination({ page, pageCount, onChange, label = 'Paginazione' }:
     if (next >= 1 && next <= total && next !== current) onChange(next);
   };
 
+  // Su smartphone i due pulsanti dividono la larghezza a metà; da tablet restano della loro misura.
+  const slot = (child: React.ReactElement) => (isMobile ? <View style={styles.half}>{child}</View> : child);
+
   return (
     <View role="navigation" aria-label={label} accessibilityLabel={label} style={styles.root}>
-      <View style={styles.controls}>
-      <Button
-        variant="secondary"
-        label="Precedente"
-        icon="chevron-left"
-        disabled={current === 1}
-        onPress={() => go(current - 1)}
-        accessibilityHint={current > 1 ? `Vai alla pagina ${current - 1}` : undefined}
-      />
-      {isMobile ? null : (
-        <View style={styles.numbers}>
-          {pageWindow(current, total, isDesktop ? 1 : 0).map((item) =>
-            typeof item === 'number' ? (
-              <PageNumber key={item} number={item} current={item === current} onPress={() => go(item)} />
-            ) : (
-              <View key={item} aria-hidden style={styles.ellipsis}>
-                <Text style={[statusStyle, { color: colors.text.secondary }]}>…</Text>
-              </View>
-            ),
-          )}
-        </View>
-      )}
-      {isMobile ? status : null}
-      <Button
-        variant="secondary"
-        label="Successiva"
-        icon="chevron-right"
-        iconPosition="end"
-        disabled={current === total}
-        onPress={() => go(current + 1)}
-        accessibilityHint={current < total ? `Vai alla pagina ${current + 1}` : undefined}
-      />
+      <View style={[styles.controls, isMobile && styles.controlsMobile]}>
+        {slot(
+          <Button
+            variant="secondary"
+            label="Precedente"
+            icon="chevron-left"
+            fullWidth={isMobile}
+            disabled={current === 1}
+            onPress={() => go(current - 1)}
+            accessibilityHint={current > 1 ? `Vai alla pagina ${current - 1}` : undefined}
+          />,
+        )}
+        {isMobile ? null : (
+          <View style={styles.numbers}>
+            {pageWindow(current, total, isDesktop ? 1 : 0).map((item) =>
+              typeof item === 'number' ? (
+                <PageNumber key={item} number={item} current={item === current} onPress={() => go(item)} />
+              ) : (
+                <View key={item} aria-hidden style={styles.ellipsis}>
+                  <Text style={[statusStyle, { color: colors.text.secondary }]}>…</Text>
+                </View>
+              ),
+            )}
+          </View>
+        )}
+        {slot(
+          <Button
+            variant="secondary"
+            label="Successiva"
+            icon="chevron-right"
+            iconPosition="end"
+            fullWidth={isMobile}
+            disabled={current === total}
+            onPress={() => go(current + 1)}
+            accessibilityHint={current < total ? `Vai alla pagina ${current + 1}` : undefined}
+          />,
+        )}
       </View>
-      {isMobile ? null : status}
+      {status}
     </View>
   );
 }
@@ -131,7 +139,7 @@ function PageNumber({
 }
 
 const styles = StyleSheet.create({
-  root: { alignItems: 'center', gap: space[2] },
+  root: { alignSelf: 'stretch', alignItems: 'center', gap: space[2] },
   controls: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -139,6 +147,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: space[3],
   },
+  controlsMobile: { flexWrap: 'nowrap', alignSelf: 'stretch' },
+  half: { flex: 1, minWidth: 0 },
   numbers: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   number: {
     minWidth: touchTarget.comfortable,
