@@ -4,6 +4,7 @@ import { createAuthService } from './authService';
 import { createBachecaService } from './bachecaService';
 import { createCondominiService } from './condominiService';
 import { createFornitoreService } from './fornitoreService';
+import { createHomeService } from './homeService';
 import { createRateService } from './rateService';
 import { createProfiloService } from './profiloService';
 import { createServiziService } from './serviziService';
@@ -23,6 +24,7 @@ export function createServices(db: TypedSupabaseClient) {
     bacheca: createBachecaService(db),
     servizi: createServiziService(db),
     assemblee: createAssembleaService(db),
+    home: createHomeService(db),
   };
 }
 export type Services = ReturnType<typeof createServices>;
@@ -32,6 +34,7 @@ export * from './authService';
 export * from './bachecaService';
 export * from './condominiService';
 export * from './fornitoreService';
+export * from './homeService';
 export * from './profiloService';
 export * from './rateService';
 export * from './serviziService';

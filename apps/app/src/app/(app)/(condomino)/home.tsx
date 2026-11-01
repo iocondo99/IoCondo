@@ -1,6 +1,6 @@
 import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import { HomeScreen } from "@/screens/HomeScreen";
 
 export default function HomePage() {
-  return <PaginaInArrivo voceId="home" />;
+  return <HomeScreen />;
 }

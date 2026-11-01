@@ -9,7 +9,8 @@ export { Badge, badgeStatuses, type BadgeProps, type BadgeStatus } from './Badge
 export { Avatar, initialsOf, type AvatarProps, type AvatarSize } from './Avatar';
 export { Card, type CardProps, type CardAction } from './Card';
 export { StatCard, type StatCardProps, type StatCardAction, type StatTile } from './StatCard';
-export { Alert, type AlertProps, type AlertTone } from './Alert';
+export { ListRow, ListRows, type ListRowProps, type ListRowsProps } from './ListRow';
+export { Alert,type AlertProps, type AlertTone } from './Alert';
 export { ToastProvider, useToast, type ToastOptions, type ToastApi } from './Toast';
 export { Modal, ModalActions, type ModalProps, type ModalActionsProps } from './Modal';
 export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog';

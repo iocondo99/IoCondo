@@ -4,6 +4,8 @@
 -- Da eseguire A MANO dal SQL Editor di Supabase. Toglie SOLO ciò che ha gli id fissi
 -- d0000000-... creati da 01_dati_prova.sql. Non tocca altri condomini, utenti o dati.
 --
+-- Se hai eseguito 03_dati_home.sql, esegui PRIMA 04_pulizia_dati_home.sql (le rate bloccherebbero la cancellazione).
+--
 -- Cosa succede:
 --   - si cancella il condominio di prova: per le chiavi esterne con ON DELETE CASCADE spariscono
 --     insieme il palazzo, le unità, le anagrafiche, i ruoli, le configurazioni e le notifiche collegati;

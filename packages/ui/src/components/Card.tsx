@@ -66,11 +66,13 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: space[2],
   },
-  title: { color: colors.brand.navy, flex: 1 },
+  /** Il titolo prende lo spazio che resta; se con l'azione non ci sta (testo ingrandito) l'azione va a capo. */
+  title: { color: colors.brand.navy, flexGrow: 1, flexShrink: 1, flexBasis: '40%' },
   /** Il pulsante testuale ha un margine interno: si compensa perché il testo si allinei al bordo della scheda. */
   action: { flexShrink: 0, marginRight: -space[4] },
 });

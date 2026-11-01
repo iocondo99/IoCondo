@@ -1,7 +1,7 @@
 import { assertOk, getCurrentUserId, unwrap, type TypedSupabaseClient } from '@iocondo/supabase-client';
-import type { IBachecaCommento, IBachecaPost, INotifica, TablesUpdate } from '@iocondo/shared-types';
+import type { IBachecaCommento, IBachecaPost, TablesUpdate } from '@iocondo/shared-types';
 
-/** Bacheca avvisi, commenti e inbox notifiche. L'INSERT scatena il Database Webhook -> Edge Function `notifiche-push`. */
+/** Bacheca avvisi e commenti. L'INSERT scatena il Database Webhook -> Edge Function `notifiche-push`. */
 export function createBachecaService(db: TypedSupabaseClient) {
   return {
     async list(condominioId: string): Promise<IBachecaPost[]> {
@@ -52,18 +52,8 @@ export function createBachecaService(db: TypedSupabaseClient) {
       return unwrap(await db.from('bacheca_commenti').insert({ post_id: postId, autore_id, commento }).select('*').single());
     },
 
-    // ---- Notifiche in-app
-    async listNotifiche(opts: { soloNonLette?: boolean } = {}): Promise<INotifica[]> {
-      let q = db.from('notifiche').select('*');
-      if (opts.soloNonLette) q = q.eq('letta', false);
-      return unwrap(await q.order('created_at', { ascending: false }).limit(100));
-    },
-    async segnaLetta(id: string): Promise<void> {
-      assertOk(await db.from('notifiche').update({ letta: true }).eq('id', id));
-    },
-    async segnaTutteLette(): Promise<void> {
-      assertOk(await db.from('notifiche').update({ letta: true }).eq('letta', false));
-    },
+    // Notifiche in-app: lettura e "segna come lette" sono in `profilo` (listMieNotifiche, segnaMieNotificheLette,
+    // segnaNotificaLetta), sempre filtrate per utente: la policy lascia al super amministratore tutte le righe.
 
     /** Registra il token push del dispositivo (Expo) per `notifiche-push`. */
     async registraDispositivo(token: string, piattaforma: 'IOS' | 'ANDROID' | 'WEB'): Promise<void> {

@@ -326,6 +326,8 @@ export const dataSizes = {
   progressHeight: 8,
   notificationPanelWidth: 400,
   notificationListMaxHeight: 400,
+  /** Tessera con l'icona di una riga d'elenco (ListRow). */
+  listTile: 40,
   /** Pallino del contatore sulla campanella. */
   counterSize: 20,
   /** Casella di un giorno del calendario: area di tocco da 44 px. */
