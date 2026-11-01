@@ -38,6 +38,8 @@ export interface FieldProps
   success?: string;
   required?: boolean;
   disabled?: boolean;
+  /** Riferimento al campo di testo, per portarci il focus (es. dopo un errore di validazione). */
+  inputRef?: React.Ref<React.ComponentRef<typeof TextInput>>;
 }
 
 export interface InputProps extends FieldProps {
@@ -64,6 +66,7 @@ export function BaseField({
   secureTextEntry,
   trailing,
   onBlur,
+  inputRef: externalRef,
   ...inputProps
 }: BaseFieldProps) {
   const [focused, setFocused] = useState(false);
@@ -109,7 +112,11 @@ export function BaseField({
       <View style={containerStyle}>
         <TextInput
           {...inputProps}
-          ref={inputRef}
+          ref={(node) => {
+            inputRef.current = node;
+            if (typeof externalRef === 'function') externalRef(node);
+            else if (externalRef) (externalRef as React.RefObject<typeof node>).current = node;
+          }}
           multiline={multiline}
           secureTextEntry={secureTextEntry}
           editable={!disabled}

@@ -9,7 +9,8 @@
   "sideEffects": false,
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "build": "tsc --noEmit -p tsconfig.json"
+    "build": "tsc --noEmit -p tsconfig.json",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test src/auth/authMessages.test.ts"
   },
   "dependencies": {
     "@iocondo/shared-types": "*",
