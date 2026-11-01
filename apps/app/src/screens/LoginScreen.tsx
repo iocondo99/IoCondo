@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import {
   PASSWORD_RESET_SENT_MESSAGE,
   SESSION_EXPIRED_MESSAGE,
@@ -31,7 +32,9 @@ type View_ = 'accesso' | 'recupero';
 export function LoginScreen() {
   const { signIn, requestPasswordReset, sessionExpired } = useAuth();
   const { breakpoint } = useBreakpoint();
-  const [view, setView] = useState<View_>('accesso');
+  // /login?vista=recupero apre direttamente la richiesta del nuovo link (usato dalla pagina del link scaduto).
+  const { vista } = useLocalSearchParams<{ vista?: string }>();
+  const [view, setView] = useState<View_>(vista === 'recupero' ? 'recupero' : 'accesso');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [touched, setTouched] = useState({ email: false, password: false });

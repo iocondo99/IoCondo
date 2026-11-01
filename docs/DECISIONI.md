@@ -62,3 +62,19 @@ Limiti noti finché mancano le pagine:
 ## Dati di prova (supabase/seed-dev)
 Script da eseguire a mano dal SQL Editor, mai come migrazione. `01_dati_prova.sql` crea un condominio di prova ("Condominio di Prova", Via dei Test 1), un palazzo, tre unità, il possesso, tre ruoli per l'utente di prova (CONDOMINO, PORTIERE, ADMIN), la riga dei moduli e due notifiche. L'utente "super" riceve solo il flag `is_superadmin`. Gli id fissi hanno prefisso `d0000000-` e ogni inserimento è rieseguibile (`on conflict` e `where not exists`). `02_pulizia_dati_prova.sql` toglie tutto cancellando il condominio (cascata) e le due notifiche; gli utenti non si toccano.
 Verifiche fatte sullo schema reale (sola lettura): `utenti.id` è FK di `auth.users` e la riga nasce dal trigger `handle_new_user`; `utente_entita_ruolo` ha CHECK `condominio_id` o `unita_id` non nulli e nessun UNIQUE; `palazzi` è univoco per (condominio, nome), `unita_immobiliari` per (palazzo, interno, tipologia); `condomini.admin_id` è NOT NULL (RESTRICT); `provincia` è `char(2)`; `ruoli_piattaforma` e `tipologie_unita` hanno già le righe (lo script le cerca per codice/descrizione). Le RLS di lettura (`has_cond_access`, `is_admin_of`, `has_unita_access`, `has_role_in`) risultano soddisfatte dai dati inseriti. Le policy di INSERT per un amministratore (`has_active_license()`) richiedono una riga in `licenze_saas`: lo script non la crea, serve solo quando l'app inizierà a scrivere come amministratore.
+
+## 2026-11-01 — Home del condòmino
+- **"In corso":** una rata è "in corso" se non è scaduta ed è stata pagata in parte.
+- **"Non letto":** si basa sulle notifiche dell'utente collegate al post.
+- **Banner promozionale:** non si realizza.
+- **Richieste doppie al cambio condominio:** da indagare più avanti.
+
+## 2026-11-01 — Inviti e scelta della password
+- **Flusso:** una sola Edge Function di invio (`invita-utente`, `verify_jwt = true`); nessuna funzione di accettazione. L'accettazione resta nel trigger esistente: alla conferma dell'email `applica_inviti` assegna ruolo, condominio e unità dalla riga `inviti_pendenti`. L'app non sceglie mai i ruoli.
+- **Link email:** `{{ .RedirectTo }}?token_hash=…&type=invite|recovery`; la pagina conferma con `verifyOtp` solo dopo il pulsante "Continua" (i programmi che aprono le email non consumano il link). Client invariato: `detectSessionInUrl: false`, nessun PKCE.
+- **Scadenza 7 giorni:** `applica_inviti` considera solo inviti con `scadenza > now()` al momento della conferma. Scaduto = nessun ruolo, mai; l'account resta "non ancora attivo". Il link dell'email dura invece quanto "Email OTP expiration" (default 1 ora).
+- **Ruoli:** l'amministratore invita solo CONDOMINO e PORTIERE nei propri condomini; ADMIN solo il super amministratore. Controlli in `crea_invito` (database, `auth.uid()`). `applica_inviti` verifica anche che chi ha invitato sia ancora amministratore. Mai toccati ruoli esistenti né `is_superadmin`.
+- **Già registrato:** riceve solo il ruolo e una notifica, nessuna email; all'amministratore la risposta è identica ("Invito registrato.").
+- **Password da scegliere:** promemoria `iocondo.password-da-scegliere.v1` nel dispositivo (invite|recovery), scritto prima di aprire la sessione dal link e tolto solo a `updateUser` riuscito o all'uscita. `ProtectedLayout` rimanda alla schermata finché c'è. È cortesia dell'interfaccia, non sicurezza.
+- **Email vere:** il server email predefinito di Supabase consegna solo ai membri del team e ha 2 email/ora: serve un SMTP proprio.
+- **Da fare:** applicare `supabase/da-applicare/08_inviti_sicuri.sql` e seguire `docs/CHECKLIST_INVITI.md`. Reinvio a utente invitato ma mai confermato: non verificato con prova reale.

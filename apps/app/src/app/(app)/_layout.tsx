@@ -8,10 +8,11 @@ import { ProfiloProvider } from "@/context/ProfiloContext";
 /**
  * Guardia delle pagine protette. Finché la sessione non è letta mostra il caricamento (niente lampo
  * della pagina protetta); senza sessione porta a /login ricordando la pagina richiesta. Con la sessione
- * carica il profilo reale e disegna il layout dell’app.
+ * carica il profilo reale e disegna il layout dell’app. Se la password non è ancora stata scelta (invito o
+ * recupero) porta alla schermata per sceglierla.
  */
 export default function ProtectedLayout() {
-  const { status } = useAuth();
+  const { status, passwordPending } = useAuth();
   const pathname = usePathname();
 
   if (status === "loading") return <SessionLoading />;
@@ -21,6 +22,16 @@ export default function ProtectedLayout() {
     return (
       <>
         <Redirect href={target as Href} />
+        <SessionLoading />
+      </>
+    );
+  }
+
+  // Sessione aperta da un link di invito o di recupero: senza la password scelta non si entra nell'app.
+  if (passwordPending) {
+    return (
+      <>
+        <Redirect href={(passwordPending === "invite" ? "/imposta-password" : "/reimposta-password") as Href} />
         <SessionLoading />
       </>
     );

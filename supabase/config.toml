@@ -430,3 +430,7 @@ verify_jwt = false
 verify_jwt = false
 
 
+
+# Invito di una persona a un condominio: serve il JWT di un utente; permessi e ruoli li decide il database (crea_invito)
+[functions.invita-utente]
+verify_jwt = true

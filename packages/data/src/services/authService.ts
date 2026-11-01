@@ -36,6 +36,18 @@ export function createAuthService(db: TypedSupabaseClient) {
       if (error) throw error;
     },
 
+    /** Conferma il link dell'email (invito o recupero): se è valido apre la sessione. Il token_hash non si salva né si registra. */
+    async verifyLink(tokenHash: string, type: 'invite' | 'recovery') {
+      const { error } = await db.auth.verifyOtp({ token_hash: tokenHash, type });
+      if (error) throw error;
+    },
+
+    /** Salva la nuova password dell'utente della sessione. Riuscito solo se lo conferma il server. */
+    async updatePassword(password: string) {
+      const { error } = await db.auth.updateUser({ password });
+      if (error) throw error;
+    },
+
     async signOut() {
       const { error } = await db.auth.signOut();
       if (error) throw error;

@@ -35,6 +35,7 @@ const SUPER_ADMIN: readonly INavVoce[] = [
 const ADMIN: readonly INavVoce[] = [
   voce('dashboard', 'Dashboard', 'layout-dashboard', '/admin/dashboard'),
   voce('struttura', 'Struttura', 'building-2', '/admin/struttura'),
+  voce('inviti', 'Inviti', 'mail', '/admin/inviti'),
   voce('contabilita', 'Contabilità', 'calculator', '/admin/contabilita'),
   voce('manutenzione', 'Manutenzione', 'wrench', '/admin/manutenzione'),
   voce('comunicazioni', 'Comunicazioni', 'message-circle', '/admin/comunicazioni'),

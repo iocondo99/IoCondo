@@ -12,7 +12,8 @@ export type BadgeStatus =
   | 'in-lavorazione'
   | 'completato'
   | 'non-letto'
-  | 'in-attesa';
+  | 'in-attesa'
+  | 'accettato';
 
 type Tone = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
@@ -26,6 +27,7 @@ export const badgeStatuses: Record<BadgeStatus, { label: string; icon: IconName;
   completato: { label: 'Completato', icon: 'check', tone: 'success' },
   'non-letto': { label: 'Non letto', icon: 'mail', tone: 'info' },
   'in-attesa': { label: 'In attesa', icon: 'hourglass', tone: 'neutral' },
+  accettato: { label: 'Accettato', icon: 'circle-check', tone: 'success' },
 };
 
 const tones: Record<Tone, { foreground: string; background: string }> = {
