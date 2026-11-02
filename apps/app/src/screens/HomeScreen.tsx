@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { oggiIso, titoloSaluto } from '@iocondo/data';
 import { Card, ListRow, PageHeader, layout, space, useBreakpoint } from '@iocondo/ui';
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
@@ -56,6 +56,18 @@ function HomeContenuto() {
   );
   const documenti = useBlocco(() => services.home.contaDocumenti(utenteId, condominioId), chiave);
   const assemblea = useBlocco(() => services.home.prossimaAssemblea(condominioId), chiave);
+
+  // Ricarica le comunicazioni (e lo stato letto/non letto) quando si torna alla Home dal dettaglio.
+  const primoFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (primoFocus.current) {
+        primoFocus.current = false;
+        return;
+      }
+      if (vedeComunicazioni) comunicazioni.ricarica();
+    }, [vedeComunicazioni, comunicazioni.ricarica]),
+  );
 
   const apri = useCallback<Apri>(
     (voceId, hint) => {

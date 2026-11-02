@@ -368,3 +368,28 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 
 - [ ] **Allineamento avatar nell'header a 195 px** — a quella larghezza
   l'avatar esce dalla sua area. Da correggere nella prossima revisione UI.
+
+---
+
+## Comunicazioni (/comunicazioni e /comunicazioni/[id])
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase incollare l'UUID dell'utente di prova in `v_utente_test_id` dentro `supabase/seed-dev/comunicazioni_extra.sql` ed eseguire lo script.
+  **Risultato atteso:** lo script termina con `NOTICE: Comunicazioni extra di prova pronte per il condominio ...` senza errori; rieseguendolo una seconda volta non crea duplicati e ripristina lo stato non letto delle notifiche di prova.
+
+- [ ] **Cosa fare:** dalla Home (`/home`) verificare il blocco "Ultime comunicazioni": premere su una singola riga e poi premere "Vedi tutte".
+  **Risultato atteso:** premendo una riga si apre `/comunicazioni/[id]` della comunicazione scelta; premendo "Vedi tutte" si apre `/comunicazioni`; il pulsante "Consulta le richieste" resta sul segnaposto `/segnalazioni`.
+
+- [ ] **Cosa fare:** aprire `/comunicazioni` su desktop (1440 px), tablet (820 px) e smartphone (390 px).
+  **Risultato atteso:** su desktop e tablet compare la tabella (`Titolo`, `Data`, `Autore`, `Stato`), su smartphone l'elenco a schede; i post fissati (`is_pinned = true`) compaiono in cima con l'etichetta testuale "Fissata in alto" (non solo icona); le comunicazioni non lette mostrano il `Badge` "Non letto" (icona + testo), quelle lette "Letta" e quelle senza notifica collegata "—".
+
+- [ ] **Cosa fare:** in `/comunicazioni` provare i `FilterChips` (`Tutti`, `Non lette`, `Lette`) e il pulsante "Azzera filtri", la ricerca per titolo e l'ordinamento per `Data` (da intestazione tabella con Invio/Spazio o dal selettore "Ordina per" su smartphone) e la `Pagination`.
+  **Risultato atteso:** i filtri e la ricerca aggiornano il conteggio e le righe mostrate; "Azzera filtri" riporta a `Tutti`; l'ordinamento inverte l'ordine cronologico mantenendo i post fissati in cima; la paginazione passa tra pagina 1 e pagina 2.
+
+- [ ] **Cosa fare:** aprire il dettaglio di una comunicazione non letta (`/comunicazioni/[id]`), verificare `Breadcrumbs` (`Home / Comunicazioni / ...`), data, autore, destinatari e testo completo, premere "Segna come letta" (o tornare all'elenco).
+  **Risultato atteso:** la comunicazione viene segnata come letta in `notifiche` solo per l'utente corrente (`utente_id = auth.uid()`); in pagina lo stato passa a "Letta" e tornando a `/comunicazioni` o `/home` il badge "Non letto" non compare più.
+
+- [ ] **Cosa fare:** aprire il dettaglio di una comunicazione senza notifica collegata (es. `d0000000-0000-4000-8000-000000000210`).
+  **Risultato atteso:** il dettaglio mostra data, autore e testo completo senza mostrare lo stato "Letta" né il pulsante "Segna come letta" (non viene inventato uno stato di lettura).
+
+- [ ] **Cosa fare:** provare ad aprire direttamente per URL una comunicazione del Palazzo B (`http://localhost:8081/comunicazioni/d0000000-0000-4000-8000-000000000213`) o un id inesistente (`http://localhost:8081/comunicazioni/00000000-0000-4000-8000-000000000999`).
+  **Risultato atteso:** in entrambi i casi compare lo stesso stato `NonAutorizzato` ("Questa comunicazione non è disponibile") con il pulsante "Torna alle comunicazioni", senza rivelare se il post esiste o appartiene a un altro edificio/condominio.

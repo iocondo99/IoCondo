@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRouter, type Href } from 'expo-router';
 import { estrattoCorpo, type ComunicazioneHome } from '@iocondo/data';
 import { Card, EmptyState, ErrorState, ListRow, ListRows, formatDate } from '@iocondo/ui';
 import type { Blocco } from '@/hooks/useBlocco';
@@ -15,8 +16,9 @@ const TITOLO = 'Ultime comunicazioni';
 
 /** Ultime comunicazioni della bacheca. "Non letto" compare solo dove il database lo sa (vedi homeService). */
 export function UltimeComunicazioni({ blocco, ricarica, apri }: Props) {
+  const router = useRouter();
   const tutte = apri('comunicazioni', 'Apre la pagina Comunicazioni');
-  const apertura = tutte ? { onPress: tutte.onPress, accessibilityHint: tutte.accessibilityHint } : undefined;
+  const apriDettaglio = (id: string) => () => router.push(`/comunicazioni/${id}` as Href);
 
   return (
     <Card title={TITOLO} action={tutte ? { label: 'Vedi tutte', ...tutte } : undefined}>
@@ -43,9 +45,9 @@ export function UltimeComunicazioni({ blocco, ricarica, apri }: Props) {
                 description={estrattoCorpo(c.corpo) || undefined}
                 meta={data}
                 badge={c.nonLetta ? 'non-letto' : undefined}
-                onPress={apertura?.onPress}
+                onPress={tutte ? apriDettaglio(c.id) : undefined}
                 accessibilityLabel={`${c.titolo}, ${data}${c.nonLetta ? ', non letta' : ''}`}
-                accessibilityHint={apertura?.accessibilityHint}
+                accessibilityHint={tutte ? 'Apre il dettaglio di questa comunicazione' : undefined}
               />
             );
           })}
