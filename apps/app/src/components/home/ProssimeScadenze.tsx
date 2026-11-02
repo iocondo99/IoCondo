@@ -16,6 +16,7 @@ import {
   textStyle,
   useBreakpoint,
 } from '@iocondo/ui';
+import { useRouter, type Href } from 'expo-router';
 import type { Blocco } from '@/hooks/useBlocco';
 import { ElencoSegnaposto } from './ElencoSegnaposto';
 import type { Apri } from './SchedeRiepilogo';
@@ -31,9 +32,12 @@ const TITOLO = 'Prossime scadenze';
 
 /** Scadenze delle rate del residente. Le scadute stanno in un gruppo a parte, con icona e testo oltre al colore. */
 export function ProssimeScadenze({ blocco, ricarica, apri, oggi }: Props) {
+  const router = useRouter();
   const rate = apri('pagamenti', 'Apre la pagina Pagamenti');
   const scadenze = blocco.stato === 'pronto' ? scadenzeHome(blocco.dati, oggi) : null;
   const vuota = scadenze !== null && scadenze.scadute.length + scadenze.prossime.length === 0;
+
+  const apriDettaglio = (id: string) => () => router.push(`/pagamenti/${id}` as Href);
 
   return (
     <Card title={TITOLO} action={rate ? { label: 'Vedi tutte', ...rate } : undefined}>
@@ -52,12 +56,12 @@ export function ProssimeScadenze({ blocco, ricarica, apri, oggi }: Props) {
         <View style={styles.gruppi}>
           {scadenze.scadute.length > 0 ? (
             <Gruppo etichetta="Scadute" scadute>
-              <Elenco rate={scadenze.scadute} oggi={oggi} apri={rate} etichetta="Rate scadute" />
+              <Elenco rate={scadenze.scadute} oggi={oggi} apriDettaglio={apriDettaglio} etichetta="Rate scadute" />
             </Gruppo>
           ) : null}
           {scadenze.prossime.length > 0 ? (
             <Gruppo etichetta={scadenze.scadute.length > 0 ? 'In arrivo' : undefined}>
-              <Elenco rate={scadenze.prossime} oggi={oggi} apri={rate} etichetta="Rate in arrivo" />
+              <Elenco rate={scadenze.prossime} oggi={oggi} apriDettaglio={apriDettaglio} etichetta="Rate in arrivo" />
             </Gruppo>
           ) : null}
           {scadenze.nascoste > 0 ? <AltreRate quante={scadenze.nascoste} /> : null}
@@ -88,12 +92,12 @@ function Gruppo({ etichetta, scadute, children }: { etichetta?: string; scadute?
 function Elenco({
   rate,
   oggi,
-  apri,
+  apriDettaglio,
   etichetta,
 }: {
   rate: RataHome[];
   oggi: string;
-  apri: ReturnType<Apri>;
+  apriDettaglio: (id: string) => () => void;
   etichetta: string;
 }) {
   return (
@@ -119,9 +123,9 @@ function Elenco({
             description={descrizione}
             meta={importo}
             badge={stato}
-            onPress={apri?.onPress}
+            onPress={apriDettaglio(rata.id)}
             accessibilityLabel={`${rata.descrizione}, ${descrizione}, ${importo}, ${badgeStatuses[stato].label}`}
-            accessibilityHint={apri?.accessibilityHint}
+            accessibilityHint="Apre il dettaglio di questa rata"
           />
         );
       })}

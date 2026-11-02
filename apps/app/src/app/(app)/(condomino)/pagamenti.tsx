@@ -1,6 +1,5 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import { PagamentiScreen } from '@/screens/PagamentiScreen';
 
 export default function PagamentiPage() {
-  return <PaginaInArrivo voceId="pagamenti" />;
+  return <PagamentiScreen />;
 }

@@ -5,3 +5,4 @@ export * from './profilo/profiloLogic';
 export * from './profilo/navigazione';
 export * from './home/homeLogic';
 export * from './inviti/invitiLogic';
+export * from './pagamenti/pagamentiLogic';

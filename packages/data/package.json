@@ -10,7 +10,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc --noEmit -p tsconfig.json",
-    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test src/auth/authMessages.test.ts src/profilo/profiloLogic.test.ts src/profilo/navigazione.test.ts src/home/homeLogic.test.ts src/inviti/invitiLogic.test.ts"
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test src/auth/authMessages.test.ts src/profilo/profiloLogic.test.ts src/profilo/navigazione.test.ts src/home/homeLogic.test.ts src/inviti/invitiLogic.test.ts src/pagamenti/pagamentiLogic.test.ts"
   },
   "dependencies": {
     "@iocondo/shared-types": "*",

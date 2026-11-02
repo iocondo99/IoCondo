@@ -6,6 +6,7 @@ import { createCondominiService } from './condominiService';
 import { createFornitoreService } from './fornitoreService';
 import { createHomeService } from './homeService';
 import { createInvitiService } from './invitiService';
+import { createPagamentiService } from '../pagamenti/pagamentiService';
 import { createRateService } from './rateService';
 import { createProfiloService } from './profiloService';
 import { createServiziService } from './serviziService';
@@ -20,6 +21,7 @@ export function createServices(db: TypedSupabaseClient) {
     profilo: createProfiloService(db),
     struttura: createStrutturaService(db),
     rate: createRateService(db),
+    pagamenti: createPagamentiService(db),
     ticket: createTicketService(db),
     fornitori: createFornitoreService(db),
     bacheca: createBachecaService(db),
@@ -40,6 +42,6 @@ export * from './homeService';
 export * from './invitiService';
 export * from './profiloService';
 export * from './rateService';
+export * from '../pagamenti/pagamentiService';
 export * from './serviziService';
-export * from './strutturaService';
 export * from './ticketService';
