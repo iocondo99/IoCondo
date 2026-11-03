@@ -44,9 +44,10 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 - Pagamenti: `/pagamenti` e `/pagamenti/[id]`, sola lettura, nessun pagamento online (verificato).
 - Comunicazioni: `/comunicazioni` e `/comunicazioni/[id]`, stato letto tramite notifiche dell'utente (verificato dall'utente).
 - Spese: `/spese` e `/spese/[id]`, sola lettura con dati di `spese_extra.sql` (verificato e approvato dall'utente).
+- Documenti: `/documenti` e `/documenti/[id]`, sola lettura per il condòmino con isolamento per condominio e unità, link firmati temporanei (`createSignedUrl` 600 s) e dati di prova in `documenti_extra.sql` (verificato e approvato dall'utente).
 
 ### Da verificare (stato sconosciuto: chiedere all'utente prima di procedere)
-- Documenti (`/documenti` e `/documenti/[id]`): sola lettura per il condòmino, isolamento per condominio e unità (`unita_id IS NULL` o unità propria anche se l'utente è `ADMIN`), link firmati temporanei (`createSignedUrl` 600 s) e dati di prova in `supabase/seed-dev/documenti_extra.sql` — da verificare dall'utente.
+- Segnalazioni: `/segnalazioni`, `/segnalazioni/[id]` e `/ticket-aree-comuni` (apertura ticket con foto, messaggi, isolamento per condominio/unità, dati di prova in `segnalazioni_extra.sql`): implementate, in attesa di prova dell'utente (vedi `docs/TEST_DA_FARE.md`).
 - Migrazione `08a_fix_trigger_e_ruoli.sql` e `08a_verifica.sql`: rimandate dall'utente a dopo.
 - Migrazione `08_...sql` (inviti sicuri): rimandata dall'utente a dopo.
 

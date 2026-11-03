@@ -9,7 +9,10 @@ export type BadgeStatus =
   | 'da-pagare'
   | 'scaduto'
   | 'in-corso'
+  | 'aperto'
   | 'in-lavorazione'
+  | 'in_lavorazione'
+  | 'risolto'
   | 'completato'
   | 'non-letto'
   | 'in-attesa'
@@ -28,7 +31,10 @@ export const badgeStatuses: Record<BadgeStatus, { label: string; icon: IconName;
   'da-pagare': { label: 'Da pagare', icon: 'credit-card', tone: 'warning' },
   scaduto: { label: 'Scaduto', icon: 'circle-alert', tone: 'error' },
   'in-corso': { label: 'In corso', icon: 'clock', tone: 'info' },
+  aperto: { label: 'Aperto', icon: 'circle-alert', tone: 'warning' },
   'in-lavorazione': { label: 'In lavorazione', icon: 'wrench', tone: 'info' },
+  in_lavorazione: { label: 'In lavorazione', icon: 'wrench', tone: 'info' },
+  risolto: { label: 'Risolto', icon: 'circle-check', tone: 'success' },
   completato: { label: 'Completato', icon: 'check', tone: 'success' },
   'non-letto': { label: 'Non letto', icon: 'mail', tone: 'info' },
   'in-attesa': { label: 'In attesa', icon: 'hourglass', tone: 'neutral' },

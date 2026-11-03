@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import { TicketAreeComuniScreen } from '@/screens/TicketAreeComuniScreen';
 
 export default function TicketAreeComuniPage() {
-  return <PaginaInArrivo voceId="ticket-aree-comuni" />;
+  return <TicketAreeComuniScreen />;
 }
+

@@ -438,3 +438,44 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 
 - [ ] **Cosa fare:** provare ad aprire direttamente per URL il documento dell'Unità 2 (`http://localhost:8081/documenti/d0000000-0000-4000-8000-000000000531`), il documento del secondo condominio (`http://localhost:8081/documenti/d0000000-0000-4000-8000-000000000592`) e un id inesistente (`http://localhost:8081/documenti/00000000-0000-4000-8000-000000000999`).
   **Risultato atteso:** in tutti e tre i casi compare lo stesso identico stato `NonAutorizzato` ("Questo documento non è disponibile") con il pulsante "Torna ai documenti", senza enumerazione.
+
+
+---
+
+## Segnalazioni (/segnalazioni, /segnalazioni/[id] e /ticket-aree-comuni)
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/segnalazioni_extra.sql` (dopo `01_dati_prova.sql` e `03_dati_home.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati extra Segnalazioni pronti per il condominio ...` senza errori; rieseguendolo una seconda volta non crea duplicati.
+
+- [ ] **Cosa fare:** dalla Home (`/home`) premere "Consulta le richieste" (o "Segnala un problema") e aprire anche la voce "Segnalazioni" da barra laterale (desktop/tablet) e barra inferiore (smartphone) a 1440 px, 820 px e 390 px.
+  **Risultato atteso:** si apre `/segnalazioni` con `PageHeader` ("Segnalazioni", pulsante "Nuova segnalazione"), 4 `StatCard` reali (Totale segnalazioni, Aperte, In lavorazione, Risolte) e la tabella con `Badge` di stato (icona + testo). Il ticket dell'Unità 2 (`d0000000-0000-4000-8000-000000000631`), quello del secondo condominio (`...691`) e i ticket di area comune aperti da altri (`...620`, `...621`) NON compaiono, nemmeno se l'utente ha anche ruolo `ADMIN`.
+
+- [ ] **Cosa fare:** in `/segnalazioni` provare i `FilterChips` per stato (Tutti, Aperti, In lavorazione, Risolti), la `SearchBar` per titolo o categoria, "Azzera filtri", l'ordinamento per Priorità, Stato e Data (da intestazione tabella con tastiera, o dal selettore "Ordina per" su smartphone) e la `Pagination` (pagina 1 e 2).
+  **Risultato atteso:** filtri, ricerca e ordinamento aggiornano righe e conteggio; senza risultati compare `EmptyState` con "Azzera filtri".
+
+- [ ] **Cosa fare:** premere "Nuova segnalazione", lasciare il titolo vuoto e inviare; poi compilare titolo, categoria, ambito (propria unità o area comune), priorità, allegare una foto JPEG/PNG/WEBP/HEIC e inviare. Provare anche un file PDF o oltre 15 MB.
+  **Risultato atteso:** il titolo vuoto mostra un errore chiaro; PDF e file oltre 15 MB vengono rifiutati con messaggio; l'invio corretto chiude il modulo, mostra la conferma e la nuova segnalazione compare in elenco con stato "Aperto". La foto è nel bucket `foto-guasti` al percorso `<condominio_id>/<ticket_id>/<file>`.
+
+- [ ] **Cosa fare:** aprire `/segnalazioni/d0000000-0000-4000-8000-000000000611` (foto di prova non caricate nello Storage).
+  **Risultato atteso:** `Breadcrumbs` (`Home / Segnalazioni / <titolo>`), riepilogo con stato, priorità, categoria, ambito, date di apertura e chiusura, messaggi con nome del mittente e avviso onesto "Foto non ancora disponibile nello spazio di archiviazione".
+
+- [ ] **Cosa fare:** caricare una foto nel bucket `foto-guasti` al percorso `d0000000-0000-4000-8000-000000000001/d0000000-0000-4000-8000-000000000611/foto_perdita.jpg`, ricaricare il dettaglio e premere "Apri foto".
+  **Risultato atteso:** compare il pulsante "Apri foto" e al clic si apre un link firmato temporaneo (`createSignedUrl`, 600 secondi, mai `getPublicUrl`).
+
+- [ ] **Cosa fare:** nel dettaglio scrivere un messaggio vuoto e premere "Invia messaggio", poi scrivere un testo valido e inviare.
+  **Risultato atteso:** il messaggio vuoto mostra un errore; quello valido compare nella cronologia come "Tu" e lo stato della segnalazione non cambia (lo cambia solo l'amministratore).
+
+- [ ] **Cosa fare:** aprire per URL il ticket dell'Unità 2 (`http://localhost:8081/segnalazioni/d0000000-0000-4000-8000-000000000631`), quello del secondo condominio (`.../segnalazioni/d0000000-0000-4000-8000-000000000691`) e un id inesistente (`.../segnalazioni/00000000-0000-4000-8000-000000000999`).
+  **Risultato atteso:** in tutti e tre i casi compare lo stesso `NonAutorizzato` ("Questa segnalazione non è disponibile") con il pulsante "Torna a Segnalazioni".
+
+- [ ] **Cosa fare:** con un utente con ruolo `PORTIERE` nel condominio (vista residente) aprire `/ticket-aree-comuni`; con un utente senza ruolo portiere provare lo stesso URL.
+  **Risultato atteso:** il portiere vede solo i ticket di area comune (`...617`-`...621`, più quelli aperti da lui) e NON quelli di unità (`...611`, `...631`); gli altri utenti vedono `NonAutorizzato`.
+
+- [ ] **Cosa fare:** da `/ticket-aree-comuni` premere "Nuovo ticket", compilare titolo e foto opzionale, inviare e aprire il dettaglio del ticket creato (`/ticket-aree-comuni/<id>`).
+  **Risultato atteso:** il modulo non chiede l'unità; il ticket è registrato con `is_area_comune = true` e `unita_id` vuoto; il dettaglio mostra ambito "Area comune" e permette di scrivere messaggi. Aprire da qui un ticket di unità mostra `NonAutorizzato`.
+
+- [ ] **Cosa fare:** a 1440 px, 820 px, 390 px e con zoom 200% navigare con Tab elenco, modulo e dettaglio.
+  **Risultato atteso:** nessuno scroll orizzontale, anello di focus `#0284C7` sempre visibile e mai ritagliato.
+
+- [ ] **Cosa fare:** eseguire `supabase/seed-dev/segnalazioni_extra_pulizia.sql`.
+  **Risultato atteso:** termina con `NOTICE: Dati extra Segnalazioni rimossi.` e i ticket di prova spariscono dall'app.

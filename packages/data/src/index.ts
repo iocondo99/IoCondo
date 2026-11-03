@@ -9,3 +9,4 @@ export * from './pagamenti/pagamentiLogic';
 export * from './comunicazioni/comunicazioniLogic';
 export * from './spese/speseLogic';
 export * from './documenti/documentiLogic';
+export * from './segnalazioni/segnalazioniLogic';

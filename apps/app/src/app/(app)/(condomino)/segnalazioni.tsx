@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import { SegnalazioniScreen } from '@/screens/SegnalazioniScreen';
 
 export default function SegnalazioniPage() {
-  return <PaginaInArrivo voceId="segnalazioni" />;
+  return <SegnalazioniScreen />;
 }
+
