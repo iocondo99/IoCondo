@@ -1,6 +1,5 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import { SpeseScreen } from '@/screens/SpeseScreen';
 
 export default function SpesePage() {
-  return <PaginaInArrivo voceId="spese" />;
+  return <SpeseScreen />;
 }

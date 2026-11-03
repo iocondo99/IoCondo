@@ -36,7 +36,7 @@ do $seed$
 declare
   -- >>> INCOLLA QUI I DUE UUID (tra gli apici) <<<
   v_utente_super_id uuid := null;  -- utente SOLO super amministratore: nessun ruolo di condominio
-  v_utente_test_id  uuid := b6e76a6a-bf37-43fd-b00b-efb1cb6921ad;  -- utente SENZA flag: condòmino + portiere + amministratore sul condominio di prova
+  v_utente_test_id  uuid := 'b6e76a6a-bf37-43fd-b00b-efb1cb6921ad';  -- utente SENZA flag: condòmino + portiere + amministratore sul condominio di prova
 
   -- id fissi dei dati di prova (servono a rieseguire e a ripulire)
   c_condominio   constant uuid := 'd0000000-0000-4000-8000-000000000001';

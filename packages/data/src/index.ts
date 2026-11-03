@@ -7,3 +7,4 @@ export * from './home/homeLogic';
 export * from './inviti/invitiLogic';
 export * from './pagamenti/pagamentiLogic';
 export * from './comunicazioni/comunicazioniLogic';
+export * from './spese/speseLogic';

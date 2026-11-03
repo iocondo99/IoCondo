@@ -11,6 +11,7 @@ import { createPagamentiService } from '../pagamenti/pagamentiService';
 import { createRateService } from './rateService';
 import { createProfiloService } from './profiloService';
 import { createServiziService } from './serviziService';
+import { createSpeseService } from '../spese/speseService';
 import { createStrutturaService } from './strutturaService';
 import { createTicketService } from './ticketService';
 
@@ -23,6 +24,7 @@ export function createServices(db: TypedSupabaseClient) {
     struttura: createStrutturaService(db),
     rate: createRateService(db),
     pagamenti: createPagamentiService(db),
+    spese: createSpeseService(db),
     ticket: createTicketService(db),
     fornitori: createFornitoreService(db),
     bacheca: createBachecaService(db),
@@ -47,4 +49,5 @@ export * from './profiloService';
 export * from './rateService';
 export * from '../pagamenti/pagamentiService';
 export * from './serviziService';
+export * from '../spese/speseService';
 export * from './ticketService';

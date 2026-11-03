@@ -393,3 +393,26 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 
 - [ ] **Cosa fare:** provare ad aprire direttamente per URL una comunicazione del Palazzo B (`http://localhost:8081/comunicazioni/d0000000-0000-4000-8000-000000000213`) o un id inesistente (`http://localhost:8081/comunicazioni/00000000-0000-4000-8000-000000000999`).
   **Risultato atteso:** in entrambi i casi compare lo stesso stato `NonAutorizzato` ("Questa comunicazione non è disponibile") con il pulsante "Torna alle comunicazioni", senza rivelare se il post esiste o appartiene a un altro edificio/condominio.
+
+
+---
+
+## Spese (/spese e /spese/[id])
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/spese_extra.sql` (dopo `01_dati_prova.sql` e `03_dati_home.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati extra Spese pronti: esercizi ...` senza errori; rieseguendolo una seconda volta non crea duplicati.
+
+- [ ] **Cosa fare:** aprire `/spese` dalla voce "Spese" della barra laterale (desktop) o della barra inferiore (smartphone) su 1440 px, 820 px e 390 px; verificare anche che in Home (`/home`) il pulsante "Vedi le rate" continui a portare a `/pagamenti`.
+  **Risultato atteso:** in cima a `/spese` compaiono le 3 `StatCard` reali ("Spese esercizio in corso", "Ultimo consuntivo approvato" con anno e totale, "Preventivo in corso" con anno e totale) e sotto la `ResponsiveDataView` con gli esercizi (`Anno`, `Periodo`, `Stato` con `Badge` dotato di icona + testo `Preventivo` / `Consuntivo` / `Chiuso`, `Totale` allineato a destra in formato `€ 2.480,00`). Nessun pulsante di pagamento o modifica è presente.
+
+- [ ] **Cosa fare:** selezionare l'esercizio in stato `CONSUNTIVO` dalla lista in `/spese` per aprire `/spese/[id]`.
+  **Risultato atteso:** compaiono i `Breadcrumbs` (`Home / Spese / Esercizio <anno>`), il riepilogo dell'esercizio, la scheda "Totali per macro-categoria" con gli importi e le percentuali calcolati per ciascuna categoria del piano dei conti (`A`, `B`, `C`, `D`) e la `ResponsiveDataView` dei movimenti di spesa (`Data`, `Descrizione`, `Sottoconto`, `Segno`, `Importo`). Il movimento di incasso (`segno = '+'`) non compare e non viene sommato.
+
+- [ ] **Cosa fare:** in `/spese/[id]` provare i `FilterChips` per sottoconto, la `SearchBar` per descrizione, l'ordinamento per `Data` e per `Importo` (da intestazione tabella anche con tastiera tramite Tab + Invio/Spazio, o dal selettore "Ordina per" su smartphone) e la `Pagination` (pagina 1 e pagina 2).
+  **Risultato atteso:** i filtri e la ricerca aggiornano il conteggio e le righe mostrate; quando nessun movimento corrisponde compare lo stato vuoto "Non ci sono spese da mostrare."; l'ordinamento ordina correttamente per data o importo crescente/decrescente; la paginazione passa tra le pagine di 10 movimenti ciascuna.
+
+- [ ] **Cosa fare:** verificare la sezione "Documento allegato" in `/spese/[id]` prima e dopo aver caricato manualmente un file PDF chiamato `fattura_ascensore_consuntivo.pdf` nel bucket privato `documenti-condominio` dentro la cartella `d0000000-0000-4000-8000-000000000001/fatture/`.
+  **Risultato atteso:** finché il file non è presente nello Storage (come per `fattura_fantasma_non_caricata.pdf`), la sezione "Documento allegato" non compare affatto; dopo aver caricato `fattura_ascensore_consuntivo.pdf` nello Storage, la sezione compare e il pulsante "Scarica allegato" apre un link firmato temporaneo (`createSignedUrl`, mai pubblico).
+
+- [ ] **Cosa fare:** provare ad aprire direttamente per URL l'esercizio del secondo condominio (`http://localhost:8081/spese/d0000000-0000-4000-8000-000000000491`) e un id inesistente (`http://localhost:8081/spese/00000000-0000-4000-8000-000000000999`).
+  **Risultato atteso:** in entrambi i casi compare lo stesso identico stato `NonAutorizzato` ("Questo esercizio non è disponibile") con il pulsante "Torna alle spese".
