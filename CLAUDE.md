@@ -53,5 +53,6 @@ frontend-design: usala solo per la cura dei dettagli, non per cambiare stile.
   e applica la checklist della sezione 23.
 - Non eseguire mai comandi git non richiesti (stash, reset, checkout, clean,
   restore): se serve confrontare o ripristinare file, usa copie o chiedi prima.
+- Prima di ogni lavoro leggi docs/PIANO_LAVORO.md.
 - Il PRD è in docs/PRD.md: leggilo solo quando il task lo richiede.
 - Riferimento visivo della Home: docs/mockup-home.png

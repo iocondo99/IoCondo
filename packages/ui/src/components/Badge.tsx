@@ -16,7 +16,9 @@ export type BadgeStatus =
   | 'accettato'
   | 'preventivo'
   | 'consuntivo'
-  | 'chiuso';
+  | 'chiuso'
+  | 'condominiale'
+  | 'personale';
 
 type Tone = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
@@ -34,6 +36,8 @@ export const badgeStatuses: Record<BadgeStatus, { label: string; icon: IconName;
   preventivo: { label: 'Preventivo', icon: 'calendar-days', tone: 'info' },
   consuntivo: { label: 'Consuntivo', icon: 'circle-check', tone: 'success' },
   chiuso: { label: 'Chiuso', icon: 'lock', tone: 'neutral' },
+  condominiale: { label: 'Condominiale', icon: 'building-2', tone: 'info' },
+  personale: { label: 'Personale', icon: 'home', tone: 'neutral' },
 };
 
 const tones: Record<Tone, { foreground: string; background: string }> = {
@@ -46,20 +50,23 @@ const tones: Record<Tone, { foreground: string; background: string }> = {
 
 export interface BadgeProps {
   status: BadgeStatus;
+  /** Etichetta specifica (es. "Unità Int. 1") al posto di quella predefinita dello stato. */
+  label?: string;
 }
 
-export function Badge({ status }: BadgeProps) {
+export function Badge({ status, label }: BadgeProps) {
   const spec = badgeStatuses[status];
   const tone = tones[spec.tone];
   const textStyle = useTextStyle('label');
+  const text = label?.trim() || spec.label;
   return (
     <View
       accessible
-      accessibilityLabel={spec.label}
+      accessibilityLabel={text}
       style={[styles.badge, { backgroundColor: tone.background, borderColor: tone.foreground }]}
     >
       <Icon name={spec.icon} size="indicator" color={tone.foreground} />
-      <Text style={[textStyle, { color: tone.foreground }]}>{spec.label}</Text>
+      <Text style={[textStyle, { color: tone.foreground }]}>{text}</Text>
     </View>
   );
 }

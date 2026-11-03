@@ -4,6 +4,7 @@ import { createAuthService } from './authService';
 import { createBachecaService } from './bachecaService';
 import { createComunicazioniService } from '../comunicazioni/comunicazioniService';
 import { createCondominiService } from './condominiService';
+import { createDocumentiService } from '../documenti/documentiService';
 import { createFornitoreService } from './fornitoreService';
 import { createHomeService } from './homeService';
 import { createInvitiService } from './invitiService';
@@ -29,6 +30,7 @@ export function createServices(db: TypedSupabaseClient) {
     fornitori: createFornitoreService(db),
     bacheca: createBachecaService(db),
     comunicazioni: createComunicazioniService(db),
+    documenti: createDocumentiService(db),
     servizi: createServiziService(db),
     assemblee: createAssembleaService(db),
     home: createHomeService(db),
@@ -42,6 +44,7 @@ export * from './authService';
 export * from './bachecaService';
 export * from '../comunicazioni/comunicazioniService';
 export * from './condominiService';
+export * from '../documenti/documentiService';
 export * from './fornitoreService';
 export * from './homeService';
 export * from './invitiService';

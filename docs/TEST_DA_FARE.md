@@ -416,3 +416,25 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 
 - [ ] **Cosa fare:** provare ad aprire direttamente per URL l'esercizio del secondo condominio (`http://localhost:8081/spese/d0000000-0000-4000-8000-000000000491`) e un id inesistente (`http://localhost:8081/spese/00000000-0000-4000-8000-000000000999`).
   **Risultato atteso:** in entrambi i casi compare lo stesso identico stato `NonAutorizzato` ("Questo esercizio non è disponibile") con il pulsante "Torna alle spese".
+
+---
+
+## Documenti (/documenti e /documenti/[id])
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/documenti_extra.sql` (dopo `01_dati_prova.sql` e `03_dati_home.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati extra Documenti pronti per il condominio ...` senza errori; rieseguendolo una seconda volta non crea duplicati.
+
+- [ ] **Cosa fare:** dalla Home (`/home`) premere sulla card/sezione "Documenti" e verificare anche l'apertura da barra laterale (desktop/tablet) e barra inferiore (smartphone) a 1440 px, 820 px e 390 px.
+  **Risultato atteso:** si apre `/documenti` con `PageHeader` ("Documenti" e sottotitolo col nome del condominio), 3 `StatCard` reali ("Documenti disponibili", "Condominiali", "Della tua unità") coerenti con `homeService.contaDocumenti`, e la `ResponsiveDataView` con colonne `Nome documento`, `Cartella`, `Visibilità` (`Badge` con icona + testo: `Condominiale` / `Unità Int. 1`) e `Data`. Il documento dell'Unità 2 (`d0000000-0000-4000-8000-000000000531`) e quello del secondo condominio (`d0000000-0000-4000-8000-000000000592`) NON compaiono, nemmeno se l'utente ha anche ruolo `ADMIN`.
+
+- [ ] **Cosa fare:** in `/documenti` provare i `FilterChips` per cartella (`Tutte` e ciascuna cartella del condominio), la `SearchBar` per nome file o cartella, il pulsante "Azzera filtri" (anche dallo stato vuoto quando nessun documento corrisponde), l'ordinamento per `Nome documento` e per `Data` (da intestazione tabella anche con tastiera tramite Tab + Invio/Spazio, o dal selettore "Ordina per" su smartphone) e la `Pagination` (pagina 1 e pagina 2).
+  **Risultato atteso:** i filtri e la ricerca aggiornano il conteggio e le righe mostrate; quando nessun documento corrisponde compare `EmptyState` con il pulsante "Azzera filtri" che ripristina l'elenco completo; l'ordinamento ordina correttamente per data o nome file crescente/decrescente; la paginazione passa tra le pagine di 10 documenti ciascuna.
+
+- [ ] **Cosa fare:** selezionare un documento dalla lista per aprire `/documenti/[id]` quando il file non è ancora caricato nel bucket `documenti-condominio`.
+  **Risultato atteso:** compaiono i `Breadcrumbs` (`Home / Documenti / <Nome file>`), la card "Riepilogo documento" (nome file, cartella, visibilità con `Badge` e descrizione, formato/tipo MIME, data di caricamento) e nella card "Scaricamento" compare l'avviso chiaro e onesto `"File non ancora disponibile nello spazio di archiviazione"` senza errori non gestiti.
+
+- [ ] **Cosa fare:** caricare manualmente un PDF di prova nel bucket privato `documenti-condominio` al percorso `d0000000-0000-4000-8000-000000000001/regolamenti/Regolamento_condominiale_vigente.pdf`, aggiornare `/documenti/d0000000-0000-4000-8000-000000000511` e premere "Scarica documento".
+  **Risultato atteso:** compare il pulsante "Scarica documento" e solo al clic viene generato e aperto un link firmato temporaneo (`createSignedUrl`, validità 600 secondi, mai `getPublicUrl`).
+
+- [ ] **Cosa fare:** provare ad aprire direttamente per URL il documento dell'Unità 2 (`http://localhost:8081/documenti/d0000000-0000-4000-8000-000000000531`), il documento del secondo condominio (`http://localhost:8081/documenti/d0000000-0000-4000-8000-000000000592`) e un id inesistente (`http://localhost:8081/documenti/00000000-0000-4000-8000-000000000999`).
+  **Risultato atteso:** in tutti e tre i casi compare lo stesso identico stato `NonAutorizzato` ("Questo documento non è disponibile") con il pulsante "Torna ai documenti", senza enumerazione.

@@ -1,6 +1,5 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import { DocumentiScreen } from '@/screens/DocumentiScreen';
 
 export default function DocumentiPage() {
-  return <PaginaInArrivo voceId="documenti" />;
+  return <DocumentiScreen />;
 }
