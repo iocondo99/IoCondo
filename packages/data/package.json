@@ -10,7 +10,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc --noEmit -p tsconfig.json",
-    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test src/auth/authMessages.test.ts src/profilo/profiloLogic.test.ts src/profilo/navigazione.test.ts src/home/homeLogic.test.ts src/inviti/invitiLogic.test.ts src/pagamenti/pagamentiLogic.test.ts src/comunicazioni/comunicazioniLogic.test.ts src/spese/speseLogic.test.ts src/documenti/__tests__/documentiLogic.test.ts src/documenti/__tests__/documentiService.test.ts src/segnalazioni/__tests__/segnalazioniLogic.test.ts src/segnalazioni/__tests__/segnalazioniService.test.ts"
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test src/auth/authMessages.test.ts src/profilo/profiloLogic.test.ts src/profilo/navigazione.test.ts src/home/homeLogic.test.ts src/inviti/invitiLogic.test.ts src/pagamenti/pagamentiLogic.test.ts src/comunicazioni/comunicazioniLogic.test.ts src/spese/speseLogic.test.ts src/documenti/__tests__/documentiLogic.test.ts src/documenti/__tests__/documentiService.test.ts src/segnalazioni/__tests__/segnalazioniLogic.test.ts src/segnalazioni/__tests__/segnalazioniService.test.ts src/assemblee/__tests__/assembleeLogic.test.ts src/assemblee/__tests__/assembleeService.test.ts"
   },
   "dependencies": {
     "@iocondo/shared-types": "*",

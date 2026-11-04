@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import React from 'react';
+import { AssembleeScreen } from '@/screens/AssembleeScreen';
 
 export default function AssembleePage() {
-  return <PaginaInArrivo voceId="assemblee" />;
+  return <AssembleeScreen />;
 }

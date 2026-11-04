@@ -3,6 +3,7 @@
 Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va letto all'inizio di ogni sessione, insieme a `CLAUDE.md`. Se qualcosa qui contrasta con un prompt ricevuto, vince questo file e si chiede conferma all'utente.
 
 ## 1. Regole vincolanti per l'agente
+
 - Si lavora solo sul branch `main`. Non creare branch.
 - Nessun comando `git` (`add`, `commit`, `push`, `pull`, `stash`, `reset`, `checkout`, `restore`, `clean`, `diff`, `status`). Commit e push li fa l'utente.
 - Il database Supabase è in sola lettura per l'agente. Ogni modifica al database passa da file in `supabase/seed-dev/` (dati di prova) o `supabase/da-applicare/` (migrazioni da rivedere), che l'utente esegue a mano nell'SQL Editor. L'agente non esegue mai migrazioni.
@@ -18,6 +19,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 - Un task alla volta. Non spuntare mai le caselle di `docs/TEST_DA_FARE.md`: le spunta l'utente.
 
 ## 2. Architettura (decisioni fisse)
+
 - Un'unica app Expo: `apps/app` (`expo-router`, SDK 58, React 19.3, React Native 0.88).
 - Pacchetti condivisi:
   - `packages/ui`: componenti e token;
@@ -36,6 +38,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 ## 3. Stato del progetto
 
 ### Completato e verificato
+
 - Fondamenta e componenti: B1, B2, B3a, B3b (in `packages/ui/src/components`). Pagina di collaudo `/design-system`.
 - Login, sessione, guardia, uscita, ritorno alla pagina richiesta (verificato con utente reale).
 - Schermata "Scegli la password" per primo accesso e reset (verificata con risposte simulate).
@@ -45,19 +48,23 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 - Comunicazioni: `/comunicazioni` e `/comunicazioni/[id]`, stato letto tramite notifiche dell'utente (verificato dall'utente).
 - Spese: `/spese` e `/spese/[id]`, sola lettura con dati di `spese_extra.sql` (verificato e approvato dall'utente).
 - Documenti: `/documenti` e `/documenti/[id]`, sola lettura per il condòmino con isolamento per condominio e unità, link firmati temporanei (`createSignedUrl` 600 s) e dati di prova in `documenti_extra.sql` (verificato e approvato dall'utente).
+- Segnalazioni: `/segnalazioni`, `/segnalazioni/[id]` e `/ticket-aree-comuni`, apertura ticket con foto, messaggi e isolamento per condominio/unità (verificato e approvato dall'utente).
+- Assemblee: sezione condòmino (`/assemblee` e `/assemblee/[id]`, UC-10), esclusione bozze, espressione voto, percentuali aggregate via RPC `risultati_voto`, link Meet sicuro e verbale nello Storage (`documenti-condominio`) (verificato e approvato dall'utente).
 
 ### Da verificare (stato sconosciuto: chiedere all'utente prima di procedere)
-- Segnalazioni: `/segnalazioni`, `/segnalazioni/[id]` e `/ticket-aree-comuni` (apertura ticket con foto, messaggi, isolamento per condominio/unità, dati di prova in `segnalazioni_extra.sql`): implementate, in attesa di prova dell'utente (vedi `docs/TEST_DA_FARE.md`).
+
 - Migrazione `08a_fix_trigger_e_ruoli.sql` e `08a_verifica.sql`: rimandate dall'utente a dopo.
 - Migrazione `08_...sql` (inviti sicuri): rimandata dall'utente a dopo.
 
 ### Non attivo
+
 - Funzione `invita-utente`: non pubblicata (`npx supabase functions deploy invita-utente`, a cura dell'utente).
 - Configurazione Supabase Auth per gli inviti: Redirect URLs (`/imposta-password`, `/reimposta-password`), template email in italiano, segreto `APP_URL`, SMTP o membro del team per le email di prova.
 - Migrazione 07 (revoke execute funzioni definer): rimandata, file in `supabase/da-applicare/`.
 - Leaked password protection: richiede il piano Pro.
 
 ### Ordine dei lavori da qui in poi
+
 1. Chiudere le voci "Da verificare" (sezione sopra) e completare la configurazione inviti. Finché non è fatto, nessun utente reale può entrare.
 2. Spese: completare e provare, poi committare.
 3. Documenti (`/documenti`): sola lettura, documenti condominiali pubblici/privati secondo RLS, link firmati a tempo, mai URL pubblici.
@@ -70,6 +77,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 10. Pre-rilascio (sezione 5).
 
 ## 4. Debiti tecnici
+
 - Codice demo ancora presente, da non riusare: `apps/app/src/legacy/`, `useParcels`, `useReportIssue`, `RoleContext`, `CondominioContext` di `admin-web`, `useRataPayment` (contiene un pagamento simulato).
 - Servizi duplicati tra `apps/admin-web` e `packages/data`: `admin-web` va migrato, poi eliminato.
 - Richieste doppie al cambio condominio: innocue, da indagare.
@@ -85,6 +93,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 - `engines.node` alla radice: allineare a `>=22.13` (richiesto dall'SDK 58).
 
 ## 5. Checklist pre-rilascio
+
 - [ ] Tutte le caselle di `docs/TEST_DA_FARE.md` spuntate dall'utente.
 - [ ] RLS verificata per ogni tabella toccata, con test di isolamento da un secondo condòmino.
 - [ ] Bucket privati e link firmati per documenti, bollettini e allegati.
@@ -97,6 +106,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 - [ ] `apps/admin-web` eliminato dopo verifica di tutte le sue funzioni.
 
 ## 6. Procedura per ogni task (per l'agente)
+
 1. Leggere `CLAUDE.md`, questo file, `docs/DECISIONI.md`, `docs/TEST_DA_FARE.md`.
 2. Se il task tocca dati: analisi in sola lettura dello schema reale. Riportare in massimo 10 righe. Fermarsi se emerge un rischio di sicurezza o uno schema diverso dalle attese.
 3. Implementare: logica pura e test in `packages/data`; componenti in `packages/ui`; schermate e rotte in `apps/app`.
@@ -107,6 +117,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 8. Aggiornare la sezione 3 di questo file solo con lo stato "da verificare". Non segnare come completato ciò che l'utente non ha ancora provato.
 
 ## 7. Procedura per l'utente
+
 - Commit: `git status --short`, `git add -A`, `git commit -m "..."`, `git push origin main`. Prima del commit controllare che non compaiano `.env`, `.playwright-mcp` o un `tsconfig.json` nella radice.
 - Script SQL: copiare sempre dal file sul PC, mai dalla chat. Eseguire nell'SQL Editor.
 - Prima di ogni migrazione: revisione di sicurezza in sola lettura da parte dell'agente.
@@ -115,5 +126,5 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 - Dati di prova: `01` e `03` sono alla base; `05`, `comunicazioni_extra` e `spese_extra` sono opzionali per i test.
 
 ## 8. Prompt di avvio per ogni nuova sessione
-> Leggi `CLAUDE.md` e `docs/PIANO_LAVORO.md`. Riassumi in 10 righe la sezione 3 e dimmi quali voci "Da verificare" devo chiudere prima di iniziare. Non iniziare nessun task finché non ti confermo.
 
+> Leggi `CLAUDE.md` e `docs/PIANO_LAVORO.md`. Riassumi in 10 righe la sezione 3 e dimmi quali voci "Da verificare" devo chiudere prima di iniziare. Non iniziare nessun task finché non ti confermo.

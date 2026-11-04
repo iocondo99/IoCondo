@@ -479,3 +479,42 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 
 - [ ] **Cosa fare:** eseguire `supabase/seed-dev/segnalazioni_extra_pulizia.sql`.
   **Risultato atteso:** termina con `NOTICE: Dati extra Segnalazioni rimossi.` e i ticket di prova spariscono dall'app.
+
+---
+
+## Assemblee (/assemblee e /assemblee/[id])
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/assemblee_extra.sql` (dopo `01_dati_prova.sql` e `03_dati_home.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati extra Assemblee pronti per il condominio ...` senza errori; rieseguendolo una seconda volta non crea duplicati.
+
+- [ ] **Cosa fare:** dalla Home (`/home`) verificare la scheda riepilogativa "Assemblea" su desktop (1440 px), tablet (820 px) e smartphone (390 px) e premere il pulsante contestuale "Dettagli".
+  **Risultato atteso:** la scheda mostra la data dell'assemblea convocata futura, il testo descrittivo ("Prossima assemblea") e premendo il pulsante apre `/assemblee` (oppure il dettaglio diretto dell'assemblea convocata).
+
+- [ ] **Cosa fare:** aprire `/assemblee` da barra laterale (desktop) o barra inferiore (smartphone) su 1440 px, 820 px e 390 px.
+  **Risultato atteso:** si apre la pagina con `PageHeader` ("Assemblee" e sottotitolo dinamico col nome del condominio), 3 `StatCard` reali ("Prossima assemblea", "Assemblee dell’anno", "Votazioni aperte") e la `ResponsiveDataView` con le assemblee convocate, in corso e concluse (`Data assemblea`, `Luogo / Modalità`, `Stato` con `Badge`, `Ordine del giorno`). L'assemblea bozza (`...780`) e quella del secondo condominio (`...792`) NON compaiono, nemmeno per un utente con ruolo ADMIN.
+
+- [ ] **Cosa fare:** in `/assemblee` provare i `FilterChips` per stato (`Tutte`, `Convocate`, `In corso`, `Concluse`), la `SearchBar` per ordine del giorno o luogo, "Azzera filtri", l'ordinamento cronologico per data (da intestazione tabella con Invio/Spazio o da selettore "Ordina per" su smartphone) e la `Pagination`.
+  **Risultato atteso:** filtri e ricerca aggiornano il conteggio e le righe visibili; se nessun risultato corrisponde compare `EmptyState` con il pulsante "Azzera filtri" che ripristina la vista; l'ordinamento inverte correttamente l'ordine cronologico.
+
+- [ ] **Cosa fare:** dalla lista in `/assemblee` cliccare sulla riga dell'assemblea `IN_CORSO` per aprire il dettaglio (`/assemblee/d0000000-0000-4000-8000-000000000730`).
+  **Risultato atteso:** si apre `/assemblee/[id]` con `Breadcrumbs` (`Home / Assemblee / Assemblea del ...`), card riepilogo con `Badge` "In corso", data e orario, modalità, riquadro "Riunione online disponibile" con pulsante "Partecipa alla riunione online" (apre link `https://meet.google.com/live-condominio-prova`), e sotto l'elenco dei punti ODG.
+
+- [ ] **Cosa fare:** nel punto ODG 1 ("Intervento urgente riparazione pluviale e grondaia", con votazione aperta) dell'assemblea in corso, premere "Favorevole" (o "Contrario" o "Astenuto").
+  **Risultato atteso:** compare l'indicatore di caricamento, l'avviso di conferma "Voto registrato con successo", il voto espresso viene memorizzato nel database su `assemblee_voti` associato all'unità dell'utente e il pulsante selezionato viene evidenziato con badge "Espresso: Favorevole".
+
+- [ ] **Cosa fare:** verificare che per i punti ODG i risultati mostrati sotto ("Risultati complessivi dell’assemblea") siano aggregati (percentuale teste con numero voti e percentuale millesimi con quote) e che NON compaiano i voti nominali o i nomi dei singoli vicini (anonimato e rispetto UC-10).
+
+- [ ] **Cosa fare:** aprire il dettaglio dell'assemblea conclusa (`/assemblee/d0000000-0000-4000-8000-000000000750`).
+  **Risultato atteso:** `Badge` "Conclusa", punti ODG con votazioni chiuse, risultati storici aggregati calcolati tramite la RPC `risultati_voto` con quote millesimali (150 su 270 millesimi favorevoli, 120 contrari). Nella sezione "Verbale dell’assemblea" compare l'avviso che il file non è ancora presente nello Storage finché non viene caricato un PDF.
+
+- [ ] **Cosa fare:** caricare un file PDF di prova chiamato `verbale_assemblea_approvazione_2026.pdf` nel bucket privato `documenti-condominio` al percorso `d0000000-0000-4000-8000-000000000001/verbali/`, ricaricare la pagina dell'assemblea conclusa e premere "Scarica verbale".
+  **Risultato atteso:** compare il pulsante "Scarica verbale" e al clic si apre un link firmato temporaneo (`createSignedUrl`, 600 secondi, mai URL pubblico).
+
+- [ ] **Cosa fare:** provare ad aprire direttamente per URL l'assemblea in stato bozza (`http://localhost:8081/assemblee/d0000000-0000-4000-8000-000000000780`), l'assemblea del secondo condominio (`.../assemblee/d0000000-0000-4000-8000-000000000792`) e un id inesistente (`.../assemblee/00000000-0000-4000-8000-000000000999`).
+  **Risultato atteso:** in tutti e tre i casi compare lo stesso identico stato `NonAutorizzato` ("Questa assemblea non è disponibile") con il pulsante "Torna alle assemblee", senza enumerazione.
+
+- [ ] **Cosa fare:** a 1440 px, 820 px, 390 px e con zoom al 200% navigare con Tab elenco e dettaglio assemblea.
+  **Risultato atteso:** nessuno scroll orizzontale, anello di focus `#0284C7` sempre visibile e mai ritagliato su tutti i controlli interattivi (pulsanti, chips, righe, barra di ricerca).
+
+- [ ] **Cosa fare:** eseguire `supabase/seed-dev/assemblee_extra_pulizia.sql`.
+  **Risultato atteso:** termina con `NOTICE: Dati extra Assemblee rimossi con successo.` e i dati di prova spariscono dall'applicazione.

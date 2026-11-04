@@ -21,7 +21,12 @@ export type BadgeStatus =
   | 'consuntivo'
   | 'chiuso'
   | 'condominiale'
-  | 'personale';
+  | 'personale'
+  | 'convocata'
+  | 'conclusa'
+  | 'annullata'
+  | 'votazione-aperta'
+  | 'votazione-chiusa';
 
 type Tone = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
@@ -44,6 +49,11 @@ export const badgeStatuses: Record<BadgeStatus, { label: string; icon: IconName;
   chiuso: { label: 'Chiuso', icon: 'lock', tone: 'neutral' },
   condominiale: { label: 'Condominiale', icon: 'building-2', tone: 'info' },
   personale: { label: 'Personale', icon: 'home', tone: 'neutral' },
+  convocata: { label: 'Convocata', icon: 'calendar-days', tone: 'info' },
+  conclusa: { label: 'Conclusa', icon: 'circle-check', tone: 'success' },
+  annullata: { label: 'Annullata', icon: 'circle-alert', tone: 'neutral' },
+  'votazione-aperta': { label: 'Aperta', icon: 'clock', tone: 'warning' },
+  'votazione-chiusa': { label: 'Chiusa', icon: 'lock', tone: 'neutral' },
 };
 
 const tones: Record<Tone, { foreground: string; background: string }> = {
