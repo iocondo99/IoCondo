@@ -1,17 +1,19 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button, Card, colors, space, textStyle, useBreakpoint } from '@iocondo/ui';
-import type { Apri } from './SchedeRiepilogo';
+
+interface Props {
+  onSegnala: () => void;
+  onConsulta: () => void;
+}
 
 /**
- * Accessi rapidi alle segnalazioni. Per ora entrambi portano alla pagina Segnalazioni (che spiega che è in
- * arrivo): non esistono ancora una schermata "nuova segnalazione" e un elenco delle richieste.
+ * Accessi rapidi alle segnalazioni:
+ * - "Segnala un problema" apre direttamente il popup per inserire una nuova segnalazione.
+ * - "Consulta le richieste" apre la pagina con l'elenco delle segnalazioni.
  */
-export function SegnalazioniRapide({ apri }: { apri: Apri }) {
+export function SegnalazioniRapide({ onSegnala, onConsulta }: Props) {
   const { breakpoint, isMobile } = useBreakpoint();
-  const segnala = apri('segnalazioni', 'Apre la pagina Segnalazioni');
-  const consulta = apri('segnalazioni', 'Apre la pagina Segnalazioni');
-  if (!segnala || !consulta) return null;
 
   return (
     <Card title="Segnalazioni rapide">
@@ -20,10 +22,24 @@ export function SegnalazioniRapide({ apri }: { apri: Apri }) {
       </Text>
       <View style={[styles.azioni, isMobile && styles.colonna]}>
         <View style={styles.azione}>
-          <Button fullWidth variant="secondary" icon="wrench" label="Segnala un problema" {...segnala} />
+          <Button
+            fullWidth
+            variant="secondary"
+            icon="wrench"
+            label="Segnala un problema"
+            accessibilityHint="Apri il modulo per inviare una nuova segnalazione"
+            onPress={onSegnala}
+          />
         </View>
         <View style={styles.azione}>
-          <Button fullWidth variant="secondary" icon="inbox" label="Consulta le richieste" {...consulta} />
+          <Button
+            fullWidth
+            variant="secondary"
+            icon="inbox"
+            label="Consulta le richieste"
+            accessibilityHint="Apri l'elenco delle segnalazioni"
+            onPress={onConsulta}
+          />
         </View>
       </View>
     </Card>

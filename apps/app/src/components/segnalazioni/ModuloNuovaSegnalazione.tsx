@@ -290,7 +290,7 @@ export function ModuloNuovaSegnalazione(props: Props) {
 }
 
 const styles = StyleSheet.create({
-  campi: { gap: space[4] },
+  campi: { gap: space[4], paddingBottom: space[2] },
   nota: { color: colors.text.secondary },
 });
 

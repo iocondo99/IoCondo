@@ -1,3 +1,15 @@
+export interface DettagliUnitaUtente {
+  unitaId: string;
+  palazzo: string;
+  scala?: string | null;
+  interno: string;
+  piano?: number | null;
+  mq?: number | null;
+  tipoPossesso?: string | null;
+  quotaPossesso?: number | null;
+  millesimi?: number | null;
+}
+
 import type { TypedSupabaseClient } from '@iocondo/supabase-client';
 import type { INotifica } from '@iocondo/shared-types';
 import {
@@ -124,6 +136,84 @@ export function createProfiloService(db: TypedSupabaseClient) {
     /**
      * Aggiorna la password dell'utente tramite il client Auth.
      */
+        /**
+     * Dati delle unità immobiliari dell'utente nel condominio selezionato (palazzina, interno, piano, millesimi).
+     */
+    async caricaUnitaCondominio(userId: string, condominioId: string): Promise<DettagliUnitaUtente[]> {
+      const oggi = new Date().toISOString().slice(0, 10);
+      try {
+        const [anagraficheRes, ruoliRes, palazziRes] = await Promise.all([
+          db
+            .from('anagrafiche_unita')
+            .select('unita_id, tipo_possesso, quota_possesso')
+            .eq('utente_id', userId)
+            .or(`data_fine.is.null,data_fine.gte.${oggi}`),
+          db
+            .from('utente_entita_ruolo')
+            .select('unita_id')
+            .eq('utente_id', userId)
+            .eq('condominio_id', condominioId)
+            .not('unita_id', 'is', null),
+          db.from('palazzi').select('id, nome_identificativo').eq('condominio_id', condominioId),
+        ]);
+
+        const anagrafiche = unwrapMaybe(anagraficheRes) ?? [];
+        const ruoli = unwrapMaybe(ruoliRes) ?? [];
+        const palazzi = unwrapMaybe(palazziRes) ?? [];
+        const palazziMap = new Map(palazzi.map((p) => [p.id, p.nome_identificativo]));
+
+        const candidateIds = new Set<string>();
+        for (const a of anagrafiche) candidateIds.add(a.unita_id);
+        for (const r of ruoli) if (r.unita_id) candidateIds.add(r.unita_id);
+
+        if (candidateIds.size === 0 || palazzi.length === 0) return [];
+
+        const unitaRes = await db
+          .from('unita_immobiliari')
+          .select('id, palazzo_id, scala_colonna_id, interno, piano, mq')
+          .in('id', [...candidateIds])
+          .in('palazzo_id', [...palazziMap.keys()]);
+
+        const unitaList = unwrapMaybe(unitaRes) ?? [];
+        if (unitaList.length === 0) return [];
+
+        const unitaIds = unitaList.map((u) => u.id);
+
+        const [scaleRes, quoteRes] = await Promise.all([
+          db.from('scale_colonne').select('id, nome').in('palazzo_id', [...palazziMap.keys()]),
+          db.from('quote_millesimali').select('unita_id, valore_millesimale').in('unita_id', unitaIds),
+        ]);
+
+        const scaleMap = new Map((unwrapMaybe(scaleRes) ?? []).map((s) => [s.id, s.nome]));
+        const quoteMap = new Map<string, number>();
+        for (const q of unwrapMaybe(quoteRes) ?? []) {
+          const val = Number(q.valore_millesimale) || 0;
+          if (!quoteMap.has(q.unita_id) || val > (quoteMap.get(q.unita_id) ?? 0)) {
+            quoteMap.set(q.unita_id, val);
+          }
+        }
+
+        const anagraficaMap = new Map(anagrafiche.map((a) => [a.unita_id, a]));
+
+        return unitaList.map((u) => {
+          const anag = anagraficaMap.get(u.id);
+          return {
+            unitaId: u.id,
+            palazzo: palazziMap.get(u.palazzo_id) || 'Palazzina',
+            scala: u.scala_colonna_id ? scaleMap.get(u.scala_colonna_id) ?? null : null,
+            interno: u.interno,
+            piano: u.piano,
+            mq: u.mq ? Number(u.mq) : null,
+            tipoPossesso: anag?.tipo_possesso ?? 'PROPRIETARIO',
+            quotaPossesso: anag?.quota_possesso ? Number(anag.quota_possesso) : 100,
+            millesimi: quoteMap.get(u.id) ?? null,
+          };
+        });
+      } catch {
+        return [];
+      }
+    },
+
     async cambiaPassword(password: string): Promise<void> {
       const res = await db.auth.updateUser({ password });
       if (res.error) throw res.error;

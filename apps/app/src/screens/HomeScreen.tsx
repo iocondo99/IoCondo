@@ -1,11 +1,10 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
-import { oggiIso, titoloSaluto } from '@iocondo/data';
+import { oggiIso, titoloSaluto, type ModalitaSegnalazioni } from '@iocondo/data';
 import { Card, ListRow, PageHeader, layout, space, useBreakpoint } from '@iocondo/ui';
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
 import { GrigliaSchede } from '@/components/home/GrigliaSchede';
-import { ProssimeScadenze } from '@/components/home/ProssimeScadenze';
 import {
   SchedaAssemblea,
   SchedaComunicazioni,
@@ -15,6 +14,7 @@ import {
 } from '@/components/home/SchedeRiepilogo';
 import { SegnalazioniRapide } from '@/components/home/SegnalazioniRapide';
 import { UltimeComunicazioni } from '@/components/home/UltimeComunicazioni';
+import { ModuloNuovaSegnalazione } from '@/components/segnalazioni/ModuloNuovaSegnalazione';
 import { useProfilo } from '@/context/ProfiloContext';
 import { useBlocco } from '@/hooks/useBlocco';
 import { services } from '@/services';
@@ -35,7 +35,7 @@ export function HomeScreen() {
 function HomeContenuto() {
   const { profilo, condominio, ruoli, voci } = useProfilo();
   const router = useRouter();
-  const { isDesktop, isMobile } = useBreakpoint();
+  const { isMobile } = useBreakpoint();
 
   // Garantiti da HomeScreen: la Home non si disegna senza profilo e condominio.
   const utenteId = profilo?.id ?? '';
@@ -47,6 +47,11 @@ function HomeContenuto() {
   // Un portiere "puro" non ha accesso contabile (PRD, ruoli): niente spese né scadenze, e niente query.
   const vedeSpese = ruoli.has('CONDOMINO');
   const vedeComunicazioni = voci.some((v) => v.id === 'comunicazioni');
+  const puoSegnalare = voci.some((v) => v.id === 'segnalazioni' || v.id === 'ticket-aree-comuni');
+  const modalitaSegnalazione: ModalitaSegnalazioni = ruoli.has('CONDOMINO') ? 'condomino' : 'portiere';
+  const rottaConsulta = modalitaSegnalazione === 'condomino' ? '/segnalazioni' : '/ticket-aree-comuni';
+
+  const [moduloSegnalazioneAperto, setModuloSegnalazioneAperto] = useState(false);
 
   const spese = useBlocco(() => services.home.rateDelResidente(utenteId, condominioId), chiave, vedeSpese);
   const comunicazioni = useBlocco(
@@ -78,10 +83,15 @@ function HomeContenuto() {
     [voci, router],
   );
 
+  const alCreataSegnalazione = useCallback(
+    (ticketId: string) => {
+      setModuloSegnalazioneAperto(false);
+      router.push(`/${modalitaSegnalazione === 'portiere' ? 'ticket-aree-comuni' : 'segnalazioni'}/${ticketId}` as Href);
+    },
+    [modalitaSegnalazione, router],
+  );
+
   const indirizzo = [condominio?.indirizzo, condominio?.citta].filter(Boolean).join(', ');
-  const scadenze = vedeSpese ? (
-    <ProssimeScadenze blocco={spese.blocco} ricarica={spese.ricarica} apri={apri} oggi={oggi} />
-  ) : null;
   const ultime = vedeComunicazioni ? (
     <UltimeComunicazioni blocco={comunicazioni.blocco} ricarica={comunicazioni.ricarica} apri={apri} />
   ) : null;
@@ -97,7 +107,12 @@ function HomeContenuto() {
         </View>
         <View style={isMobile ? undefined : styles.condominio}>
           <Card>
-            <ListRow icon="building-2" tile="navy" title={condominio?.nome ?? ''} description={indirizzo || undefined} />
+            <ListRow
+              icon="building-2"
+              tile="navy"
+              title={condominio?.nome ?? ''}
+              description={indirizzo || undefined}
+            />
           </Card>
         </View>
       </View>
@@ -113,20 +128,25 @@ function HomeContenuto() {
         <SchedaAssemblea blocco={assemblea.blocco} ricarica={assemblea.ricarica} apri={apri} />
       </GrigliaSchede>
 
-      {isDesktop ? (
-        <View style={styles.coppia}>
-          {ultime ? <View style={styles.meta}>{ultime}</View> : null}
-          {scadenze ? <View style={styles.meta}>{scadenze}</View> : null}
-        </View>
-      ) : (
-        <>
-          {/* Su tablet e smartphone prima ciò che richiede un'azione (sez. 6.3): scadenze, poi comunicazioni. */}
-          {scadenze}
-          {ultime}
-        </>
-      )}
+      {ultime}
 
-      <SegnalazioniRapide apri={apri} />
+      {puoSegnalare ? (
+        <SegnalazioniRapide
+          onSegnala={() => setModuloSegnalazioneAperto(true)}
+          onConsulta={() => router.push(rottaConsulta as Href)}
+        />
+      ) : null}
+
+      {puoSegnalare ? (
+        <ModuloNuovaSegnalazione
+          visible={moduloSegnalazioneAperto}
+          onClose={() => setModuloSegnalazioneAperto(false)}
+          modalita={modalitaSegnalazione}
+          utenteId={utenteId}
+          condominioId={condominioId}
+          onCreata={alCreataSegnalazione}
+        />
+      ) : null}
     </View>
   );
 }
@@ -137,6 +157,4 @@ const styles = StyleSheet.create({
   colonna: { flexDirection: 'column', alignItems: 'stretch' },
   saluto: { flex: 1, minWidth: 0 },
   condominio: { flexBasis: '36%', flexShrink: 0, maxWidth: layout.formMaxWidth },
-  coppia: { flexDirection: 'row', alignItems: 'flex-start', gap: space[6] },
-  meta: { flex: 1, minWidth: 0 },
 });

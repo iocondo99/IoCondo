@@ -150,7 +150,13 @@ export function Modal({
           {children ? (
             <ScrollView
               style={styles.body}
-              contentContainerStyle={styles.bodyContent}
+              contentContainerStyle={[
+                styles.bodyContent,
+                {
+                  paddingRight: isMobile ? space[4] : space[6],
+                  paddingBottom: isMobile ? space[4] : space[6],
+                },
+              ]}
               keyboardShouldPersistTaps="handled"
             >
               {children}
@@ -215,7 +221,13 @@ const styles = StyleSheet.create({
   // Il contenitore scorrevole ritaglia ciò che esce dal suo bordo, contorno di focus compreso:
   // il padding interno lo fa stare dentro, il margine negativo uguale lascia invariato il layout.
   body: { flexShrink: 1, minHeight: 0, margin: -focusRingInset },
-  bodyContent: { gap: space[4], padding: focusRingInset },
+  bodyContent: {
+    gap: space[4],
+    paddingTop: focusRingInset,
+    paddingLeft: focusRingInset,
+    paddingRight: space[4],
+    paddingBottom: space[4],
+  },
   actions: { gap: space[3] },
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end' },
   actionsStacked: { flexDirection: 'column-reverse', alignItems: 'stretch' },

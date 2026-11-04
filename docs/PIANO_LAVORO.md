@@ -43,7 +43,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 - Login, sessione, guardia, uscita, ritorno alla pagina richiesta (verificato con utente reale).
 - Schermata "Scegli la password" per primo accesso e reset (verificata con risposte simulate).
 - Layout per ruolo, profilo, selettore vista, navigazione desktop/tablet/mobile (verificato con profili simulati).
-- Home del condòmino con dati reali e isolamento delle rate (verificato).
+- Home del condòmino con dati reali e isolamento delle rate; layout aggiornato con StatCard "Spese e scadenze", lista "Ultime comunicazioni" a tutta larghezza e card "Segnalazioni rapide" ripristinata con apertura diretta del popup di nuova segnalazione (verificato).
 - Pagamenti: `/pagamenti` e `/pagamenti/[id]`, sola lettura, nessun pagamento online (verificato).
 - Comunicazioni: `/comunicazioni` e `/comunicazioni/[id]`, stato letto tramite notifiche dell'utente (verificato dall'utente).
 - Spese: `/spese` e `/spese/[id]`, sola lettura con dati di `spese_extra.sql` (verificato e approvato dall'utente).
@@ -54,6 +54,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 
 - Assemblee: sezione condòmino (`/assemblee` e `/assemblee/[id]`, UC-10), esclusione bozze, espressione voto, percentuali aggregate via RPC `risultati_voto`, link Meet sicuro e verbale nello Storage (`documenti-condominio`) (da verificare dall'utente).
 - Registro pacchi: schermata `/pacchi`, modali di arrivo e ritiro con firma, isolamento unità per condòmino e dati di prova in `supabase/seed-dev/pacchi_extra.sql` (da verificare dall'utente).
+- Impostazioni e Assistenza: schermate `/impostazioni` e `/assistenza`, modifica dati profilo (`nome_cognome`, `telefono`), cambio password via Supabase Auth, preferenze notifiche locali (`iocondo.preferenze.v1`), contatti dell'amministrazione affiancati a Guida e FAQ, numeri utili e pronto intervento H24 e dati di prova in `supabase/seed-dev/assistenza_extra.sql` (da verificare dall'utente).
 - Migrazione `08a_fix_trigger_e_ruoli.sql` e `08a_verifica.sql`: rimandate dall'utente a dopo.
 - Migrazione `08_...sql` (inviti sicuri): rimandata dall'utente a dopo.
 
@@ -72,7 +73,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 4. Segnalazioni: condòmino apre ticket con foto e segue lo stato (REQ-C03, REQ-C04). Portiere: ticket aree comuni. [COMPLETATO]
 5. Assemblee: condòmino vota e vede le percentuali; amministratore vede il report completo (UC-10). [COMPLETATO]
 6. Registro pacchi (`/pacchi`): portiere registra pacchi in arrivo e segna il ritiro con firma; condòmino consulta i propri pacchi in giacenza (UC-07).
-7. Impostazioni e Assistenza (`/impostazioni`, `/assistenza`): profilo personale, cambio password, preferenze notifiche, contatti del condominio e numeri di emergenza.
+7. Impostazioni e Assistenza (`/impostazioni`, `/assistenza`): profilo personale, cambio password, preferenze notifiche, contatti del condominio e numeri di emergenza. [COMPLETATO - da verificare]
 8. Super admin: Amministratori (invito ruolo ADMIN, collegamento `licenze_saas`), Piani e abbonamenti, Fatture.
 9. Amministratore (gruppo `(admin)`): Dashboard, Struttura (palazzi, scale/colonne, unità, anagrafiche, CSV millesimi), Contabilità (bilanci, rate, ripartizione), Manutenzione (ticket e fornitori), Comunicazioni in scrittura, Documenti, Assemblee.
 10. Fornitore: `/fornitore/[token]` tramite funzione o RPC che valida il token e restituisce solo i dati di quel ticket. Nessuna policy aperta ad `anon` sulle tabelle dei ticket.

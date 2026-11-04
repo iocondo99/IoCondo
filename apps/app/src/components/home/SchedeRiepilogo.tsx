@@ -26,7 +26,7 @@ const errore = (messaggio: string, ricarica: () => void) => ({ message: messaggi
 
 /** Spese condominiali: totale ancora da pagare. Il pagamento online è Fase 2: l'azione porta solo alle rate. */
 export function SchedaSpese({ blocco, ricarica, apri, oggi }: BloccoProps<RataHome[]> & { oggi: string }) {
-  const titolo = 'Spese condominiali';
+  const titolo = 'Spese e scadenze';
   if (blocco.stato !== 'pronto') {
     return (
       <StatCard

@@ -236,8 +236,8 @@ Legenda stati: la spunta vale solo se il test è passato sul database reale (non
 
 - [ ] **Cosa fare:** creare un secondo utente di prova senza unità né anagrafica
   nel condominio di prova, accedere con quell'utente.
-  **Risultato atteso:** la StatCard Spese mostra "€ 0,00 — Non ci sono rate
-  da pagare"; la sezione Prossime scadenze è vuota; in SQL con
+  **Risultato atteso:** la StatCard Spese e scadenze mostra "€ 0,00 — Non ci sono rate
+  da pagare"; in SQL con
   `SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claims" TO ...`
   il conteggio di `rate_dettaglio` è 0 per quell'utente.
 
@@ -273,6 +273,16 @@ Legenda stati: la spunta vale solo se il test è passato sul database reale (non
   **Risultato atteso:** la barra mostra le voci previste (Home, Spese,
   Documenti, Messaggi, Altro); le voci hanno etichette visibili e aree
   toccabili di almeno 44 px; la voce attiva è evidenziata.
+
+### D6 — Home: verifica Spese e scadenze, Ultime comunicazioni e Segnalazioni rapide
+
+- [ ] **Cosa fare:** accedere con l'utente di prova alla Home (`/home`) a 1440 px, 820 px e 390 px.
+  **Risultato atteso:** la prima StatCard in alto si intitola "Spese e scadenze" (mostra importo da pagare o "Non ci sono rate da pagare" e pulsante "Vedi le rate" se presenti insoluti); la sezione "Prossime scadenze" NON è presente; al di sotto della griglia a 4 schede compare la card "Ultime comunicazioni" a larghezza piena con link "Vedi tutte"; al di sotto compare la card "Segnalazioni rapide" con due pulsanti a comportamento differenziato: "Segnala un problema" apre direttamente la modale popup di nuova segnalazione senza lasciare la Home (con campi, validazioni, focus trap e barra di scorrimento ben distanziata dai campi e dal drop file), mentre "Consulta le richieste" porta a `/segnalazioni`; nessun elemento deborda orizzontalmente.
+
+### D7 — Header: Dropdown profilo e focus outline degli elementi del menu
+
+- [ ] **Cosa fare:** accedere con l'utente di prova a 1440 px, 820 px e 390 px e fare clic sull'avatar/nome utente nell'Header ("Luca Romano") per aprire il menu a tendina profilo. Navigare tra le voci "Impostazioni" ed "Esci dall'account" tramite click e tramite tastiera (frecce FrecciaGiù/FrecciaSu e Tab).
+  **Risultato atteso:** il menu si apre correttamente sotto il pulsante trigger; la prima voce ("Impostazioni") riceve il focus con un indicatore di selezione (`#0284C7`) dagli angoli arrotondati (raggio 6px), perfettamente armonizzato e distanziato con 4px di padding all'interno del contenitore, senza spigoli vivi ritagliati né tagli diagonali ai bordi; la navigazione con tastiera ed Esc chiudono il menu restituendo il focus al pulsante trigger senza errori in console.
 
 ---
 
@@ -547,3 +557,50 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 
 - [ ] **Cosa fare:** eseguire `supabase/seed-dev/pacchi_extra_pulizia.sql`.
   **Risultato atteso:** termina con `NOTICE: Dati extra Registro Pacchi rimossi con successo.` e i record di prova spariscono dall'applicazione.
+
+
+---
+
+## Impostazioni e Assistenza (/impostazioni e /assistenza)
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/assistenza_extra.sql` (dopo `01_dati_prova.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati extra Assistenza pronti per il condominio ...` senza errori; l'esecuzione è idempotente e rieseguendola non crea duplicati.
+
+- [ ] **Cosa fare:** da utente autenticato aprire `/impostazioni` da barra laterale (desktop e tablet a 1440 px e 820 px) o dal menu profilo / navigazione mobile (390 px).
+  **Risultato atteso:** si apre la pagina con `Breadcrumbs` (`Home / Impostazioni`), `PageHeader` ("Impostazioni" con descrizione) e quattro schede strutturate: "Profilo personale", "Sicurezza dell'account", "Preferenze notifiche" e "Sessione". Su desktop a 1440 px la colonna sinistra presenta "Profilo personale" e la colonna destra presenta "Sicurezza dell'account" e "Preferenze notifiche", con la scheda del profilo che si allinea perfettamente all'altezza della colonna destra terminando rigorosamente allo stesso livello orizzontale di "Preferenze notifiche" (sia il bordo scheda a 1222 px sia gli elementi inferiori a 1197 px con "Salva modifiche" a sinistra e la nota informativa di salvataggio automatico a destra); sotto le colonne la scheda "Sessione" si estende a tutta larghezza con testo a sinistra e pulsante "Esci dall'account" a destra. Su tablet (820 px) e smartphone (390 px) le schede scorrono verticalmente in ordine logico senza debordamenti né scroll orizzontale.
+
+- [ ] **Cosa fare:** nella scheda "Profilo personale" verificare le informazioni visualizzate (iniziali avatar corrette, email di accesso, ruolo attivo con nome del condominio).
+  **Risultato atteso:** le informazioni visualizzate corrispondono al profilo autenticato con il nome utente allineato al centro del badge di ruolo e centrato con l'Avatar; è presente il riquadro "Dati dell'appartamento" con palazzina/scala, interno, piano, quota millesimale e badge di possesso; il campo email è disabilitato in sola lettura con nota descrittiva che ne chiarisce la gestione amministrativa.
+
+- [ ] **Cosa fare:** modificare il campo "Nome e cognome" inserendo un solo carattere e premere "Salva modifiche"; successivamente inserire un numero di telefono non valido (es. "abc") e premere "Salva modifiche".
+  **Risultato atteso:** il sistema blocca il salvataggio evidenziando il campo con `aria-invalid="true"` e mostrando un messaggio di errore chiaro ("Il nome deve contenere almeno 2 caratteri" o "Inserisci un numero di telefono valido"); nessuna richiesta non valida viene inviata a Supabase.
+
+- [ ] **Cosa fare:** inserire un nome valido (es. "Luca Romano") e un recapito telefonico corretto (es. "+39 333 1000004") e premere "Salva modifiche".
+  **Risultato atteso:** compare l'indicatore di caricamento, l'avviso di conferma "Modifiche salvate con successo", l'header dell'applicazione aggiorna le iniziali e il nome se modificato, e il database registra i nuovi recapiti su `utenti`.
+
+- [ ] **Cosa fare:** nella scheda "Sicurezza dell'account" inserire una password inferiore a 8 caratteri (es. "pass") e nel campo di conferma un testo diverso (es. "different"), poi premere "Aggiorna password".
+  **Risultato atteso:** i campi mostrano gli avvisi di validazione ("La password è troppo corta: servono almeno 8 caratteri" e "Le due password non coincidono"); il pulsante è disabilitato se i campi sono vuoti; l'icona a occhio consente di mostrare o nascondere la password inserita.
+
+- [ ] **Cosa fare:** nella scheda "Preferenze notifiche" attivare e disattivare i toggle per "Notifiche email", "Avvisi bacheca e messaggi" e "Promemoria scadenze rate". Ricaricare la pagina con F5.
+  **Risultato atteso:** i cambi di stato vengono salvati immediatamente nello storage locale con la chiave `iocondo.preferenze.v1` senza perdere le preferenze di navigazione preesistenti; al ricaricamento della pagina lo stato dei toggle resta persistito come impostato.
+
+- [ ] **Cosa fare:** nella scheda "Sessione" premere "Esci dall'account". Nella finestra di dialogo che compare premere "Annulla"; premere nuovamente "Esci dall'account" e poi "Esci".
+  **Risultato atteso:** il pulsante apre un `ConfirmDialog` accessibile con focus gestito e ruoli ARIA; "Annulla" chiude la modale mantenendo la sessione attiva; "Esci" disconnette in sicurezza l'utente, pulisce lo stato e reindirizza alla schermata `/login`.
+
+- [ ] **Cosa fare:** aprire `/assistenza` da barra laterale (desktop) o dal footer/menu su 1440 px, 820 px e 390 px.
+  **Risultato atteso:** si apre la pagina con `Breadcrumbs` (`Home / Assistenza`), `PageHeader` ("Assistenza e contatti"), con le 3 schede ("Amministrazione del condominio", "Guida e FAQ", "Pronto intervento e numeri utili") disposte verticalmente una sotto l'altra a tutta larghezza (960 px su desktop, 100% su tablet e smartphone); su desktop l'anteprima delle 4 FAQ si dispone su griglia a 2 colonne. Nessun elemento genera scroll orizzontale.
+
+- [ ] **Cosa fare:** nella scheda "Amministrazione del condominio" verificare i dati dello studio (nome studio, referente, indirizzo, orari) e testare i pulsanti "Chiama" e "Scrivi".
+  **Risultato atteso:** i recapiti mostrano i dati reali dell'amministratore del condominio attivo; "Chiama" attiva il protocollo `tel:` e "Scrivi" attiva `mailto:` con l'indirizzo email precompilato.
+
+- [ ] **Cosa fare:** nella scheda "Guida e FAQ" verificare l'anteprima delle domande frequenti e premere "Consulta guida completa".
+  **Risultato atteso:** si apre la modale accessibile "Guida rapida e domande frequenti" con le FAQ relative a guasti urgenti, pagamenti/rate, assemblee e ascensori; premendo "Chiudi" o "Chiudi guida" la modale si chiude e il focus torna al pulsante di apertura.
+
+- [ ] **Cosa fare:** nella sezione "Pronto intervento e numeri utili" verificare i contatti di emergenza (Pronto Intervento Ascensore H24, Fabbro e Idraulico, Numero Unico 112, Vigili del Fuoco 115).
+  **Risultato atteso:** ogni scheda presenta titolo, badge di reperibilità oraria, descrizione del servizio, numero di telefono e pulsante "Chiama ora" con protocollo `tel:`.
+
+- [ ] **Cosa fare:** a 1440 px, 820 px, 390 px e con zoom al 200% navigare con il tasto Tab tutti i controlli delle due schermate.
+  **Risultato atteso:** nessun elemento deborda orizzontalmente, l'anello di focus `#0284C7` (o bianco su fondo navy) è sempre nitido e visibile, e la console del browser non presenta errori.
+
+- [ ] **Cosa fare:** eseguire `supabase/seed-dev/assistenza_extra_pulizia.sql`.
+  **Risultato atteso:** termina con `NOTICE: Dati extra Assistenza rimossi con successo.` e i dati di prova di assistenza/polizza vengono rimossi.

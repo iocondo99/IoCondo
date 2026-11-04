@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import type { IconName } from '../Icon';
 import { borderWidths, colors, radii, space } from '../tokens';
 import { useBreakpoint } from '../useBreakpoint';
@@ -19,15 +19,16 @@ export interface CardProps {
   /** Azione nell'intestazione, a destra del titolo (es. "Vedi tutte"). */
   action?: CardAction;
   children?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
 }
 
-export function Card({ title, action, children }: CardProps) {
+export function Card({ title, action, children, style }: CardProps) {
   const { isMobile } = useBreakpoint();
   const titleStyle = useTextStyle('h3');
   const hasHeader = Boolean(title || action);
 
   return (
-    <View style={[styles.card, { padding: isMobile ? space[4] : space[6] }]}>
+    <View style={[styles.card, { padding: isMobile ? space[4] : space[6] }, style]}>
       {hasHeader ? (
         <View style={styles.header}>
           {title ? (
