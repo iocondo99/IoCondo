@@ -21,7 +21,7 @@ export interface Pacco {
   condominioId: string;
   unitaDestinazioneId: string;
   etichettaUnita: string;
-  mittenteEsterno: string | null;
+  mittenteEsterno?: string | null;
   stato: StatoPacco;
   dataArrivo: string;
   dataRitiro: string | null;
@@ -41,11 +41,10 @@ export interface UnitaCondominioOpzione {
 }
 
 export type FiltroStatoPacchi = 'tutti' | 'GIACENZA' | 'RITIRATO';
-export type ColonnaOrdinamentoPacchi = 'data_arrivo' | 'mittente' | 'unita' | 'stato';
+export type ColonnaOrdinamentoPacchi = 'data_arrivo' | 'unita' | 'stato';
 export type DirezioneOrdinamentoPacchi = 'asc' | 'desc';
 
 export const PER_PAGINA_PACCHI = 10;
-export const MAX_LUNGHEZZA_MITTENTE = 100;
 export const MAX_LUNGHEZZA_FIRMA = 100;
 
 export const FILTRI_STATO_PACCHI: readonly { id: FiltroStatoPacchi; label: string }[] = [
@@ -168,7 +167,7 @@ export function calcolaStatistichePacchi(
 }
 
 /**
- * Filtra i pacchi per stato e per stringa di ricerca (su mittente esterno o etichetta unità).
+ * Filtra i pacchi per stato e per stringa di ricerca (su etichetta unità).
  */
 export function filtraPacchi(
   pacchi: readonly Pacco[],
@@ -183,9 +182,8 @@ export function filtraPacchi(
     }
 
     if (query.length > 0) {
-      const matchMittente = p.mittenteEsterno ? p.mittenteEsterno.toLowerCase().includes(query) : false;
       const matchUnita = p.etichettaUnita.toLowerCase().includes(query);
-      if (!matchMittente && !matchUnita) {
+      if (!matchUnita) {
         return false;
       }
     }
@@ -221,14 +219,6 @@ export function ordinaPacchi(
       const ta = new Date(a.dataArrivo).getTime() || 0;
       const tb = new Date(b.dataArrivo).getTime() || 0;
       return (ta - tb) * segno;
-    }
-    if (colonna === 'mittente') {
-      const ma = a.mittenteEsterno || '';
-      const mb = b.mittenteEsterno || '';
-      const cmp = compareStrings(ma, mb);
-      if (cmp !== 0) return cmp * segno;
-      // Ordinamento secondario: data_arrivo desc
-      return (new Date(b.dataArrivo).getTime() || 0) - (new Date(a.dataArrivo).getTime() || 0);
     }
     if (colonna === 'unita') {
       const cmp = compareStrings(a.etichettaUnita, b.etichettaUnita);
@@ -282,13 +272,11 @@ export interface InputNuovoPacco {
 
 export interface ErroriNuovoPacco {
   unitaId?: string;
-  mittenteEsterno?: string;
 }
 
 /**
  * Validazione inserimento nuovo pacco (portiere):
- * - unità di destinazione obbligatoria;
- * - mittente opzionale, massimo 100 caratteri.
+ * - unità di destinazione obbligatoria.
  */
 export function validaNuovoPacco(input: InputNuovoPacco): {
   valido: boolean;
@@ -298,10 +286,6 @@ export function validaNuovoPacco(input: InputNuovoPacco): {
 
   if (!input.unitaId || input.unitaId.trim().length === 0) {
     errori.unitaId = 'Seleziona l’unità immobiliare di destinazione.';
-  }
-
-  if (input.mittenteEsterno && input.mittenteEsterno.trim().length > MAX_LUNGHEZZA_MITTENTE) {
-    errori.mittenteEsterno = `Il nome del mittente non può superare ${MAX_LUNGHEZZA_MITTENTE} caratteri.`;
   }
 
   return {

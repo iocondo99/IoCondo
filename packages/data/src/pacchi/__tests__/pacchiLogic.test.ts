@@ -137,11 +137,7 @@ describe('pacchiLogic — filtri, ricerca, ordinamento e paginazione', () => {
     );
   });
 
-  it('cerca per mittente o per unità in modo case-insensitive', () => {
-    const cercaAmazon = filtraPacchi(tuttiPacchi, { ricerca: 'amazon' });
-    assert.equal(cercaAmazon.length, 1);
-    assert.equal(cercaAmazon[0]?.id, 'p1');
-
+  it('cerca per unità in modo case-insensitive', () => {
     const cercaUnita = filtraPacchi(tuttiPacchi, { ricerca: 'palazzo b' });
     assert.equal(cercaUnita.length, 1);
     assert.equal(cercaUnita[0]?.id, 'p3');
@@ -158,9 +154,9 @@ describe('pacchiLogic — filtri, ricerca, ordinamento e paginazione', () => {
     assert.deepEqual(crescenti.map((p) => p.id), ['p2', 'p3', 'p1']);
   });
 
-  it('ordina per mittente alfabetico', () => {
-    const ordinati = ordinaPacchi(tuttiPacchi, 'mittente', 'asc');
-    assert.deepEqual(ordinati.map((p) => p.id), ['p1', 'p3', 'p2']); // Amazon, GLS, Poste
+  it('ordina per unità alfabetico', () => {
+    const ordinati = ordinaPacchi(tuttiPacchi, 'unita', 'asc');
+    assert.deepEqual(ordinati.map((p) => p.id), ['p1', 'p2', 'p3']);
   });
 
   it('pagina correttamente la lista', () => {
@@ -181,31 +177,18 @@ describe('pacchiLogic — filtri, ricerca, ordinamento e paginazione', () => {
 });
 
 describe('pacchiLogic — validazione inserimento e ritiro', () => {
-  it('valida inserimento nuovo pacco (unità obbligatoria, mittente max 100 car)', () => {
+  it('valida inserimento nuovo pacco (unità obbligatoria)', () => {
     // Unità vuota
     const res1 = validaNuovoPacco({ unitaId: '' });
     assert.equal(res1.valido, false);
     assert.ok(res1.errori.unitaId);
 
-    // Mittente troppo lungo
+    // Valido con unità
     const res2 = validaNuovoPacco({
       unitaId: 'u-1',
-      mittenteEsterno: 'A'.repeat(101),
     });
-    assert.equal(res2.valido, false);
-    assert.ok(res2.errori.mittenteEsterno);
-
-    // Valido con mittente
-    const res3 = validaNuovoPacco({
-      unitaId: 'u-1',
-      mittenteEsterno: 'Amazon Corriere',
-    });
-    assert.equal(res3.valido, true);
-    assert.deepEqual(res3.errori, {});
-
-    // Valido anche con mittente nullo o vuoto
-    const res4 = validaNuovoPacco({ unitaId: 'u-1', mittenteEsterno: '' });
-    assert.equal(res4.valido, true);
+    assert.equal(res2.valido, true);
+    assert.deepEqual(res2.errori, {});
   });
 
   it('valida registrazione ritiro (firma obbligatoria non vuota, max 100 car)', () => {

@@ -41,7 +41,6 @@ import {
   useBreakpoint,
   useToast,
   type DataColumn,
-  type DropdownItem,
   type FilterOption,
   type SelectOption,
   type SortState,
@@ -132,7 +131,6 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
   // Modale inserimento nuovo pacco (solo portiere/admin)
   const [modaleNuovoAperta, setModaleNuovoAperta] = useState(false);
   const [unitaSelezionataId, setUnitaSelezionataId] = useState('');
-  const [mittenteInput, setMittenteInput] = useState('');
   const [invioNuovoInCorso, setInvioNuovoInCorso] = useState(false);
   const [erroreNuovo, setErroreNuovo] = useState<string | null>(null);
 
@@ -169,7 +167,6 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
   const apriModaleNuovoPacco = useCallback(async () => {
     setErroreNuovo(null);
     setUnitaSelezionataId('');
-    setMittenteInput('');
     setModaleNuovoAperta(true);
 
     if (opzioniUnita.length === 0) {
@@ -194,11 +191,10 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
   const eseguiRegistraNuovoPacco = useCallback(async () => {
     const validazione = validaNuovoPacco({
       unitaId: unitaSelezionataId,
-      mittenteEsterno: mittenteInput,
     });
 
     if (!validazione.valido) {
-      setErroreNuovo(validazione.errori.unitaId || validazione.errori.mittenteEsterno || 'Dati non validi.');
+      setErroreNuovo(validazione.errori.unitaId || 'Dati non validi.');
       return;
     }
 
@@ -209,11 +205,10 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
       const res = await services.pacchi.registraNuovoPacco({
         condominioId,
         unitaId: unitaSelezionataId,
-        mittenteEsterno: mittenteInput,
       });
 
       if (!res.ok) {
-        setErroreNuovo(res.errori.unitaId || res.errori.mittenteEsterno || res.errori.form || 'Errore durante la registrazione.');
+        setErroreNuovo(res.errori.unitaId || res.errori.form || 'Errore durante la registrazione.');
         return;
       }
 
@@ -228,7 +223,7 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
     } finally {
       setInvioNuovoInCorso(false);
     }
-  }, [unitaSelezionataId, mittenteInput, condominioId, toast, ricarica]);
+  }, [unitaSelezionataId, condominioId, toast, ricarica]);
 
   // Gestione modale ritiro
   const apriModaleRitiro = useCallback((pacco: Pacco) => {
@@ -334,24 +329,20 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
         minWidth: 180,
       },
       {
-        key: 'mittente',
-        header: 'Mittente esterno',
-        cell: (p) => p.mittenteEsterno || 'Non specificato',
-        mobile: 'detail',
-        sortable: true,
-        weight: 2,
-        minWidth: 170,
-      },
-      {
         key: 'stato',
         header: 'Stato',
         cell: (p) => {
           const b = badgeStatoPacco(p.stato);
-          return <Badge status={b.status} label={b.label} />;
+          return (
+            <View style={styles.badgeWrapper}>
+              <Badge status={b.status} label={b.label} />
+            </View>
+          );
         },
         mobile: 'status',
         sortable: true,
-        minWidth: 130,
+        weight: 2,
+        minWidth: 160,
       },
       {
         key: 'ritiro',
@@ -393,21 +384,6 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
 
     return cols;
   }, [isPortiereOAdmin, apriModaleRitiro]);
-
-  const rowActions = useCallback(
-    (p: Pacco): readonly DropdownItem[] => {
-      if (!isPortiereOAdmin || p.stato !== 'GIACENZA') return [];
-      return [
-        {
-          key: 'consegna',
-          label: 'Consegna / Segna ritirato',
-          icon: 'package-check',
-          onPress: () => apriModaleRitiro(p),
-        },
-      ];
-    },
-    [isPortiereOAdmin, apriModaleRitiro],
-  );
 
   const opzioniSelectUnita: SelectOption[] = useMemo(() => {
     return [
@@ -492,8 +468,7 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
           columns={colonne}
           rows={paginazione.elementi}
           getRowKey={(p) => p.id}
-          getRowLabel={(p) => `Pacco per ${p.etichettaUnita} (${p.mittenteEsterno || 'Mittente sconosciuto'})`}
-          rowActions={rowActions}
+          getRowLabel={(p) => `Pacco per ${p.etichettaUnita}`}
           loading={caricamento}
           error={errore ? { description: ERRORE_CARICAMENTO } : undefined}
           onRetry={ricarica}
@@ -513,7 +488,7 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
               />
               <SearchBar
                 label="Cerca pacco"
-                placeholder="Cerca per mittente o unità (es. Amazon, Int. 1)..."
+                placeholder="Cerca per unità o interno (es. Int. 1)..."
                 value={ricerca}
                 onChangeText={(q: string) => {
                   setRicerca(q);
@@ -585,16 +560,6 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
             onChange={setUnitaSelezionataId}
             disabled={invioNuovoInCorso || caricamentoUnita}
           />
-
-          <Input
-            label="Mittente esterno (opzionale)"
-            placeholder="Es. Amazon, Poste Italiane, Corriere GLS..."
-            value={mittenteInput}
-            onChangeText={setMittenteInput}
-            disabled={invioNuovoInCorso}
-            maxLength={100}
-            helperText="Indicare il corriere o il mittente del pacco (max 100 caratteri)."
-          />
         </View>
       </Modal>
 
@@ -633,12 +598,6 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
                 <Text style={styles.valoreRiepilogo}>{paccoDaRitirare.etichettaUnita}</Text>
               </View>
               <View style={styles.rigaRiepilogo}>
-                <Text style={styles.etichettaRiepilogo}>Mittente:</Text>
-                <Text style={styles.valoreRiepilogo}>
-                  {paccoDaRitirare.mittenteEsterno || 'Non specificato'}
-                </Text>
-              </View>
-              <View style={styles.rigaRiepilogo}>
                 <Text style={styles.etichettaRiepilogo}>Arrivo in portineria:</Text>
                 <Text style={styles.valoreRiepilogo}>
                   {formattaDataOraPacco(paccoDaRitirare.dataArrivo)}
@@ -674,11 +633,17 @@ const styles = StyleSheet.create({
   },
   scheda: {
     flexGrow: 1,
-    flexBasis: 240,
-    minWidth: 200,
+    flexBasis: 260,
+    minWidth: 240,
   },
   filtri: {
     gap: space[4],
+  },
+  badgeWrapper: {
+    minWidth: 140,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
   },
   cellaRitirato: {
     ...textStyle('support'),

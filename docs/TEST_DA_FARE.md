@@ -530,13 +530,13 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 - [ ] **Cosa fare:** con l'utente di prova (ruoli `PORTIERE` e `CONDOMINO`) aprire `/pacchi` da barra laterale (desktop) o da "Altro" / barra inferiore (smartphone) a 1440 px, 820 px e 390 px.
   **Risultato atteso:** si apre la pagina con `PageHeader` ("Registro pacchi", sottotitolo e pulsante primario "Registra arrivo pacco" con icona `package-plus`), 3 `StatCard` reali ("Pacchi in giacenza", "Ritirati di recente", "Totale pacchi") e la tabella/elenco con i pacchi dell'Unità 1 e dell'Unità 2. Il pacco del secondo condominio isolato (`...0895`) NON compare.
 
-- [ ] **Cosa fare:** in `/pacchi` provare i `FilterChips` per stato (`Tutti`, `In giacenza`, `Ritirati`), la `SearchBar` per mittente (es. "Amazon", "Zalando") o unità (es. "Int. 1", "Int. 2"), "Azzera filtri", l'ordinamento (per Data arrivo, Destinazione, Mittente, Stato) e la `Pagination`.
-  **Risultato atteso:** filtri, ricerca e ordinamento aggiornano dinamicamente le righe e il conteggio; se nessun risultato corrisponde compare l'icona di stato vuoto con il pulsante "Azzera filtri" che ripristina l'elenco.
+- [ ] **Cosa fare:** in `/pacchi` provare i `FilterChips` per stato (`Tutti`, `In giacenza`, `Ritirati`), la `SearchBar` per unità (es. "Int. 1", "Int. 2"), "Azzera filtri", l'ordinamento (per Data arrivo, Destinazione, Stato) e la `Pagination`. Verificare che il badge "In giacenza" resti tutto su una sola linea senza andare a capo.
+  **Risultato atteso:** filtri, ricerca e ordinamento aggiornano dinamicamente le righe e il conteggio; se nessun risultato corrisponde compare l'icona di stato vuoto con il pulsante "Azzera filtri" che ripristina l'elenco. Il badge di stato "In giacenza" si trova interamente su un'unica linea orizzontale.
 
-- [ ] **Cosa fare:** come portiere premere "Registra arrivo pacco", lasciare l'unità vuota e premere "Registra"; poi selezionare un'unità dal menu a tendina (ordinato per palazzo/interno), inserire il mittente "Corriere DHL Express" e premere "Registra".
+- [ ] **Cosa fare:** come portiere premere "Registra arrivo pacco", lasciare l'unità vuota e premere "Registra"; poi selezionare un'unità dal menu a tendina (ordinato per palazzo/interno) e premere "Registra".
   **Risultato atteso:** l'invio senza unità mostra un messaggio di errore chiaro; la registrazione corretta chiude la modale, mostra il messaggio di successo ("Arrivo pacco registrato con successo"), incrementa il contatore "Pacchi in giacenza" e il nuovo pacco compare in elenco con badge "In giacenza".
 
-- [ ] **Cosa fare:** nella riga di un pacco in stato `GIACENZA` premere l'azione "Consegna" (o da smartphone scegliere dal menu "Consegna / Segna ritirato"), lasciare il campo firma vuoto e inviare; poi inserire la firma "Giulia Verdi (delegata)" e confermare.
+- [ ] **Cosa fare:** nella riga di un pacco in stato `GIACENZA` premere direttamente il pulsante "Consegna" (senza menu a tre puntini), lasciare il campo firma vuoto e inviare; poi inserire la firma "Giulia Verdi (delegata)" e confermare.
   **Risultato atteso:** il campo vuoto mostra un errore chiaro; l'invio valido chiude la modale, mostra il messaggio di successo ("Ritiro registrato con successo"), il pacco passa a stato "Ritirato", mostra la data del ritiro con la firma e le StatCard si aggiornano.
 
 - [ ] **Cosa fare:** con un utente che ha esclusivamente il ruolo `CONDOMINO` (senza portiere né admin) aprire `/pacchi`.
