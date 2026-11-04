@@ -1,6 +1,5 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import { PacchiScreen } from '@/screens/PacchiScreen';
 
 export default function PacchiPage() {
-  return <PaginaInArrivo voceId="pacchi" />;
+  return <PacchiScreen />;
 }

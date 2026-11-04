@@ -11,3 +11,5 @@ export * from './spese/speseLogic';
 export * from './documenti/documentiLogic';
 export * from './segnalazioni/segnalazioniLogic';
 export * from './assemblee/assembleeLogic';
+export * from './pacchi/pacchiLogic';
+export * from './pacchi/pacchiService';

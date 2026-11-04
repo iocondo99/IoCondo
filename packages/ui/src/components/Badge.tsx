@@ -26,7 +26,9 @@ export type BadgeStatus =
   | 'conclusa'
   | 'annullata'
   | 'votazione-aperta'
-  | 'votazione-chiusa';
+  | 'votazione-chiusa'
+  | 'in-giacenza'
+  | 'ritirato';
 
 type Tone = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
@@ -54,6 +56,8 @@ export const badgeStatuses: Record<BadgeStatus, { label: string; icon: IconName;
   annullata: { label: 'Annullata', icon: 'circle-alert', tone: 'neutral' },
   'votazione-aperta': { label: 'Aperta', icon: 'clock', tone: 'warning' },
   'votazione-chiusa': { label: 'Chiusa', icon: 'lock', tone: 'neutral' },
+  'in-giacenza': { label: 'In giacenza', icon: 'package', tone: 'warning' },
+  ritirato: { label: 'Ritirato', icon: 'package-check', tone: 'success' },
 };
 
 const tones: Record<Tone, { foreground: string; background: string }> = {

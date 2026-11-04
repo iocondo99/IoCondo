@@ -518,3 +518,32 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 
 - [ ] **Cosa fare:** eseguire `supabase/seed-dev/assemblee_extra_pulizia.sql`.
   **Risultato atteso:** termina con `NOTICE: Dati extra Assemblee rimossi con successo.` e i dati di prova spariscono dall'applicazione.
+
+
+---
+
+## Registro Pacchi (/pacchi)
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/pacchi_extra.sql` (dopo `01_dati_prova.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati extra Registro Pacchi pronti per il condominio ...` senza errori; rieseguendolo una seconda volta non crea duplicati.
+
+- [ ] **Cosa fare:** con l'utente di prova (ruoli `PORTIERE` e `CONDOMINO`) aprire `/pacchi` da barra laterale (desktop) o da "Altro" / barra inferiore (smartphone) a 1440 px, 820 px e 390 px.
+  **Risultato atteso:** si apre la pagina con `PageHeader` ("Registro pacchi", sottotitolo e pulsante primario "Registra arrivo pacco" con icona `package-plus`), 3 `StatCard` reali ("Pacchi in giacenza", "Ritirati di recente", "Totale pacchi") e la tabella/elenco con i pacchi dell'Unità 1 e dell'Unità 2. Il pacco del secondo condominio isolato (`...0895`) NON compare.
+
+- [ ] **Cosa fare:** in `/pacchi` provare i `FilterChips` per stato (`Tutti`, `In giacenza`, `Ritirati`), la `SearchBar` per mittente (es. "Amazon", "Zalando") o unità (es. "Int. 1", "Int. 2"), "Azzera filtri", l'ordinamento (per Data arrivo, Destinazione, Mittente, Stato) e la `Pagination`.
+  **Risultato atteso:** filtri, ricerca e ordinamento aggiornano dinamicamente le righe e il conteggio; se nessun risultato corrisponde compare l'icona di stato vuoto con il pulsante "Azzera filtri" che ripristina l'elenco.
+
+- [ ] **Cosa fare:** come portiere premere "Registra arrivo pacco", lasciare l'unità vuota e premere "Registra"; poi selezionare un'unità dal menu a tendina (ordinato per palazzo/interno), inserire il mittente "Corriere DHL Express" e premere "Registra".
+  **Risultato atteso:** l'invio senza unità mostra un messaggio di errore chiaro; la registrazione corretta chiude la modale, mostra il messaggio di successo ("Arrivo pacco registrato con successo"), incrementa il contatore "Pacchi in giacenza" e il nuovo pacco compare in elenco con badge "In giacenza".
+
+- [ ] **Cosa fare:** nella riga di un pacco in stato `GIACENZA` premere l'azione "Consegna" (o da smartphone scegliere dal menu "Consegna / Segna ritirato"), lasciare il campo firma vuoto e inviare; poi inserire la firma "Giulia Verdi (delegata)" e confermare.
+  **Risultato atteso:** il campo vuoto mostra un errore chiaro; l'invio valido chiude la modale, mostra il messaggio di successo ("Ritiro registrato con successo"), il pacco passa a stato "Ritirato", mostra la data del ritiro con la firma e le StatCard si aggiornano.
+
+- [ ] **Cosa fare:** con un utente che ha esclusivamente il ruolo `CONDOMINO` (senza portiere né admin) aprire `/pacchi`.
+  **Risultato atteso:** la schermata si apre in modalità sola lettura: il condòmino vede esclusivamente i pacchi destinati alla propria unità (Unità 1); i pacchi dell'Unità 2 e del secondo condominio non sono visibili; il pulsante "Registra arrivo pacco" e l'azione "Consegna" non sono presenti.
+
+- [ ] **Cosa fare:** a 1440 px, 820 px, 390 px e con zoom al 200% navigare con Tab elenco, modali e controlli.
+  **Risultato atteso:** nessun elemento causa scroll orizzontale, focus `#0284C7` sempre visibile e mai ritagliato su pulsanti, campi di testo, chips e controlli interattivi.
+
+- [ ] **Cosa fare:** eseguire `supabase/seed-dev/pacchi_extra_pulizia.sql`.
+  **Risultato atteso:** termina con `NOTICE: Dati extra Registro Pacchi rimossi con successo.` e i record di prova spariscono dall'applicazione.

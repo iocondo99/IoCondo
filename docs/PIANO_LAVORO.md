@@ -53,6 +53,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 
 ### Da verificare (stato sconosciuto: chiedere all'utente prima di procedere)
 
+- Registro pacchi: schermata `/pacchi`, modali di arrivo e ritiro con firma, isolamento unità per condòmino e dati di prova in `supabase/seed-dev/pacchi_extra.sql` (da verificare dall'utente).
 - Migrazione `08a_fix_trigger_e_ruoli.sql` e `08a_verifica.sql`: rimandate dall'utente a dopo.
 - Migrazione `08_...sql` (inviti sicuri): rimandata dall'utente a dopo.
 
@@ -66,15 +67,16 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 ### Ordine dei lavori da qui in poi
 
 1. Chiudere le voci "Da verificare" (sezione sopra) e completare la configurazione inviti. Finché non è fatto, nessun utente reale può entrare.
-2. Spese: completare e provare, poi committare.
-3. Documenti (`/documenti`): sola lettura, documenti condominiali pubblici/privati secondo RLS, link firmati a tempo, mai URL pubblici.
-4. Segnalazioni: condòmino apre ticket con foto e segue lo stato (REQ-C03, REQ-C04). Portiere: ticket aree comuni.
-5. Assemblee: condòmino vota e vede le percentuali; amministratore vede il report completo (UC-10).
-6. Super admin: Amministratori (invito ruolo ADMIN, collegamento `licenze_saas`), Piani e abbonamenti, Fatture.
-7. Amministratore (gruppo `(admin)`): Dashboard, Struttura (palazzi, scale/colonne, unità, anagrafiche, CSV millesimi), Contabilità (bilanci, rate, ripartizione), Manutenzione (ticket e fornitori), Comunicazioni in scrittura, Documenti, Assemblee.
-8. Portiere: Registro pacchi.
-9. Fornitore: `/fornitore/[token]` tramite funzione o RPC che valida il token e restituisce solo i dati di quel ticket. Nessuna policy aperta ad `anon` sulle tabelle dei ticket.
-10. Pre-rilascio (sezione 5).
+2. Spese: completare e provare, poi committare. [COMPLETATO]
+3. Documenti (`/documenti`): sola lettura, documenti condominiali pubblici/privati secondo RLS, link firmati a tempo, mai URL pubblici. [COMPLETATO]
+4. Segnalazioni: condòmino apre ticket con foto e segue lo stato (REQ-C03, REQ-C04). Portiere: ticket aree comuni. [COMPLETATO]
+5. Assemblee: condòmino vota e vede le percentuali; amministratore vede il report completo (UC-10). [COMPLETATO]
+6. Registro pacchi (`/pacchi`): portiere registra pacchi in arrivo e segna il ritiro con firma; condòmino consulta i propri pacchi in giacenza (UC-07).
+7. Impostazioni e Assistenza (`/impostazioni`, `/assistenza`): profilo personale, cambio password, preferenze notifiche, contatti del condominio e numeri di emergenza.
+8. Super admin: Amministratori (invito ruolo ADMIN, collegamento `licenze_saas`), Piani e abbonamenti, Fatture.
+9. Amministratore (gruppo `(admin)`): Dashboard, Struttura (palazzi, scale/colonne, unità, anagrafiche, CSV millesimi), Contabilità (bilanci, rate, ripartizione), Manutenzione (ticket e fornitori), Comunicazioni in scrittura, Documenti, Assemblee.
+10. Fornitore: `/fornitore/[token]` tramite funzione o RPC che valida il token e restituisce solo i dati di quel ticket. Nessuna policy aperta ad `anon` sulle tabelle dei ticket.
+11. Pre-rilascio (sezione 5).
 
 ## 4. Debiti tecnici
 
