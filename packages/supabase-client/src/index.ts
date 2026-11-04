@@ -1,4 +1,4 @@
-﻿import { createBrowserClient, createServerClient } from '@supabase/ssr';
+import { createBrowserClient, createServerClient } from '@supabase/ssr';
 import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import type { Database } from '@iocondo/shared-types';
 

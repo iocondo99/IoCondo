@@ -19,6 +19,7 @@ const base: ProfiloUtente = {
   id: 'u1',
   email: 'a@esempio.invalid',
   nome: null,
+  telefono: null,
   avatarUrl: null,
   isSuperAdmin: false,
   condomini: [],

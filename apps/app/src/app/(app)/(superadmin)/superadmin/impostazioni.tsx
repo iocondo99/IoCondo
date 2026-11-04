@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import React from 'react';
+import { ImpostazioniScreen } from '@/screens/ImpostazioniScreen';
 
-export default function ImpostazioniPage() {
-  return <PaginaInArrivo voceId="impostazioni" />;
+export default function ImpostazioniSuperAdminPage() {
+  return <ImpostazioniScreen />;
 }

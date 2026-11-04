@@ -1,11 +1,26 @@
-import { assertOk, unwrap, unwrapMaybe, type TypedSupabaseClient } from '@iocondo/supabase-client';
+import type { TypedSupabaseClient } from '@iocondo/supabase-client';
 import type { INotifica } from '@iocondo/shared-types';
 import {
   risolviAssegnazioni,
   type CondominioBreve,
   type ProfiloUtente,
   type RigaRuolo,
-} from '../profilo/profiloLogic';
+} from '../profilo/profiloLogic.ts';
+
+function unwrap<T>(res: { data: T; error: { message: string } | null }): NonNullable<T> {
+  if (res.error) throw new Error(res.error.message);
+  if (res.data === null) throw new Error('Nessun dato restituito');
+  return res.data as NonNullable<T>;
+}
+
+function unwrapMaybe<T>(res: { data: T; error: { message: string } | null }): NonNullable<T> | null {
+  if (res.error) throw new Error(res.error.message);
+  return res.data as NonNullable<T> | null;
+}
+
+function assertOk(res: { error: { message: string } | null }): void {
+  if (res.error) throw new Error(res.error.message);
+}
 
 /**
  * Profilo dell'utente che ha fatto l'accesso: nome, flag super amministratore, ruoli e condomini.
@@ -56,6 +71,7 @@ export function createProfiloService(db: TypedSupabaseClient) {
         id: userId,
         email: utente?.email ?? emailSessione,
         nome: utente?.nome_cognome ?? null,
+        telefono: utente?.telefono ?? null,
         avatarUrl: utente?.avatar_url ?? null,
         isSuperAdmin: utente?.is_superadmin ?? false,
         condomini,
@@ -84,6 +100,33 @@ export function createProfiloService(db: TypedSupabaseClient) {
 
     async segnaNotificaLetta(userId: string, id: string): Promise<void> {
       assertOk(await db.from('notifiche').update({ letta: true }).eq('utente_id', userId).eq('id', id));
+    },
+
+    /**
+     * Aggiorna l'anagrafica personale dell'utente (nome_cognome, telefono).
+     * Rispetta la RLS: l'utente aggiorna solo il proprio profilo.
+     */
+    async aggiornaAnagrafica(
+      userId: string,
+      dati: { nome_cognome: string; telefono: string | null },
+    ): Promise<void> {
+      assertOk(
+        await db
+          .from('utenti')
+          .update({
+            nome_cognome: dati.nome_cognome.trim(),
+            telefono: dati.telefono?.trim() ? dati.telefono.trim() : null,
+          })
+          .eq('id', userId),
+      );
+    },
+
+    /**
+     * Aggiorna la password dell'utente tramite il client Auth.
+     */
+    async cambiaPassword(password: string): Promise<void> {
+      const res = await db.auth.updateUser({ password });
+      if (res.error) throw res.error;
     },
   };
 }

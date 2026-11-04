@@ -25,6 +25,7 @@ export interface ProfiloUtente {
   id: string;
   email: string | null;
   nome: string | null;
+  telefono: string | null;
   avatarUrl: string | null;
   isSuperAdmin: boolean;
   condomini: CondominioBreve[];

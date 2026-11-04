@@ -1,4 +1,5 @@
 import type { TypedSupabaseClient } from '@iocondo/supabase-client';
+import { createAssistenzaService } from '../assistenza/assistenzaService';
 import { createAssembleeService } from '../assemblee/assembleeService';
 import { createAuthService } from './authService';
 import { createBachecaService } from './bachecaService';
@@ -37,6 +38,7 @@ export function createServices(db: TypedSupabaseClient) {
     pacchi: createPacchiService(db),
     servizi: createServiziService(db),
     assemblee: createAssembleeService(db),
+    assistenza: createAssistenzaService(db),
     home: createHomeService(db),
     inviti: createInvitiService(db),
   };
@@ -44,6 +46,7 @@ export function createServices(db: TypedSupabaseClient) {
 export type Services = ReturnType<typeof createServices>;
 
 export * from '../assemblee/assembleeService';
+export * from '../assistenza/assistenzaService';
 export * from './assembleaService';
 export * from './authService';
 export * from './bachecaService';
