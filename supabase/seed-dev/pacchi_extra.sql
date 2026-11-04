@@ -70,7 +70,7 @@ begin
 
   select id into v_tipologia_appartamento
     from public.tipologie_unita
-   where codice = 'APPARTAMENTO'
+   where descrizione = 'Appartamento'
    limit 1;
 
   if v_tipologia_appartamento is not null then

@@ -438,7 +438,7 @@ export function createAssembleeService(db: TypedSupabaseClient) {
       // 3. Verifica che l'unità appartenga all'utente nel condominio
       const mieUnita = await unitaDiResidenteNelCondominio(userId, ass.condominio_id);
       const appartiene = mieUnita.some((u) => u.id === unitaId);
-      if (!appartiene && mieUnita.length > 0) {
+      if (!appartiene) {
         throw new Error('Non sei autorizzato a votare per questa unità immobiliare.');
       }
 

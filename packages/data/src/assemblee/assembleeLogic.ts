@@ -293,15 +293,15 @@ export function riepilogoAssemblee(
   adesso: Date | string = new Date(),
 ): RiepilogoAssemblee {
   const dataRif = typeof adesso === 'string' ? new Date(adesso) : adesso;
-  const isoRif = Number.isNaN(dataRif.getTime()) ? new Date().toISOString() : dataRif.toISOString();
-  const annoCorrente = dataRif.getFullYear();
+  const msRif = Number.isNaN(dataRif.getTime()) ? Date.now() : dataRif.getTime();
+  const annoCorrente = new Date(msRif).getFullYear();
 
   // Assemblee visibili (escludiamo ulteriormente bozze per robustezza)
   const visibili = assemblee.filter((a) => isStatoVisibileCondomino(a.stato));
 
   // Prossima assemblea futura (o oggi) convocata o in corso
   const prossime = visibili
-    .filter((a) => (a.stato === 'CONVOCATA' || a.stato === 'IN_CORSO') && a.data >= isoRif)
+    .filter((a) => (a.stato === 'CONVOCATA' || a.stato === 'IN_CORSO') && Date.parse(a.data) >= msRif)
     .sort((a, b) => confrontaDataIso(a.data, b.data));
 
   const prossimaAssemblea = prossime[0] ?? null;

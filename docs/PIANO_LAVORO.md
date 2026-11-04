@@ -49,10 +49,10 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 - Spese: `/spese` e `/spese/[id]`, sola lettura con dati di `spese_extra.sql` (verificato e approvato dall'utente).
 - Documenti: `/documenti` e `/documenti/[id]`, sola lettura per il condòmino con isolamento per condominio e unità, link firmati temporanei (`createSignedUrl` 600 s) e dati di prova in `documenti_extra.sql` (verificato e approvato dall'utente).
 - Segnalazioni: `/segnalazioni`, `/segnalazioni/[id]` e `/ticket-aree-comuni`, apertura ticket con foto, messaggi e isolamento per condominio/unità (verificato e approvato dall'utente).
-- Assemblee: sezione condòmino (`/assemblee` e `/assemblee/[id]`, UC-10), esclusione bozze, espressione voto, percentuali aggregate via RPC `risultati_voto`, link Meet sicuro e verbale nello Storage (`documenti-condominio`) (verificato e approvato dall'utente).
 
 ### Da verificare (stato sconosciuto: chiedere all'utente prima di procedere)
 
+- Assemblee: sezione condòmino (`/assemblee` e `/assemblee/[id]`, UC-10), esclusione bozze, espressione voto, percentuali aggregate via RPC `risultati_voto`, link Meet sicuro e verbale nello Storage (`documenti-condominio`) (da verificare dall'utente).
 - Registro pacchi: schermata `/pacchi`, modali di arrivo e ritiro con firma, isolamento unità per condòmino e dati di prova in `supabase/seed-dev/pacchi_extra.sql` (da verificare dall'utente).
 - Migrazione `08a_fix_trigger_e_ruoli.sql` e `08a_verifica.sql`: rimandate dall'utente a dopo.
 - Migrazione `08_...sql` (inviti sicuri): rimandata dall'utente a dopo.

@@ -21,6 +21,7 @@ import {
   Alert,
   Badge,
   Button,
+  Card,
   FilterChips,
   Input,
   Modal,
@@ -485,66 +486,69 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
       </View>
 
       {/* Tabella / Elenco responsive */}
-      <ResponsiveDataView
-        label="Registro pacchi del condominio"
-        columns={colonne}
-        rows={paginazione.elementi}
-        getRowKey={(p) => p.id}
-        getRowLabel={(p) => `Pacco per ${p.etichettaUnita} (${p.mittenteEsterno || 'Mittente sconosciuto'})`}
-        rowActions={rowActions}
-        loading={caricamento}
-        error={errore ? { description: ERRORE_CARICAMENTO } : undefined}
-        onRetry={ricarica}
-        sort={sortState}
-        onSortChange={cambiaSort}
-        filters={
-          <View style={styles.filtri}>
-            <FilterChips
-              label="Filtra per stato"
-              options={opzioniChip}
-              value={chipsValue}
-              onChange={(valori) => {
-                const primoValore = valori[0] as FiltroStatoPacchi | undefined;
-                setFiltroStato(primoValore || 'tutti');
-                setPagina(1);
-              }}
-            />
-            <SearchBar
-              label="Cerca pacco"
-              placeholder="Cerca per mittente o unità (es. Amazon, Int. 1)..."
-              value={ricerca}
-              onChangeText={(q: string) => {
-                setRicerca(q);
-                setPagina(1);
-              }}
-            />
-          </View>
-        }
-        pagination={
-          paginazione.totalePagine > 1 ? (
-            <Pagination
-              page={paginazione.paginaCorrente}
-              pageCount={paginazione.totalePagine}
-              onChange={setPagina}
-            />
-          ) : null
-        }
-        empty={{
-          title: filtriAttivi ? 'Nessun pacco trovato' : 'Nessun pacco nel registro',
-          description: filtriAttivi
-            ? 'Nessun pacco corrisponde ai filtri o alla ricerca impostata.'
-            : isPortiereOAdmin
-              ? 'Non ci sono pacchi registrati. Quando arriva un pacco in portineria, usa il pulsante in alto per registrarlo.'
-              : 'Al momento non risultano pacchi in giacenza o ritirati per la tua unità.',
-          action: filtriAttivi
-            ? {
-                label: 'Azzera filtri',
-                icon: 'refresh-cw',
-                onPress: azzeraFiltri,
-              }
-            : undefined,
-        }}
-      />
+      <Card>
+        <ResponsiveDataView
+          label="Registro pacchi del condominio"
+          columns={colonne}
+          rows={paginazione.elementi}
+          getRowKey={(p) => p.id}
+          getRowLabel={(p) => `Pacco per ${p.etichettaUnita} (${p.mittenteEsterno || 'Mittente sconosciuto'})`}
+          rowActions={rowActions}
+          loading={caricamento}
+          error={errore ? { description: ERRORE_CARICAMENTO } : undefined}
+          onRetry={ricarica}
+          sort={sortState}
+          onSortChange={cambiaSort}
+          filters={
+            <View style={styles.filtri}>
+              <FilterChips
+                label="Filtra per stato"
+                options={opzioniChip}
+                value={chipsValue}
+                onChange={(valori) => {
+                  const primoValore = valori[0] as FiltroStatoPacchi | undefined;
+                  setFiltroStato(primoValore || 'tutti');
+                  setPagina(1);
+                }}
+              />
+              <SearchBar
+                label="Cerca pacco"
+                placeholder="Cerca per mittente o unità (es. Amazon, Int. 1)..."
+                value={ricerca}
+                onChangeText={(q: string) => {
+                  setRicerca(q);
+                  setPagina(1);
+                }}
+              />
+            </View>
+          }
+          pagination={
+            paginazione.totalePagine > 1 ? (
+              <Pagination
+                page={paginazione.paginaCorrente}
+                pageCount={paginazione.totalePagine}
+                onChange={setPagina}
+              />
+            ) : null
+          }
+          empty={{
+            icon: 'package',
+            title: filtriAttivi ? 'Nessun pacco trovato' : 'Nessun pacco nel registro',
+            description: filtriAttivi
+              ? 'Nessun pacco corrisponde ai filtri o alla ricerca impostata.'
+              : isPortiereOAdmin
+                ? 'Non ci sono pacchi registrati. Quando arriva un pacco in portineria, usa il pulsante in alto per registrarlo.'
+                : 'Al momento non risultano pacchi in giacenza o ritirati per la tua unità.',
+            action: filtriAttivi
+              ? {
+                  label: 'Azzera filtri',
+                  icon: 'refresh-cw',
+                  onPress: azzeraFiltri,
+                }
+              : undefined,
+          }}
+        />
+      </Card>
 
       {/* Modale Registra arrivo pacco */}
       <Modal
