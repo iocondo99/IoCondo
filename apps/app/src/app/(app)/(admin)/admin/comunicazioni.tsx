@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import React from 'react';
+import { AdminComunicazioniScreen } from '@/screens/AdminComunicazioniScreen';
 
-export default function ComunicazioniPage() {
-  return <PaginaInArrivo voceId="comunicazioni" />;
+export default function AdminComunicazioniPage() {
+  return <AdminComunicazioniScreen />;
 }

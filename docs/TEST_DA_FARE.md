@@ -731,3 +731,211 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 - [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_struttura_extra_pulizia.sql`.
   **Risultato atteso:** lo script termina con `NOTICE: Dati extra Struttura e Millesimi rimossi con successo.` e i dati aggiuntivi di prova della struttura e tabelle vengono rimossi in modo sicuro.
 
+---
+
+## Gestione Inviti Residenti e Portieri (/admin/inviti, Passo 3 modulo Amministratore)
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_inviti_extra.sql` (dopo `01_dati_prova.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati di prova inviti inseriti/aggiornati con successo.` senza errori. L'esecuzione è idempotente e crea 3 inviti di prova per il Condominio di Prova (`d0000000-0000-4000-8000-000000000001`): 1 in attesa (CONDOMINO per Int. 2, scadenza tra 4 giorni), 1 scaduto (CONDOMINO per Int. 1, scaduto da 2 giorni) e 1 accettato con timestamp (utente ibrido Condòmino + Portiere, accettato 3 giorni fa).
+
+- [ ] **Cosa fare:** con un utente avente ruolo `ADMIN` (oppure `is_superadmin = true`) accedere all'applicazione e aprire `/admin/inviti` dalla voce "Inviti" nella barra laterale o via URL diretto sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844).
+  **Risultato atteso:** si apre la pagina protetta da guardia ADMIN con `Breadcrumbs` (`Home / Inviti`), `PageHeader` ("Inviti residenti e personale") con sottotitolo e pulsante primario d'azione "Invia nuovo invito" (icona `mail-plus`). La navigazione da tastiera e l'anello di focus accessibile `#0284C7` (o bianco su navy) sono visibili e mai ritagliati.
+
+- [ ] **Cosa fare:** verificare i valori e le informazioni mostrate nelle 3 `StatCard` ufficiali (Sez. 8 Design System):
+  1. "Inviti in attesa": conteggio degli inviti pendenti attivi (es. "1"), icona `mail`, tessera blu e nota "In attesa di primo accesso".
+  2. "Accettati questo mese": conteggio degli inviti convertiti con successo nel mese in corso (es. "1"), icona `check-circle-2`, tessera teal e nota "Convertiti con successo".
+  3. "Inviti scaduti": conteggio degli inviti non confermati oltre i 7 giorni (es. "1"), icona `clock`, tessera navy con badge rosso di attenzione `scaduto` e nota "Non confermati oltre 7 giorni".
+
+- [ ] **Cosa fare:** testare la barra di controllo con i `FilterChips` e la `SearchBar`:
+  - Premere il chip "In attesa": la tabella mostra solo l'invito pendente;
+  - Premere il chip "Accettati": la tabella mostra solo l'invito convertito;
+  - Premere il chip "Scaduti": la tabella mostra solo l'invito scaduto;
+  - Premere il chip "Tutti gli inviti": la tabella mostra tutti gli inviti;
+  - Digitare un indirizzo email (es. "laura"), un interno (es. "2") o un edificio (es. "Palazzo A") nel campo di ricerca: l'elenco si filtra in tempo reale;
+  - Inserire un testo che non produce risultati: verificare la comparsa dell'`EmptyState` con icona, messaggio esplicativo e pulsante "Azzera filtri" che ripristina la visualizzazione completa.
+
+- [ ] **Cosa fare:** verificare la tabella `ResponsiveDataView` (desktop e tablet) e le schede per smartphone:
+  - Verificare le 7 colonne: Destinatario (email), Ruolo proposto (Badge: "Condòmino", "Portiere", "Condòmino e portiere"), Unità associata (Palazzo e Interno, oppure "Personale condominiale"), Data invio stimata, Scadenza / Accettazione con formattazione relativa (es. "Scade tra 4 giorni", "Scaduto ieri", "Accettato il 02/11/2026"), Stato (Badge azzurro "In attesa", verde "Accettato", rosso "Scaduto"), e Azioni.
+  - Sull'invito "In attesa": verificare la presenza del pulsante "Sollecita" e del pulsante "Revoca";
+  - Sull'invito "Scaduto": verificare la presenza del pulsante "Rinnova invito";
+  - Sull'invito "Accettato": verificare l'indicazione neutra "—" senza pulsanti ridondanti.
+
+- [ ] **Cosa fare:** testare l'azione "Sollecita" su un invito in attesa:
+  - Premere "Sollecita": il pulsante entra in stato di caricamento;
+  - La scadenza viene prorogata di ulteriori 7 giorni sul database e viene reinviata l'email;
+  - Compare il `Toast` di conferma: "Sollecito inviato con successo. Scadenza prorogata di 7 giorni." e la relativa data/stato si aggiorna nella riga.
+
+- [ ] **Cosa fare:** testare l'azione "Rinnova invito" su un invito scaduto:
+  - Premere "Rinnova invito": il pulsante entra in stato di caricamento;
+  - La scadenza dell'invito viene rinnovata di 7 giorni, lo stato torna "In attesa" con badge azzurro e compare la notifica Toast di successo.
+
+- [ ] **Cosa fare:** testare l'azione "Revoca" su un invito:
+  - Premere "Revoca": si apre la finestra modale accessibile `ConfirmDialog` con titolo "Revocare questo invito?", descrizione che chiarisce che il link di attivazione non sarà più utilizzabile e pulsante distruttivo rosso "Revoca invito";
+  - Premere "Annulla": la finestra si chiude senza modifiche;
+  - Riaprire e premere "Revoca invito": l'invito viene rimosso da `inviti_pendenti`, la riga scompare dalla tabella e compare il Toast di conferma "Invito revocato con successo.".
+
+- [ ] **Cosa fare:** premere il pulsante primario "Invia nuovo invito" in testata (UC-07):
+  1. Si apre la modale accessibile con focus posizionato automaticamente sul campo email (`autoFocus`).
+  2. Testare la validazione email: inserire una stringa non valida (es. "test", "test@", "mario rossi@domain") e premere "Invia invito"; verificare la comparsa del messaggio di errore "Inserisci un indirizzo email valido (es. nome@dominio.it)." con stato `aria-invalid`.
+  3. Selezionare Ruolo "Condòmino": verificare che il campo "Unità immobiliare" sia indicato come obbligatorio e che compaia la casella di controllo facoltativa "Assegna anche mansione di Portiere". Se si tenta l'invio senza selezionare un'unità, compare l'errore "Seleziona l’unità immobiliare associata al condòmino.".
+  4. Selezionare Ruolo "Portiere": verificare che la selezione dell'unità diventi facoltativa (opzione predefinita "Nessuna unità (personale o uso comune)") e che la casella utente ibrido scompaia.
+  5. Verificare la casella "Assegna anche mansione di Portiere" per un condòmino (creazione profilo ibrido UC-07).
+  6. Verificare la nota informativa nella modale: chiarimento che l'invito ha una validità di 7 giorni e invia un link magico sicuro via email per impostare la password.
+  7. Inviare un invito valido: verificare che in caso di successo compaia il messaggio uniforme "Invito registrato." (come da requisiti di sicurezza per prevenire l'enumerazione degli account) e che la modale si chiuda aggiornando la lista.
+
+- [ ] **Cosa fare:** verificare la schermata sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844).
+  **Risultato atteso:** `document.documentElement.scrollWidth <= window.innerWidth` su tutti i breakpoint (zero scroll orizzontale); layout elastico da tabella a card compatte su smartphone; controlli touch conformi a 44 px minimi.
+
+- [ ] **Cosa fare:** testare con zoom reale 200% e navigazione completa da tastiera (Tab, frecce su/giù nei select, Escape per chiudere le modali).
+  **Risultato atteso:** focus `#0284C7` sempre nitido e mai ritagliato; nessun elemento traborda; conformità WCAG 2.2 AA.
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_inviti_extra_pulizia.sql`.
+  **Risultato atteso:** i 3 inviti di prova con token fissi vengono rimossi in modo sicuro e pulito dal database.
+
+---
+
+## Comunicazioni e Bacheca in Scrittura (/admin/comunicazioni, Passo 4 modulo Amministratore)
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_comunicazioni_extra.sql` (dopo `01_dati_prova.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati di prova comunicazioni bacheca inseriti/aggiornati con successo.` senza errori. L'esecuzione è idempotente e inserisce 3 comunicazioni di prova per il Condominio di Prova (`d0000000-0000-4000-8000-000000000001`): 1 in evidenza per l'intero condominio (`d0000000-0000-4000-8000-000000000301`), 1 ordinaria specifica per Palazzo A con 2 commenti di prova dei residenti (`d0000000-0000-4000-8000-000000000302`), 1 ordinaria generica per l'intero condominio (`d0000000-0000-4000-8000-000000000303`).
+
+- [ ] **Cosa fare:** con un utente con ruolo `ADMIN` (oppure `is_superadmin = true`), accedere all'applicazione e navigare su `/admin/comunicazioni` tramite il menu laterale ("Comunicazioni") o via URL diretto sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844).
+  **Risultato atteso:** si apre la pagina protetta da guardia ADMIN con `Breadcrumbs` (`Home / Comunicazioni`), `PageHeader` ("Comunicazioni e Bacheca") con sottotitolo e pulsante primario d'azione "Pubblica comunicazione" (icona `plus`). La navigazione da tastiera e l'anello di focus accessibile `#0284C7` (o bianco su navy) sono visibili e mai ritagliati.
+
+- [ ] **Cosa fare:** verificare le 3 `StatCard` ufficiali (Sez. 8 Design System):
+  1. "Comunicazioni attive": conteggio totale dei post pubblicati (es. "3"), icona `message-circle`, tessera blu e nota "Avvisi pubblicati in bacheca".
+  2. "Avvisi in evidenza": conteggio dei post fissati in cima (`is_pinned = true`, es. "1"), icona `pin`, tessera navy e nota "Fissati in cima alla bacheca".
+  3. "Commenti dei residenti": conteggio totale delle interazioni ricevute sui post (es. "2"), icona `messages-square`, tessera teal e nota "Interazioni ricevute sui post".
+
+- [ ] **Cosa fare:** testare la barra di controllo con i `FilterChips` e la `SearchBar`:
+  - Premere il chip "In evidenza": la tabella mostra solo l'avviso fissato in cima;
+  - Premere il chip "Con commenti": la tabella mostra solo l'avviso con interazioni;
+  - Premere il chip "Tutte": la visualizzazione include tutti i post;
+  - Premere il chip dello stabile "Palazzo A": la tabella mostra solo i post dedicati a Palazzo A;
+  - Premere il chip "Tutti gli stabili": la tabella mostra tutti gli avvisi;
+  - Digitare un termine nel campo di ricerca "Cerca avvisi" (es. "caldaia" o "citofoni"): la lista si filtra in tempo reale su titolo e corpo dell'avviso;
+  - Inserire una stringa priva di corrispondenze (es. "xyz"): compare l'`EmptyState` con titolo "Nessun avviso corrisponde ai criteri", descrizione esplicativa e pulsante "Azzera filtri" che ripristina la vista completa.
+
+- [ ] **Cosa fare:** verificare la visualizzazione `ResponsiveDataView` (tabella su desktop/tablet e lista di card su smartphone):
+  - Post in evidenza: compare per primo nella graduatoria, contrassegnato da badge navy con icona spilla "In evidenza";
+  - Destinatari: badge o dicitura chiara ("Intero condominio" con icona utenti, oppure "Palazzo A" con icona edificio);
+  - Data di pubblicazione: formattata in italiano (es. "4 nov 2026");
+  - Commenti: badge con conteggio declinato ("0 commenti", "2 commenti");
+  - Anteprima del testo dell'avviso: troncamento pulito a due righe con ellissi.
+
+- [ ] **Cosa fare:** testare le azioni su riga della tabella:
+  - Toggle rapido evidenza ("Fissa" / "Fissato"): premere "Fissa" sul post ordinario; la dicitura passa a "Fissato", il post sale al vertice della bacheca e compare il toast informativo "Comunicazione fissata in cima alla bacheca."; premere nuovamente per rimuovere il pin;
+  - Pulsante "Modifica": apre la modale di modifica precompilata con titolo, destinatari, testo e stato di pin del post;
+  - Pulsante "Elimina": apre la finestra modale accessibile `ConfirmDialog` con titolo "Eliminare questa comunicazione?", descrizione che avvisa della cancellazione irreversibile anche dei commenti associati e pulsanti "Annulla" ed "Elimina avviso" (rosso distruttivo).
+
+- [ ] **Cosa fare:** premere il pulsante primario "Pubblica comunicazione" (o "Modifica"):
+  1. Si apre la modale accessibile con focus automatico posizionato sul campo "Titolo dell'avviso".
+  2. Test validazione titolo: lasciare vuoto o con meno di 3 caratteri e tentare la pubblicazione; verificare la comparsa del messaggio di errore "Inserisci il titolo della comunicazione." o "Il titolo deve contenere almeno 3 caratteri." con stato `aria-invalid`.
+  3. Test selettore Destinatari / Ambito: verificare il menù a tendina custom `Select` con opzioni "Intero condominio (Tutti i palazzi)" oppure selezione del singolo edificio (es. "Solo Palazzo A").
+  4. Test validazione corpo dell'avviso: verificare la textarea multilinea confortevole, il contatore dinamico di caratteri e l'errore per testi inferiori a 10 caratteri.
+  5. Test casella di controllo "Fissa in evidenza in cima alla bacheca": verificare l'attivazione/disattivazione con descrizione accessibile.
+  6. Compilare con dati validi e salvare: verificare la creazione della comunicazione su `bacheca_post`, la generazione automatica delle notifiche per i condòmini destinatari nella tabella `notifiche`, il Toast di conferma e la chiusura della modale con aggiornamento istantaneo dell'elenco.
+
+- [ ] **Cosa fare:** testare la moderazione commenti residenti (pulsante "Commenti"):
+  1. Premere "Commenti" sul post con 2 commenti (Palazzo A): si apre la modale di moderazione "Moderazione commenti residenti" con indicazione del post selezionato.
+  2. Verificare l'elenco dei commenti dei residenti con nominativo dell'autore (es. "Laura Bianchi", "Marco Verdi"), data formattata e testo del commento.
+  3. Premere il pulsante icona cestino ("Elimina commento"): compare il blocco di conferma inline con pulsanti "Annulla" ed "Elimina commento".
+  4. Confermare l'eliminazione: il commento viene rimosso dal database (`bacheca_commenti`), la lista dei commenti si aggiorna, il conteggio commenti sul post scala automaticamente e compare il Toast di conferma.
+  5. Premere "Chiudi" per chiudere la modale.
+
+- [ ] **Cosa fare:** verificare la schermata sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844):
+  **Risultato atteso:** `document.documentElement.scrollWidth <= window.innerWidth` su tutti i breakpoint (zero scroll orizzontale); passaggio fluido da tabella a card verticali su mobile; nessun taglio visivo o sovrapposizione.
+
+- [ ] **Cosa fare:** verificare conformità WCAG 2.2 AA e navigazione con tastiera:
+  - Navigare con Tab, Shift+Tab, Invio, Spazio ed Escape;
+  - Verificare l'anello di focus `#0284C7` (o bianco su navy) sempre visibile e mai ritagliato;
+  - Testare a zoom 200% verificando che i testi rifluiscano regolarmente e non ci sia scroll orizzontale.
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_comunicazioni_extra_pulizia.sql`.
+  **Risultato atteso:** le 3 comunicazioni di prova, i commenti e le relative notifiche vengono rimossi in modo sicuro dal database senza lasciare residui.
+
+---
+
+## Manutenzione, Ticket e Fornitori (/admin/manutenzione, Passo 5 modulo Amministratore)
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_manutenzione_extra.sql` (dopo `01_dati_prova.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati di prova manutenzione, ticket e fornitori inseriti/aggiornati con successo.` senza errori. L'esecuzione è idempotente e inserisce 2 fornitori convenzionati in `fornitori`, 4 ticket rappresentativi (1 urgente aperto in area comune vano autoclave, 1 in lavorazione con intervento e magic link token illuminazione scale, 1 risolto con consuntivo spesa cancello carrabile, 1 aperto per unità privata Int. 2) e garantisce l'associazione utente-ruolo di prova.
+
+- [ ] **Cosa fare:** con un utente con ruolo `ADMIN` (oppure `is_superadmin = true`, es. `superadmin@iocondo.it`), accedere all'applicazione e navigare su `/admin/manutenzione` tramite la voce "Manutenzione" nella sidebar o via URL diretto sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844).
+  **Risultato atteso:** si apre la pagina protetta da guardia ADMIN con `Breadcrumbs` (`Home / Manutenzione`), `PageHeader` ("Manutenzione e Ticket") con sottotitolo e pulsante d'azione "Nuova segnalazione" (icona `wrench`, identica a quella del lato condòmino). La navigazione da tastiera e l'anello di focus accessibile `#0284C7` (o bianco su navy) sono visibili e mai ritagliati.
+
+- [ ] **Cosa fare:** verificare le 3 `StatCard` ufficiali (Sez. 8 Design System):
+  1. "Ticket guasti aperti": conteggio dei ticket in stato `APERTO` (es. "3"), icona `wrench`, tessera blu e nota "Guasti in attesa di assegnazione".
+  2. "Interventi in lavorazione": conteggio dei ticket in stato `LAVORAZIONE` (es. "1"), icona `hard-hat`, tessera navy e nota "Lavori affidati ai manutentori".
+  3. "Fornitori convenzionati": conteggio totale delle ditte registrate in rubrica (es. "2"), icona `truck`, tessera teal e nota "Ditte registrate in rubrica".
+
+- [ ] **Cosa fare:** testare la navigazione a schede (Tabs):
+  - Scheda 1 predefinita: "Ticket Guasti" con icona chiave inglese `wrench`.
+  - Scheda 2: "Rubrica Fornitori" con icona camioncino `truck`.
+  - Spostarsi tra le schede con frecce tastiera o click del mouse: il pannello sottostante si aggiorna istantaneamente con gli stati `aria-selected` e `tabIndex` corretti.
+
+- [ ] **Cosa fare:** nella Scheda 1 ("Ticket Guasti"), testare la `SearchBar` posizionata sopra i `FilterChips` (uguale alla sezione condòmino):
+  - Premere il chip "Aperti": la tabella filtra mostrando solo i ticket non ancora assegnati;
+  - Premere il chip "In lavorazione": mostra solo i ticket presi in carico dai manutentori;
+  - Premere il chip "Risolti": mostra solo i ticket chiusi con consuntivo;
+  - Premere il chip "Urgenti": mostra solo i ticket con priorità Urgente;
+  - Premere il chip "Aree comuni": mostra solo i ticket con badge "Area comune";
+  - Premere il chip "Tutti": ripristina la visualizzazione di tutti i ticket;
+  - Digitare un termine nella `SearchBar` "Cerca nei ticket" (posizionata sopra i filtri, es. "autoclave", "elettrici" o "infiltrazione"): la tabella filtra in tempo reale su titolo, descrizione, categoria, fornitore e ubicazione;
+  - Inserire una stringa priva di corrispondenze (es. "xyz"): compare l'`EmptyState` con titolo "Nessun ticket corrispondente" e pulsante "Azzera filtri".
+
+- [ ] **Cosa fare:** verificare la visualizzazione `ResponsiveDataView` dei ticket (tabella racchiusa in `<Card>` su desktop/tablet e card per smartphone, identica alla vista condòmino):
+  - 5 colonne compatte e pulite senza sovrapposizioni:
+    1. Priorità (Badge con colori pastello ed etichette coerenti: Urgente, Alta, Media, Bassa);
+    2. Titolo (testo del titolo su riga singola senza descrizione sotto);
+    3. Apertura (formattata in italiano es. "5 nov 2026");
+    4. Stato (Badge con "In lavorazione" rigorosamente su riga singola senza andare a capo);
+    5. Azioni: un solo pulsante d'azione dedicato ("Modifica").
+  - Click sulla riga: premendo su qualsiasi punto della riga della tabella (o toccando la card da smartphone), si apre direttamente la modale dei dettagli (identica interazione del lato condòmino).
+  - Verificare che tutti gli elementi entrino comodamente dentro la pagina senza scroll orizzontale o sovrapposizioni.
+
+- [ ] **Cosa fare:** testare la modale "Dettagli Ticket" (apertura al click su qualsiasi riga):
+  1. Cliccare sulla riga di un ticket: si apre la modale accessibile con il titolo completo del guasto, badge di stato e priorità;
+  2. Verifica dettagli completi: ubicazione precisa, nominativo segnalatore e data apertura, fornitore incaricato e data intervento prevista;
+  3. Verifica sezione "Foto e Allegati": elenco degli allegati con icona documento/foto e badge tipo file;
+  4. Verifica sezione "Messaggi e Note di lavoro": storico ordinato cronologicamente con autore, data e messaggio;
+  5. Test invio nuova nota: digitare un messaggio nell'input e premere "Invia nota"; il messaggio viene salvato in `ticket_messaggi`, compare istantaneamente nello storico e viene emesso un Toast di conferma;
+  6. Premere "Chiudi" o tasto Escape per chiudere la modale.
+
+- [ ] **Cosa fare:** testare la modale "Modifica Ticket" (pulsante "Modifica"):
+  1. Premere "Modifica" su una riga: si apre la modale precompilata con titolo del guasto, priorità, stato del ticket, categoria guasto, ubicazione (area comune vs unità privata) e descrizione;
+  2. Sezione "Fornitore incaricato e Magic Link": selezione del fornitore convenzionato dal menù a tendina custom `Select`, data prevista intervento e note per il fornitore;
+  3. Se è presente o viene generato un intervento con Magic Link, verifica la visualizzazione dell'URL protetto `/fornitore/[token]` e il funzionamento del pulsante "Copia Magic Link" negli appunti;
+  4. Se lo stato è o viene impostato a "Risolto", inserimento dell'importo consuntivo spesa (€) e note finali;
+  5. Premere "Salva modifiche": le informazioni vengono aggiornate nel database, compare il Toast di conferma e la tabella riflette istantaneamente le modifiche.
+
+- [ ] **Cosa fare:** testare la Scheda 2 ("Rubrica Fornitori"):
+  1. Passare alla scheda "Rubrica Fornitori": compare la tabella con l'elenco delle ditte convenzionate;
+  2. Verificare le colonne: Ragione sociale (con IBAN in seconda riga), Categoria merceologica (Badge info es. Idraulico, Elettrico), Telefono (con link attivo `tel:`), Email (con link attivo `mailto:`), P.IVA / CF;
+  3. Testare la `SearchBar` dei fornitori posizionata sotto i controlli di azione;
+  4. Premere "Nuovo fornitore convenzionato" (senza segno più nel testo): si apre la modale "Nuovo fornitore convenzionato";
+  5. Compilare i dati: Ragione sociale (obbligatoria), Categoria (menù a tendina: Idraulico, Elettrico, Edile, Ascensori, Pulizie, Giardinaggio, Altro), P.IVA o CF (validazione formato), Telefono, Email (validazione RFC), IBAN (validazione lunghezza e formato);
+  6. Premere "Salva fornitore": il fornitore viene registrato in `fornitori` associato all'amministratore, la rubrica si aggiorna, il conteggio della StatCard "Fornitori convenzionati" si incrementa e compare il Toast di notifica.
+
+- [ ] **Cosa fare:** testare la creazione segnalazione (pulsante d'azione "Nuova segnalazione" in testata, con icona `wrench`):
+  1. Premere "Nuova segnalazione": si apre la modale accessibile con focus automatico sul titolo;
+  2. Inserire Titolo del guasto;
+  3. Scegliere la Categoria dal menù a tendina caricato dinamicamente da `categorie_guasti`;
+  4. Scegliere la Priorità (Urgente, Alta, Media, Bassa);
+  5. Testare il selettore Ubicazione:
+     - Casella "Segnalazione per area comune del condominio" spuntata: il ticket viene contrassegnato per le parti comuni (vano autoclave, scale, cortile);
+     - Casella deselezionata: compare il campo a tendina obbligatorio "Unità immobiliare interessata" per selezionare l'interno/piano specifico;
+  6. Inserire la descrizione del guasto e premere "Crea ticket": il ticket viene salvato in `ticket_testata`, la lista e le StatCard si aggiornano e compare il Toast di successo.
+
+- [ ] **Cosa fare:** verificare la schermata sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844):
+  **Risultato atteso:** `document.documentElement.scrollWidth <= window.innerWidth` su tutti i breakpoint (zero scroll orizzontale); impaginazione fluida da tabella desktop/tablet a card su smartphone; target touch conformi a 44 px minimi.
+
+- [ ] **Cosa fare:** verificare conformità WCAG 2.2 AA e navigazione con tastiera:
+  - Navigare con Tab, Shift+Tab, Invio, Spazio ed Escape;
+  - Verificare l'anello di focus `#0284C7` (o bianco su navy) sempre visibile e mai ritagliato su tabelle, pulsanti, input e modali;
+  - Testare a zoom 200% verificando che i testi rifluiscano regolarmente e non ci sia scroll orizzontale.
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_manutenzione_extra_pulizia.sql`.
+  **Risultato atteso:** i token magic link, gli allegati, i messaggi, gli interventi, i 4 ticket di prova e i 2 fornitori convenzionati vengono rimossi in modo pulito e sicuro dal database senza lasciare residui.
+
+

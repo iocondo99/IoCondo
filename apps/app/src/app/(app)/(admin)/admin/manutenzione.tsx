@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import React from 'react';
+import { AdminManutenzioneScreen } from '@/screens/AdminManutenzioneScreen';
 
-export default function ManutenzionePage() {
-  return <PaginaInArrivo voceId="manutenzione" />;
+export default function AdminManutenzionePage() {
+  return <AdminManutenzioneScreen />;
 }

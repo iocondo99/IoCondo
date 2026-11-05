@@ -29,6 +29,7 @@ import {
   Info,
   Lock,
   Mail,
+  MailPlus,
   MessageCircle,
   Pencil,
   RefreshCw,
@@ -58,6 +59,10 @@ import {
   UserCheck,
   UserX,
   Plus,
+  Copy,
+  ExternalLink,
+  HardHat,
+  Truck,
   type LucideIcon,
 } from 'lucide-react-native';
 import { colors, iconSizes, iconStrokeWidth, type IconSizeName } from './tokens';
@@ -83,8 +88,10 @@ export const iconMap = {
   'chevron-down': ChevronDown,
   'circle-alert': CircleAlert,
   'circle-check': CircleCheck,
+  'check-circle-2': CircleCheck,
   clock: Clock,
   mail: Mail,
+  'mail-plus': MailPlus,
   hourglass: Hourglass,
   info: Info,
   'triangle-alert': TriangleAlert,
@@ -121,6 +128,10 @@ export const iconMap = {
   'arrow-down': ArrowDown,
   'arrow-up-down': ArrowUpDown,
   upload: Upload,
+  copy: Copy,
+  'external-link': ExternalLink,
+  'hard-hat': HardHat,
+  truck: Truck,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof iconMap;

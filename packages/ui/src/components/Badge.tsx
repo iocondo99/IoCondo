@@ -49,7 +49,7 @@ export const badgeStatuses: Record<BadgeStatus, { label: string; icon: IconName;
   risolto: { label: 'Risolto', icon: 'circle-check', tone: 'success' },
   completato: { label: 'Completato', icon: 'check', tone: 'success' },
   'non-letto': { label: 'Non letto', icon: 'mail', tone: 'info' },
-  'in-attesa': { label: 'In attesa', icon: 'hourglass', tone: 'neutral' },
+  'in-attesa': { label: 'In attesa', icon: 'hourglass', tone: 'info' },
   accettato: { label: 'Accettato', icon: 'circle-check', tone: 'success' },
   preventivo: { label: 'Preventivo', icon: 'calendar-days', tone: 'info' },
   consuntivo: { label: 'Consuntivo', icon: 'circle-check', tone: 'success' },
