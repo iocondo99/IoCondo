@@ -15,3 +15,7 @@ export * from './assemblee/assembleeLogic';
 export * from './pacchi/pacchiLogic';
 export * from './pacchi/pacchiService';
 export * from './assistenza/assistenzaLogic';
+export * from './admin/adminDashboardLogic';
+export * from './admin/adminDashboardService';
+export * from './admin/strutturaLogic';
+export * from './admin/strutturaService';

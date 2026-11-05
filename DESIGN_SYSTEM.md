@@ -737,6 +737,52 @@ Regole
 
 Per operazioni lunghe o moduli complessi, utilizzare una pagina dedicata invece di una modale.
 
+13.1 Linee guida implementative del componente Modal (@iocondo/ui)
+
+Per garantire un'esperienza accessibile, responsive e priva di difetti visivi (anelli di focus tagliati, doppie barre di scorrimento, campi compressi), rispettare rigorosamente le seguenti regole nell'utilizzo del componente `Modal`:
+
+1. MAI annidare un <ScrollView> dentro <Modal>:
+   - `Modal` include già al suo interno un contenitore scorrevole `ScrollView` con compensazione automatica dei margini negativi (`margin: -focusRingInset`) e padding di respiro.
+   - L'inserimento di un secondo `ScrollView` causa doppie barre di scorrimento, ritaglia l'anello di focus `#0284C7` (a causa dell'`overflow: hidden` del contenitore interno) e taglia i campi sul lato destro.
+
+2. Struttura dei figli (children):
+   - I campi del modulo vanno racchiusi in un semplice `<View style={styles.formModale}>`.
+   - Lo stile del contenitore deve prevedere esclusivamente:
+     `{ gap: space[3], paddingBottom: space[2] }` (oppure `gap: space[4]`).
+   - MAI applicare `paddingHorizontal` al contenitore interno (il padding orizzontale e lo spazio per l'anello di focus sono gestiti internamente da `Modal`).
+   - MAI impostare `maxHeight` sul contenitore interno: è `Modal` a dimensionarsi in base alla viewport e a far scorrere il contenuto quando necessario.
+
+3. Righe con campi affiancati (riga doppia / riga tripla):
+   - Per disporre più campi sulla stessa riga (es. Interno e Piano, oppure Foglio, Particella e Subalterno), usare sempre:
+     ```ts
+     rigaCampiDoppia: {
+       flexDirection: 'row',
+       flexWrap: 'wrap',
+       gap: space[3],
+     },
+     campoMezzo: {
+       flex: 1,
+       minWidth: 140,
+     },
+     ```
+   - La combinazione di `flexWrap: 'wrap'` e `minWidth` garantisce che su smartphone o con zoom al 200% i campi vadano a capo fluidamente senza mai schiacciarsi né oltrepassare i bordi.
+
+4. Titolo e descrizione:
+   - Passare titolo e descrizione unicamente tramite le prop `title` e `description` del componente `Modal`.
+   - `Modal` raggruppa automaticamente il titolo e la descrizione in un blocco compatto con spaziatura minima (`space[1]`, 4 px) separato dal pulsante di chiusura `IconButton`. Non inserire duplicati di testo all'interno dei children.
+
+5. Pulsanti d'azione (actions):
+   - Passare i pulsanti tramite il componente dedicato `<ModalActions>` inserito nella prop `actions`:
+     ```tsx
+     actions={
+       <ModalActions>
+         <Button variant="secondary" label="Annulla" onPress={chiudi} />
+         <Button variant="primary" label="Conferma" onPress={conferma} />
+       </ModalActions>
+     }
+     ```
+   - Ordine di lettura obbligatorio: pulsante secondario a sinistra, primario a destra. Su mobile, `ModalActions` inverte e impila automaticamente a tutta larghezza con l'azione principale in alto.
+
 ⸻
 
 14. NOTIFICHE E MESSAGGI

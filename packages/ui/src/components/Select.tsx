@@ -1,12 +1,11 @@
-import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { Icon } from '../Icon';
-import { borderWidths, colors, controlSizes, radii, space, touchTarget } from '../tokens';
+import { borderWidths, colors, controlSizes, focusRingSize, radii, space, touchTarget } from '../tokens';
 import {
   cursorStyle,
   focusElement,
   focusStyle,
-  insetFocusStyle,
   keyboardProps,
   keyOf,
   useColorTransition,
@@ -55,11 +54,30 @@ export function Select({
   disabled = false,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const triggerRef = useRef<React.ComponentRef<typeof View>>(null);
   const optionRefs = useRef<Array<React.ComponentRef<typeof View> | null>>([]);
   const focusedIndex = useRef(-1);
   // L'Escape che chiude la lista non deve chiudere anche una modale: il Modal ascolta il rilascio del tasto.
   const swallowEscapeKeyUp = useRef(false);
+
+  // Chiusura al clic esterno su web (sez. 10 e 17)
+  useEffect(() => {
+    if (!open || Platform.OS !== 'web') return;
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      const triggerNode = triggerRef.current as unknown as HTMLElement | null;
+      if (triggerNode && target && !triggerNode.parentElement?.contains(target)) {
+        setOpen(false);
+        setFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleDocumentClick);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick);
+    };
+  }, [open]);
+
   const onFieldKeyUp = (event: KeyEventLike) => {
     if (keyOf(event) === 'Escape' && swallowEscapeKeyUp.current) {
       swallowEscapeKeyUp.current = false;
@@ -112,17 +130,25 @@ export function Select({
 
   const openList = () => {
     setOpen(true);
+    setFocused(true);
     // Dopo il render porta il focus sulla scelta attuale (o sulla prima opzione).
     const start = selected ? options.indexOf(selected) : enabled[0];
     setTimeout(() => focusOption(start), 0);
   };
 
-  const borderColor = (focused: boolean) =>
-    error ? colors.semantic.error.foreground : focused || open ? colors.focus : colors.borderStrong;
+  const isFieldActive = focused || open;
+  const activeBorderColor = error
+    ? colors.semantic.error.foreground
+    : isFieldActive
+      ? colors.focus
+      : colors.borderStrong;
 
   return (
     <View style={styles.field} {...({ onKeyUp: onFieldKeyUp } as object)}>
-      <Text style={[labelStyle, { color: colors.text.primary }]}>
+      <Text
+        style={[labelStyle, { color: colors.text.primary }]}
+        onPress={() => focusElement(triggerRef.current)}
+      >
         {label}
         {required ? <Text style={{ color: colors.text.secondary }}> (obbligatorio)</Text> : null}
       </Text>
@@ -140,19 +166,21 @@ export function Select({
         aria-invalid={error ? true : undefined}
         aria-required={required}
         disabled={disabled}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         onPress={() => (open ? close(false) : openList())}
-        style={({ focused, hovered }: PressState) => {
+        style={({ hovered }: PressState) => {
           const style: ViewStyle[] = [
             styles.trigger,
             {
-              borderColor: borderColor(!!focused),
+              borderColor: activeBorderColor,
               backgroundColor: disabled ? colors.background : hovered ? colors.background : colors.surface,
             },
           ];
           if (transition) style.push(transition);
           const cursor = cursorStyle(disabled);
           if (cursor) style.push(cursor);
-          const ring = focusStyle(!!focused);
+          const ring = focusStyle(isFieldActive);
           if (ring) style.push(ring);
           return style;
         }}
@@ -180,6 +208,9 @@ export function Select({
           <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
             {options.map((option, index) => {
               const isSelected = option.value === value;
+              const isFirst = index === 0;
+              const isLast = index === options.length - 1;
+              const innerRadius = radii.control - borderWidths.thin;
               return (
                 <Pressable
                   key={option.value}
@@ -205,13 +236,27 @@ export function Select({
                           : hovered || isSelected
                             ? colors.semantic.info.background
                             : colors.surface,
+                        borderTopLeftRadius: isFirst ? innerRadius : 0,
+                        borderTopRightRadius: isFirst ? innerRadius : 0,
+                        borderBottomLeftRadius: isLast ? innerRadius : 0,
+                        borderBottomRightRadius: isLast ? innerRadius : 0,
                       },
                     ];
                     const cursor = cursorStyle(!!option.disabled);
                     if (cursor) style.push(cursor);
-                    // La lista ritaglia ciò che esce dal bordo: l'anello sta dentro l'opzione.
-                    const ring = insetFocusStyle(!!focused);
-                    if (ring) style.push(ring);
+
+                    // Su web l'anello di focus usa boxShadow inset con i raggi di curvatura dell'opzione,
+                    // per evitare che outline ritagli gli angoli arrotondati della lista.
+                    if (focused) {
+                      if (Platform.OS === 'web') {
+                        style.push({
+                          boxShadow: `inset 0 0 0 ${focusRingSize.width}px ${colors.focus}`,
+                          outlineStyle: 'none',
+                        } as ViewStyle);
+                      } else {
+                        style.push({ borderColor: colors.focus });
+                      }
+                    }
                     return style;
                   }}
                 >
@@ -277,8 +322,7 @@ const styles = StyleSheet.create({
     gap: space[3],
     paddingHorizontal: space[3],
     paddingVertical: space[2],
-    borderWidth: borderWidths.thin,
-    borderColor: 'transparent',
+    ...(Platform.OS !== 'web' ? { borderWidth: borderWidths.thin, borderColor: 'transparent' } : null),
   },
   optionText: { flex: 1 },
   message: { flexDirection: 'row', alignItems: 'flex-start', gap: space[2] },

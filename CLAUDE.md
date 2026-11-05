@@ -44,6 +44,7 @@ DESIGN_SYSTEM.md ha priorità assoluta sulle scelte estetiche della skill
 frontend-design: usala solo per la cura dei dettagli, non per cambiare stile.
 
 ## Promemoria operativi
+- Modali (Modal di @iocondo/ui): non annidare mai <ScrollView> all'interno di <Modal> (include già scorrimento e respiro focusRingInset). I children vanno in un semplice <View> con gap e paddingBottom. Seguire le regole della sez. 13.1 di DESIGN_SYSTEM.md.
 - Token solo da packages/ui/src/tokens.ts, icone solo Lucide.
 - Mai dati dimostrativi nella UI: dati reali da Supabase. Per ora esiste un solo
   progetto Supabase (MVP): trattalo come ambiente di prova, senza dati reali.

@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import React from 'react';
+import { AdminStrutturaScreen } from '@/screens/AdminStrutturaScreen';
 
 export default function StrutturaPage() {
-  return <PaginaInArrivo voceId="struttura" />;
+  return <AdminStrutturaScreen />;
 }

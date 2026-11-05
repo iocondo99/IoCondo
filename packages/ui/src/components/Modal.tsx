@@ -126,15 +126,22 @@ export function Modal({
           style={[styles.card, { padding: isMobile ? space[4] : space[6] }, noOutline]}
         >
           <View style={styles.header}>
-            <Text
-              ref={titleRef}
-              id={titleId}
-              accessibilityRole="header"
-              aria-level={2}
-              style={[titleStyle, styles.title]}
-            >
-              {title}
-            </Text>
+            <View style={styles.titleGroup}>
+              <Text
+                ref={titleRef}
+                id={titleId}
+                accessibilityRole="header"
+                aria-level={2}
+                style={[titleStyle, styles.title]}
+              >
+                {title}
+              </Text>
+              {description ? (
+                <Text id={descriptionId} style={[descriptionStyle, styles.description]}>
+                  {description}
+                </Text>
+              ) : null}
+            </View>
             <IconButton
               icon="x"
               accessibilityLabel={closeLabel}
@@ -142,18 +149,13 @@ export function Modal({
               disabled={!dismissible}
             />
           </View>
-          {description ? (
-            <Text id={descriptionId} style={[descriptionStyle, styles.description]}>
-              {description}
-            </Text>
-          ) : null}
           {children ? (
             <ScrollView
               style={styles.body}
               contentContainerStyle={[
                 styles.bodyContent,
                 {
-                  paddingRight: isMobile ? space[4] : space[6],
+                  paddingRight: isMobile ? space[5] : space[6],
                   paddingBottom: isMobile ? space[4] : space[6],
                 },
               ]}
@@ -216,7 +218,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: space[3],
   },
-  title: { flex: 1, color: colors.brand.navy, paddingTop: space[2] },
+  titleGroup: {
+    flex: 1,
+    gap: space[1],
+  },
+  title: { color: colors.brand.navy },
   description: { color: colors.text.secondary },
   // Il contenitore scorrevole ritaglia ciò che esce dal suo bordo, contorno di focus compreso:
   // il padding interno lo fa stare dentro, il margine negativo uguale lascia invariato il layout.

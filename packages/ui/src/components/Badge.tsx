@@ -28,7 +28,12 @@ export type BadgeStatus =
   | 'votazione-aperta'
   | 'votazione-chiusa'
   | 'in-giacenza'
-  | 'ritirato';
+  | 'ritirato'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'info'
+  | 'neutral';
 
 type Tone = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
@@ -58,6 +63,11 @@ export const badgeStatuses: Record<BadgeStatus, { label: string; icon: IconName;
   'votazione-chiusa': { label: 'Chiusa', icon: 'lock', tone: 'neutral' },
   'in-giacenza': { label: 'In giacenza', icon: 'package', tone: 'warning' },
   ritirato: { label: 'Ritirato', icon: 'package-check', tone: 'success' },
+  success: { label: 'Completato', icon: 'circle-check', tone: 'success' },
+  warning: { label: 'Attenzione', icon: 'circle-alert', tone: 'warning' },
+  error: { label: 'Errore', icon: 'circle-alert', tone: 'error' },
+  info: { label: 'Info', icon: 'info', tone: 'info' },
+  neutral: { label: 'Neutro', icon: 'circle-check', tone: 'neutral' },
 };
 
 const tones: Record<Tone, { foreground: string; background: string }> = {
@@ -75,8 +85,8 @@ export interface BadgeProps {
 }
 
 export function Badge({ status, label }: BadgeProps) {
-  const spec = badgeStatuses[status];
-  const tone = tones[spec.tone];
+  const spec = badgeStatuses[status] ?? badgeStatuses.neutral;
+  const tone = tones[spec.tone] ?? tones.neutral;
   const textStyle = useTextStyle('label');
   const text = label?.trim() || spec.label;
   return (

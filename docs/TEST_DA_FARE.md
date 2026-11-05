@@ -604,3 +604,108 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 
 - [ ] **Cosa fare:** eseguire `supabase/seed-dev/assistenza_extra_pulizia.sql`.
   **Risultato atteso:** termina con `NOTICE: Dati extra Assistenza rimossi con successo.` e i dati di prova di assistenza/polizza vengono rimossi.
+
+---
+
+## Dashboard Amministratore (/admin/dashboard)
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_dashboard_extra.sql` (dopo `01_dati_prova.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati extra Dashboard Amministratore pronti per il condominio ...` senza errori; l'esecuzione è idempotente e rieseguendola non crea duplicati. Vengono inseriti un movimento di saldo iniziale positivo per la cassa, 3 ticket con differenti priorità (Alta, Media, Bassa) e stati (Aperto, In corso), e verificate le ultime comunicazioni e assemblee.
+
+- [ ] **Cosa fare:** con un utente avente ruolo `ADMIN` (oppure `is_superadmin = true`) accedere all'applicazione e aprire `/admin/dashboard` da barra laterale (desktop) o dal menu di navigazione su desktop (1440 px), tablet (820 px) e smartphone (390 px).
+  **Risultato atteso:** si apre la pagina con `PageHeader` ("Dashboard Amministratore"), il selettore del condominio attivo con badge del condominio e il chip indicatore dell'esercizio contabile corrente (es. "Esercizio: 2026 (Preventivo)").
+
+- [ ] **Cosa fare:** verificare i valori e le informazioni mostrate nelle 4 `StatCard` ufficiali posizionate in testata:
+  1. "Saldo cassa": mostra il saldo reale calcolato sui movimenti contabili con formattazione in valuta europea (es. "€ 14.850,00"), colore verde/successo se positivo o rosso se negativo, indicatore visivo di tendenza e nota descrittiva.
+  2. "Riscossione rate": mostra la percentuale riscossa dell'esercizio corrente calcolata su `rate_dettaglio` (es. "13%"), il totale incassato rispetto al totale preventivato e la nota sulla morosità scaduta da oltre 15 giorni con badge di attenzione.
+  3. "Ticket guasti aperti": mostra il numero totale di ticket aperti o in lavorazione (es. "3") con i sottotitoli/badge per ticket ad alta priorità e ticket in lavorazione.
+  4. "Prossima assemblea": mostra la data formattata della prossima assemblea convocata futura, il tipo ("Ordinaria" o "Straordinaria") e il luogo o link telematico.
+
+- [ ] **Cosa fare:** su desktop a 1440 px verificare il layout a due colonne:
+  - **Colonna sinistra:**
+    - Scheda "Ticket guasti urgenti": mostra la lista ordinata per gravità decrescente (priorità ALTA in cima con badge rosso/warning), data di apertura, titolo del guasto, unità immobiliare associata e pulsante rapido "Gestisci" per ciascuna riga. Se non vi sono ticket aperti, mostra lo stato vuoto informativo.
+    - Scheda "Ultime comunicazioni pubblicate": mostra le ultime 3 comunicazioni in bacheca con titolo, data di pubblicazione, badge priorità e pulsante "Vai alla bacheca".
+  - **Colonna destra:**
+    - Scheda "Stato riscossione dell'esercizio": barra di avanzamento percentuale visiva, riepilogo dettagliato degli importi (Incassato, Da riscuotere, Totale preventivato), importo morosità scaduta da oltre 15 giorni evidenziato in rosso, e pulsante "Registro contabilità".
+    - Scheda "Azioni rapide": pulsanti interattivi per le operazioni quotidiane più frequenti ("Nuovo avviso", "Registra movimento", "Nuovo ticket").
+  **Risultato atteso:** le due colonne sono ben bilanciate, i testi sono formattati correttamente con i token di colore e tipografia ufficiali, nessuna sovrapposizione visiva.
+
+- [ ] **Cosa fare:** ridimensionare la viewport a tablet (820x1180 px) e mobile (390x844 px).
+  **Risultato atteso:** il layout collassa verticalmente in modo fluido: le StatCard si dispongono su 2 colonne o colonna singola, la colonna sinistra scorre prima della colonna destra, i pulsanti e le righe mantengono un'area touch di almeno 44 px e `document.documentElement.scrollWidth <= window.innerWidth` (zero scroll orizzontale su tutti i breakpoint).
+
+- [ ] **Cosa fare:** verificare la visualizzazione a zoom 200% su browser desktop.
+  **Risultato atteso:** i blocchi e i testi vanno a capo naturalmente, nessun testo viene troncato in modo illeggibile, la leggibilità è garantita e non compare alcuno scroll orizzontale.
+
+- [ ] **Cosa fare:** navigare l'intera schermata della dashboard utilizzando esclusivamente la tastiera (tasto Tab e Shift+Tab).
+  **Risultato atteso:** tutti gli elementi interattivi (pulsanti "Gestisci", pulsante "Vai alla bacheca", pulsante "Registro contabilità", bottoni delle azioni rapide e card cliccabili) ricevono l'anello di focus accessibile `#0284C7` nitido, ben visibile e mai ritagliato fuori dai bordi.
+
+- [ ] **Cosa fare:** verificare i contrasti cromatici secondo WCAG 2.2 AA.
+  **Risultato atteso:** tutti i testi (`#0F172A`, `#475569`) e tutti gli elementi interattivi primari (`#0A79AB`) rispettano il rapporto di contrasto minimo 4.5:1 rispetto allo sfondo bianco/card.
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_dashboard_extra_pulizia.sql`.
+  **Risultato atteso:** lo script termina con `NOTICE: Dati extra Dashboard Amministratore rimossi con successo.` e i dati aggiuntivi di prova della dashboard vengono rimossi senza intaccare il resto dei dati del condominio.
+
+---
+
+## Struttura del Condominio e Tabelle Millesimali (/admin/struttura)
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_struttura_extra.sql` (dopo `01_dati_prova.sql`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati extra Struttura e Millesimi pronti: 2 palazzi, 6 unita, 2 tabelle millesimali quadrate a 1000 ‰.` senza errori. L'esecuzione è idempotente e non crea duplicati. Vengono configurati 2 palazzi (Palazzo A e Palazzo B), le scale (Scala A, Scala B, Scala Unica), 6 unità complessive con anagrafiche residenti attivi, e 2 tabelle millesimali quadrate ("Tabella A - Proprietà Generale" e "Tabella B - Scale e Ascensore Palazzo A").
+
+- [ ] **Cosa fare:** con un utente avente ruolo `ADMIN` (oppure `is_superadmin = true`) accedere all'applicazione e aprire `/admin/struttura` dalla voce "Struttura" nella barra laterale o via URL diretto sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844).
+  **Risultato atteso:** si apre la pagina con `Breadcrumbs` (`Home / Struttura`), `PageHeader` ("Struttura del Condominio") con sottotitolo e pulsanti d'azione primari: "Importa millesimi CSV", "Aggiungi edificio" e "Nuova unità".
+
+- [ ] **Cosa fare:** verificare i valori e le informazioni mostrate nelle 3 `StatCard` ufficiali in testata:
+  1. "Edifici e Palazzi": mostra il numero totale di edifici (es. "2 Palazzi"), icona `building-2`, tessera blu e nota "Edifici nel condominio".
+  2. "Totale unità immobiliari": mostra il numero totale di unità (es. "6 Unità"), icona `home`, tessera navy e la metratura calpestabile complessiva (es. "510 mq complessivi").
+  3. "Residenti associati": mostra il numero di unità con residenti attivi assegnati (es. "6 Assegnate"), icona `users`, tessera teal e la percentuale di occupazione attiva (es. "100% unità con residente attivo").
+
+- [ ] **Cosa fare:** nella Scheda 1 ("Edifici e Unità") testare la barra di ricerca e i filtri a chip:
+  - Digitare nel campo "Cerca unità" un interno (es. "1") o il cognome di un residente (es. "Romano").
+  - Premere i chip per filtrare per edificio (es. "Palazzo A", "Palazzo B" o "Tutti i palazzi").
+  **Risultato atteso:** l'elenco si aggiorna in tempo reale filtrando istantaneamente i palazzi e le unità pertinenti; premendo "Azzera filtri" la vista si reimposta su tutti gli immobili.
+
+- [ ] **Cosa fare:** nella Scheda 1 verificare l'albero gerarchico degli edifici e delle scale:
+  - Per ogni Palazzo: verifica il nome, l'indirizzo, il badge del totale unità e mq complessivi, e il pulsante "+ Nuova unità".
+  - Per ogni Scala/Colonna: verifica il titolo della scala (es. "Scala A", "Scala B", o "Senza scala / Generale") con conteggio unità.
+  - Per ogni Unità: verifica il badge dell'interno ("Int. 1"), la destinazione d'uso (es. "Appartamento", "Box auto"), il piano, la superficie in mq e il badge del residente ("Proprietario: Luca Romano" con badge verde di successo o "Non assegnata").
+  - Premere il pulsante "Dettagli" su una riga.
+  **Risultato atteso:** si apre la modale accessibile "Dettaglio unità" con il riepilogo dei dati spaziali, catastali (foglio, particella, subalterno) e anagrafica residente con recapiti telefonici e quota possesso.
+  - Premere il pulsante "Modifica" su una riga.
+  **Risultato atteso:** si apre la modale "Modifica Unità" precompilata con i dati correnti dell'unità; modificando un valore (es. piano o mq) e premendo "Salva modifiche", la modifica viene salvata e la lista aggiornata.
+
+- [ ] **Cosa fare:** premere il pulsante "Aggiungi edificio" in testata.
+  **Risultato atteso:** si apre la modale accessibile "Aggiungi nuovo edificio o palazzo"; compilare nome identificativo (es. "Palazzo C") e indirizzo, poi premere "Crea edificio". L'edificio viene creato e compare nell'albero e nelle StatCard.
+
+- [ ] **Cosa fare:** premere il pulsante "Nuova unità" in testata.
+  **Risultato atteso:** si apre la modale accessibile "Nuova unità immobiliare":
+  - verificare che la spaziatura tra il titolo ("Nuova unità immobiliare") e la descrizione sottostante sia compatta ed equilibrata (`gap: space[1]`, 4 px), allineata con l'icona di chiusura;
+  - verificare che sui menù a tendina (`Select`: "Edificio / Palazzo *", "Scala o Colonna", "Destinazione d'uso / Tipologia *"), durante l'apertura e la valorizzazione della scelta, il bordo e l'anello di focus accessibile `#0284C7` siano continui, nitidi e mai ritagliati sui lati; al clic esterno o blur il menù si chiuda ripristinando lo stato di riposo;
+  - verificare che i box dei campi sul lato destro abbiano il respiro previsto dai token e non siano minimamente ritagliati o schiacciati;
+  - verificare che quando si valorizzano i campi di testo (es. "Numero Interno *", "Piano", "Superficie calpestabile (mq)", "Subalterno") il bordo e l'anello di focus accessibile `#0284C7` siano nitidi, continui e mai ritagliati sui lati destro, superiore o inferiore;
+  - verificare che la barra di scorrimento verticale della finestra sia posizionata all'estremo bordo destro della modale (in piena conformità con `ModuloNuovaSegnalazione` del condòmino), lasciando ampio spazio tra i controlli e la barra di scorrimento;
+  - selezionare palazzo, tipologia, inserire interno obbligatorio, piano e superficie; premendo "Crea unità", la nuova unità viene inserita e collegata alla scala/palazzo selezionato.
+
+- [ ] **Cosa fare:** passare alla Scheda 2 ("Tabelle Millesimali") premendo il relativo tab.
+  **Risultato atteso:** il pannello mostra le tabelle millesimali attive (es. "Tabella A - Proprietà Generale" e "Tabella B - Scale e Ascensore Palazzo A"):
+  - Ogni tabella riporta il totale previsto (1000 ‰), la somma calcolata delle quote effettive (es. "1000,000 ‰") e il badge di quadratura ("Quadrata a 1000 ‰" con tono verde/successo se la somma è 1000 ‰, oppure badge rosso/errore "Disavanzo da correggere: +X ‰" se differisce).
+  - Viene mostrata la tabella/elenco con le quote per ciascun appartamento (interno, tipologia, edificio/scala, valore millesimale formattato a 3 decimali e percentuale relativa).
+
+- [ ] **Cosa fare:** nella Scheda 2 o in testata premere "Importa millesimi CSV" (UC-09):
+  1. Verificare che la modale "Importa millesimi da file CSV" si apra con focus intrappolato e ruoli accessibili.
+  2. Premere "Scarica template CSV": verificare che scarichi il file `.csv` di esempio precompilato con le unità e scale esistenti (o incolli il template nell'area di testo).
+  3. Modificare una riga impostando una somma errata (es. totale 950 ‰): verificare che l'anteprima segnali il disavanzo ("Disavanzo: +50,000 ‰") e che il pulsante "Applica e salva quote" sia bloccato/disabilitato.
+  4. Inserire una riga con formato numerico italiano con virgola (es. `250,500`) e verificare la corretta interpretazione decimale.
+  5. Inserire una riga con un interno inesistente (es. `Int. 99`): verificare che la riga venga evidenziata in rosso con la spiegazione dell'errore ("Unità non trovata nel condominio").
+  6. Inserire dati con quadratura esatta a 1000,000 ‰ senza errori: verificare che il riepilogo mostri il badge verde "Quadrata a 1000 ‰" e che il pulsante "Applica e salva quote" diventi attivo.
+  7. Premere "Applica e salva quote": le nuove quote vengono salvate su Supabase con notifica Toast di successo e la tabella millesimale si aggiorna immediatamente.
+
+- [ ] **Cosa fare:** verificare la schermata sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844).
+  **Risultato atteso:** `document.documentElement.scrollWidth <= window.innerWidth` su tutti i breakpoint (zero scroll orizzontale); le StatCard e le righe delle unità si adattano fluidamente; i pulsanti mantengono un'area touch minima di 44 px.
+
+- [ ] **Cosa fare:** testare la navigazione via tastiera (Tab, Shift+Tab, Frecce sinistra/destra nei Tab) e zoom al 200%.
+  **Risultato atteso:** l'anello di focus accessibile `#0284C7` è nitido e mai ritagliato su tabelle, tab, input, pulsanti e modali; con zoom 200% i testi vanno a capo senza troncamenti e senza scroll orizzontale.
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_struttura_extra_pulizia.sql`.
+  **Risultato atteso:** lo script termina con `NOTICE: Dati extra Struttura e Millesimi rimossi con successo.` e i dati aggiuntivi di prova della struttura e tabelle vengono rimossi in modo sicuro.
+

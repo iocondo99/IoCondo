@@ -52,6 +52,8 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 
 ### Da verificare (stato sconosciuto: chiedere all'utente prima di procedere)
 
+- Struttura del Condominio e Tabelle Millesimali (/admin/struttura, Passo 2 modulo Amministratore): albero gerarchico spaziale (Palazzi -> Scale/Colonne -> Unità), anagrafiche residenti attivi con badge Proprietario/Inquilino, riepilogo tabelle millesimali con quadratura 1000 ‰, modali interattive per aggiunta palazzo/unità e modale accessibile di importazione CSV quote millesimali (UC-09) con validazione real-time, anteprima errori e blocco quadratura (da verificare dall'utente).
+- Dashboard Amministratore (/admin/dashboard, Passo 1 modulo Amministratore): KPI saldi di cassa, stato riscossione rate esercizio in corso, morosità > 15 gg, ticket guasti urgenti, assemblea convocata, ultime comunicazioni e azioni rapide (da verificare dall'utente).
 - Assemblee: sezione condòmino (`/assemblee` e `/assemblee/[id]`, UC-10), esclusione bozze, espressione voto, percentuali aggregate via RPC `risultati_voto`, link Meet sicuro e verbale nello Storage (`documenti-condominio`) (da verificare dall'utente).
 - Registro pacchi: schermata `/pacchi`, modali di arrivo e ritiro con firma, isolamento unità per condòmino e dati di prova in `supabase/seed-dev/pacchi_extra.sql` (da verificare dall'utente).
 - Impostazioni e Assistenza: schermate `/impostazioni` e `/assistenza`, modifica dati profilo (`nome_cognome`, `telefono`), cambio password via Supabase Auth, preferenze notifiche locali (`iocondo.preferenze.v1`), contatti dell'amministrazione affiancati a Guida e FAQ, numeri utili e pronto intervento H24 e dati di prova in `supabase/seed-dev/assistenza_extra.sql` (da verificare dall'utente).
@@ -75,7 +77,7 @@ Questo file è la fonte di verità per ordine dei lavori, stato e regole. Va let
 6. Registro pacchi (`/pacchi`): portiere registra pacchi in arrivo e segna il ritiro con firma; condòmino consulta i propri pacchi in giacenza (UC-07).
 7. Impostazioni e Assistenza (`/impostazioni`, `/assistenza`): profilo personale, cambio password, preferenze notifiche, contatti del condominio e numeri di emergenza. [COMPLETATO - da verificare]
 8. Super admin: Amministratori (invito ruolo ADMIN, collegamento `licenze_saas`), Piani e abbonamenti, Fatture.
-9. Amministratore (gruppo `(admin)`): Dashboard, Struttura (palazzi, scale/colonne, unità, anagrafiche, CSV millesimi), Contabilità (bilanci, rate, ripartizione), Manutenzione (ticket e fornitori), Comunicazioni in scrittura, Documenti, Assemblee.
+9. Amministratore (gruppo `(admin)`): Dashboard [IN CORSO - da verificare], Struttura (palazzi, scale/colonne, unità, anagrafiche, CSV millesimi) [COMPLETATO - da verificare], Contabilità (bilanci, rate, ripartizione), Manutenzione (ticket e fornitori), Comunicazioni in scrittura, Documenti, Assemblee.
 10. Fornitore: `/fornitore/[token]` tramite funzione o RPC che valida il token e restituisce solo i dati di quel ticket. Nessuna policy aperta ad `anon` sulle tabelle dei ticket.
 11. Pre-rilascio (sezione 5).
 

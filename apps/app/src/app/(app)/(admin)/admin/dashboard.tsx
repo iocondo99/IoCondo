@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import React from 'react';
+import { AdminDashboardScreen } from '@/screens/AdminDashboardScreen';
 
 export default function DashboardPage() {
-  return <PaginaInArrivo voceId="dashboard" />;
+  return <AdminDashboardScreen />;
 }

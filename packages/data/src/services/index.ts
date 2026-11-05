@@ -16,12 +16,14 @@ import { createProfiloService } from './profiloService';
 import { createSegnalazioniService } from '../segnalazioni/segnalazioniService';
 import { createServiziService } from './serviziService';
 import { createSpeseService } from '../spese/speseService';
-import { createStrutturaService } from './strutturaService';
+import { createStrutturaService } from '../admin/strutturaService';
 import { createTicketService } from './ticketService';
+import { createAdminDashboardService } from '../admin/adminDashboardService';
 
 /** Compone tutti i service su un client dato: il client lo crea l'app (nessun singleton qui). */
 export function createServices(db: TypedSupabaseClient) {
   return {
+    adminDashboard: createAdminDashboardService(db),
     auth: createAuthService(db),
     condomini: createCondominiService(db),
     profilo: createProfiloService(db),
@@ -45,6 +47,7 @@ export function createServices(db: TypedSupabaseClient) {
 }
 export type Services = ReturnType<typeof createServices>;
 
+export * from '../admin/adminDashboardService';
 export * from '../assemblee/assembleeService';
 export * from '../assistenza/assistenzaService';
 export * from './assembleaService';
@@ -63,4 +66,5 @@ export * from '../pagamenti/pagamentiService';
 export * from '../segnalazioni/segnalazioniService';
 export * from './serviziService';
 export * from '../spese/speseService';
+export * from '../admin/strutturaService';
 export * from './ticketService';
