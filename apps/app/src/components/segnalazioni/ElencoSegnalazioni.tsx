@@ -38,7 +38,7 @@ import { useProfilo } from '@/context/ProfiloContext';
 import { useBlocco } from '@/hooks/useBlocco';
 import { services } from '@/services';
 
-const FILTRI_INIZIALI: FiltriSegnalazioni = { stato: 'tutti', ricerca: '' };
+const FILTRI_INIZIALI: FiltriSegnalazioni = { stato: 'APERTO', ricerca: '' };
 
 interface Props {
   modalita: ModalitaSegnalazioni;

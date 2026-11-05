@@ -122,22 +122,56 @@ export function createHomeService(db: TypedSupabaseClient) {
           .or(visibili)
           .order('data_pubblicazione', { ascending: false })
           .limit(limite),
-        // Conta solo i post che esistono ancora e che l'utente può vedere (la notifica può restare orfana).
+        // Conta e recupera i post non letti che esistono ancora e che l'utente può vedere.
         idNonLette.length > 0
-          ? db.from('bacheca_post').select('id').eq('condominio_id', condominioId).or(visibili).in('id', idNonLette)
-          : Promise.resolve({ data: [] as { id: string }[], error: null }),
+          ? db
+              .from('bacheca_post')
+              .select('id, titolo, corpo, data_pubblicazione')
+              .eq('condominio_id', condominioId)
+              .or(visibili)
+              .in('id', idNonLette)
+              .order('data_pubblicazione', { ascending: false })
+          : Promise.resolve({
+              data: [] as { id: string; titolo: string; corpo: string | null; data_pubblicazione: string }[],
+              error: null,
+            }),
       ]);
-      const righe = unwrap(recenti);
-      const nonLetti = new Set(unwrap(daLeggere).map((p) => p.id));
+      const righeRecenti = unwrap(recenti);
+      const postDaLeggere = unwrap(daLeggere);
+      const nonLettiMap = new Map(postDaLeggere.map((p) => [p.id, p]));
+
+      const idVisti = new Set<string>();
+      const tutteRighe: ComunicazioneHome[] = [];
+
+      for (const p of postDaLeggere) {
+        if (!idVisti.has(p.id)) {
+          idVisti.add(p.id);
+          tutteRighe.push({
+            id: p.id,
+            titolo: p.titolo,
+            corpo: p.corpo,
+            dataPubblicazione: p.data_pubblicazione,
+            nonLetta: true,
+          });
+        }
+      }
+
+      for (const p of righeRecenti) {
+        if (!idVisti.has(p.id)) {
+          idVisti.add(p.id);
+          tutteRighe.push({
+            id: p.id,
+            titolo: p.titolo,
+            corpo: p.corpo,
+            dataPubblicazione: p.data_pubblicazione,
+            nonLetta: nonLettiMap.has(p.id),
+          });
+        }
+      }
+
       return {
-        righe: righe.map((p) => ({
-          id: p.id,
-          titolo: p.titolo,
-          corpo: p.corpo,
-          dataPubblicazione: p.data_pubblicazione,
-          nonLetta: nonLetti.has(p.id),
-        })),
-        nonLette: nonLetti.size,
+        righe: tutteRighe,
+        nonLette: postDaLeggere.length,
       };
     },
 

@@ -92,7 +92,11 @@ function HomeContenuto() {
   );
 
   const indirizzo = [condominio?.indirizzo, condominio?.citta].filter(Boolean).join(', ');
-  const ultime = vedeComunicazioni ? (
+  const haUltimeNonLette =
+    vedeComunicazioni &&
+    comunicazioni.blocco.stato === 'pronto' &&
+    comunicazioni.blocco.dati.righe.some((c) => c.nonLetta);
+  const ultime = haUltimeNonLette ? (
     <UltimeComunicazioni blocco={comunicazioni.blocco} ricarica={comunicazioni.ricarica} apri={apri} />
   ) : null;
 

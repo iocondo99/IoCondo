@@ -39,7 +39,7 @@ import { useProfilo } from '@/context/ProfiloContext';
 import { useBlocco } from '@/hooks/useBlocco';
 import { services } from '@/services';
 
-const FILTRI_INIZIALI: FiltriComunicazioni = { stato: 'tutti', ricerca: '' };
+const FILTRI_INIZIALI: FiltriComunicazioni = { stato: 'non-lette', ricerca: '' };
 
 /** Pagina "Comunicazioni" del condòmino: sola lettura degli avvisi del condominio selezionato. */
 export function ComunicazioniScreen() {

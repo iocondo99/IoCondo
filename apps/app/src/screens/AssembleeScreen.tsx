@@ -39,7 +39,7 @@ import { useProfilo } from '@/context/ProfiloContext';
 import { useBlocco } from '@/hooks/useBlocco';
 import { services } from '@/services';
 
-const FILTRI_INIZIALI: FiltriAssemblee = { stato: 'tutte', ricerca: '' };
+const FILTRI_INIZIALI: FiltriAssemblee = { stato: 'convocate', ricerca: '' };
 const ERRORE_RIEPILOGO = 'Non è stato possibile caricare le assemblee.';
 
 /**

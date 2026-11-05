@@ -41,7 +41,7 @@ import { useProfilo } from '@/context/ProfiloContext';
 import { useBlocco } from '@/hooks/useBlocco';
 import { services } from '@/services';
 
-const FILTRI_INIZIALI: FiltriPagamenti = { stato: 'tutti', ricerca: '' };
+const FILTRI_INIZIALI: FiltriPagamenti = { stato: 'da-pagare', ricerca: '' };
 const ERRORE_RIEPILOGO = 'Non è stato possibile caricare le rate.';
 
 /** Pagina "Pagamenti" del condòmino: le sue rate, con ricerca, filtri, ordine e dettaglio. Il pagamento online è Fase 2. */

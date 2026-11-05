@@ -122,7 +122,7 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
   }, [ricarica]);
 
   // Filtri, ricerca e ordinamento
-  const [filtroStato, setFiltroStato] = useState<FiltroStatoPacchi>('tutti');
+  const [filtroStato, setFiltroStato] = useState<FiltroStatoPacchi>('GIACENZA');
   const [ricerca, setRicerca] = useState('');
   const [colonnaSort, setColonnaSort] = useState<ColonnaOrdinamentoPacchi>('data_arrivo');
   const [direzioneSort, setDirezioneSort] = useState<DirezioneOrdinamentoPacchi>('desc');
@@ -145,7 +145,7 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
   const [erroreRitiro, setErroreRitiro] = useState<string | null>(null);
 
   useEffect(() => {
-    setFiltroStato('tutti');
+    setFiltroStato('GIACENZA');
     setRicerca('');
     setColonnaSort('data_arrivo');
     setDirezioneSort('desc');
@@ -283,7 +283,7 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
   const filtriAttivi = filtroStato !== 'tutti' || ricerca.trim().length > 0;
 
   const azzeraFiltri = useCallback(() => {
-    setFiltroStato('tutti');
+    setFiltroStato('GIACENZA');
     setRicerca('');
     setPagina(1);
   }, []);
