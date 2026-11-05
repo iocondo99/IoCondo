@@ -7,6 +7,8 @@
 
 do $pulizia_admin_struttura$
 declare
+  c_palazzo_b           constant uuid := 'd0000000-0000-4000-8000-000000000004';
+
   c_scala_a             constant uuid := 'd0000000-0000-4000-8000-000000000901';
   c_scala_b             constant uuid := 'd0000000-0000-4000-8000-000000000902';
   c_scala_unica_b       constant uuid := 'd0000000-0000-4000-8000-000000000903';
@@ -25,6 +27,8 @@ declare
 
   c_tab_a               constant uuid := 'd0000000-0000-4000-8000-000000000951';
   c_tab_b               constant uuid := 'd0000000-0000-4000-8000-000000000952';
+
+  c_uer_admin_luca      constant uuid := 'd0000000-0000-4000-8000-000000000999';
 begin
   -- Rimuovi quote millesimali inserite
   delete from public.quote_millesimali where tabella_id in (c_tab_a, c_tab_b);
@@ -44,6 +48,15 @@ begin
   -- Rimuovi scale extra
   delete from public.scale_colonne where id in (c_scala_a, c_scala_b, c_scala_unica_b);
 
+  -- Rimuovi palazzo B extra
+  delete from public.palazzi where id = c_palazzo_b;
+
+  -- Rimuovi ruolo admin extra di prova
+  delete from public.utente_entita_ruolo where id in (
+    c_uer_admin_luca,
+    'd0000000-0000-4000-8000-000000000998'::uuid,
+    'd0000000-0000-4000-8000-000000000997'::uuid
+  );
+
   raise notice 'Dati extra Struttura e Millesimi rimossi con successo.';
 end $pulizia_admin_struttura$;
-

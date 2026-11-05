@@ -45,6 +45,13 @@ export interface CreaScalaColonnaInput {
   tipo: 'SCALA' | 'COLONNA';
 }
 
+export interface ResidenteAssegnatoInput {
+  utenteId: string;
+  tipoPossesso: 'PROPRIETARIO' | 'INQUILINO' | 'USUFRUTTUARIO';
+  quotaPossesso?: number;
+  dataInizio?: string;
+}
+
 export interface CreaUnitaInput {
   palazzoId: string;
   scalaColonnaId?: string | null;
@@ -55,6 +62,8 @@ export interface CreaUnitaInput {
   foglioCatastale?: string | null;
   particella?: string | null;
   subalterno?: string | null;
+  condominioId?: string;
+  residente?: ResidenteAssegnatoInput | null;
 }
 
 export interface ModificaUnitaInput {
@@ -68,11 +77,29 @@ export interface ModificaUnitaInput {
   foglioCatastale?: string | null;
   particella?: string | null;
   subalterno?: string | null;
+  condominioId?: string;
+  residente?: ResidenteAssegnatoInput | null;
 }
 
 export interface QuotaMillesimaleInput {
   unitaId: string;
   valoreMillesimale: number;
+}
+
+export interface CondominoDisponibile {
+  id: string;
+  nomeCognome: string;
+  email?: string | null;
+  telefono?: string | null;
+}
+
+export interface AssociaResidenteInput {
+  unitaId: string;
+  utenteId: string;
+  tipoPossesso: 'PROPRIETARIO' | 'INQUILINO' | 'USUFRUTTUARIO';
+  quotaPossesso?: number;
+  dataInizio?: string;
+  condominioId?: string;
 }
 
 const oggi = () => new Date().toISOString().slice(0, 10);
@@ -164,12 +191,13 @@ export function createStrutturaService(db: TypedSupabaseClient) {
       const albero = costruisciAlberoStruttura({
         palazzi,
         scale,
-        tipologie,
         unita,
+        tipologie,
         anagrafiche,
+        dataRiferimento: oggi(),
       });
 
-      // 7. Tabelle millesimali del condominio
+      // 7. Carica tabelle millesimali e relative quote
       const tabelleRaw = unwrap(
         await db
           .from('tabelle_millesimali')
@@ -248,6 +276,14 @@ export function createStrutturaService(db: TypedSupabaseClient) {
       assertOk(await db.from('palazzi').delete().eq('id', id));
     },
 
+    async creaPalazzo(input: TablesInsert<'palazzi'> | CreaPalazzoInput): Promise<PalazzoRaw> {
+      return this.createPalazzo(input);
+    },
+
+    async modificaPalazzo(id: string, patch: TablesUpdate<'palazzi'> | ModificaPalazzoInput): Promise<PalazzoRaw> {
+      return this.updatePalazzo(id, patch);
+    },
+
     // =========================================================================
     // SCALE / COLONNE
     // =========================================================================
@@ -263,6 +299,18 @@ export function createStrutturaService(db: TypedSupabaseClient) {
         tipo: input.tipo,
       };
       return unwrap(await db.from('scale_colonne').insert(payload).select('*').single()) as ScalaColonnaRaw;
+    },
+
+    async creaScalaColonna(input: TablesInsert<'scale_colonne'> | CreaScalaColonnaInput): Promise<ScalaColonnaRaw> {
+      return this.createScalaColonna(input);
+    },
+
+    async removeScalaColonna(id: string): Promise<void> {
+      assertOk(await db.from('scale_colonne').delete().eq('id', id));
+    },
+
+    async eliminaScalaColonna(id: string): Promise<void> {
+      assertOk(await db.from('scale_colonne').delete().eq('id', id));
     },
 
     // =========================================================================
@@ -293,7 +341,25 @@ export function createStrutturaService(db: TypedSupabaseClient) {
         particella: input.particella ? input.particella.trim() : null,
         subalterno: input.subalterno ? input.subalterno.trim() : null,
       };
-      return unwrap(await db.from('unita_immobiliari').insert(payload).select('*').single()) as UnitaImmobiliareRaw;
+      const unita = unwrap(await db.from('unita_immobiliari').insert(payload).select('*').single()) as UnitaImmobiliareRaw;
+
+      // Se fornito condòmino al momento della creazione, associa subito l'anagrafica
+      if ('residente' in input && input.residente && input.residente.utenteId) {
+        await this.associaResidente({
+          unitaId: unita.id,
+          utenteId: input.residente.utenteId,
+          tipoPossesso: input.residente.tipoPossesso,
+          quotaPossesso: input.residente.quotaPossesso,
+          dataInizio: input.residente.dataInizio,
+          condominioId: 'condominioId' in input ? input.condominioId : undefined,
+        });
+      }
+
+      return unita;
+    },
+
+    async creaUnita(input: TablesInsert<'unita_immobiliari'> | CreaUnitaInput): Promise<UnitaImmobiliareRaw> {
+      return this.createUnita(input);
     },
 
     async updateUnita(id: string, patch: TablesUpdate<'unita_immobiliari'> | ModificaUnitaInput): Promise<UnitaImmobiliareRaw> {
@@ -320,7 +386,25 @@ export function createStrutturaService(db: TypedSupabaseClient) {
       if (patch.particella !== undefined) updatePayload.particella = patch.particella ? patch.particella.trim() : null;
       if (patch.subalterno !== undefined) updatePayload.subalterno = patch.subalterno ? patch.subalterno.trim() : null;
 
-      return unwrap(await db.from('unita_immobiliari').update(updatePayload).eq('id', id).select('*').single()) as UnitaImmobiliareRaw;
+      const unita = unwrap(await db.from('unita_immobiliari').update(updatePayload).eq('id', id).select('*').single()) as UnitaImmobiliareRaw;
+
+      // Se fornito condòmino durante la modifica, associa o aggiorna l'anagrafica
+      if ('residente' in patch && patch.residente && patch.residente.utenteId) {
+        await this.associaResidente({
+          unitaId: unita.id,
+          utenteId: patch.residente.utenteId,
+          tipoPossesso: patch.residente.tipoPossesso,
+          quotaPossesso: patch.residente.quotaPossesso,
+          dataInizio: patch.residente.dataInizio,
+          condominioId: 'condominioId' in patch ? patch.condominioId : undefined,
+        });
+      }
+
+      return unita;
+    },
+
+    async modificaUnita(id: string, patch: TablesUpdate<'unita_immobiliari'> | ModificaUnitaInput): Promise<UnitaImmobiliareRaw> {
+      return this.updateUnita(id, patch);
     },
 
     async removeUnita(id: string): Promise<void> {
@@ -332,12 +416,96 @@ export function createStrutturaService(db: TypedSupabaseClient) {
     },
 
     // =========================================================================
-    // ANAGRAFICHE (STORICO POSSESSI E SUBENTRO)
+    // ANAGRAFICHE (STORICO POSSESSI, RESIDENTI E SUBENTRO)
     // =========================================================================
 
     async listAnagrafiche(unitaId: string): Promise<IAnagraficaUnita[]> {
       return unwrap(
         await db.from('anagrafiche_unita').select('*').eq('unita_id', unitaId).order('data_inizio', { ascending: false }),
+      );
+    },
+
+    async listCondominiDisponibili(condominioId: string): Promise<CondominoDisponibile[]> {
+      const utenti = unwrap(
+        await db
+          .from('utenti')
+          .select('id, nome_cognome, email, telefono')
+          .order('nome_cognome')
+      );
+      return (utenti ?? []).map((u) => ({
+        id: u.id,
+        nomeCognome: u.nome_cognome || u.email || 'Utente senza nome',
+        email: u.email,
+        telefono: u.telefono,
+      }));
+    },
+
+    async associaResidente(input: AssociaResidenteInput): Promise<IAnagraficaUnita> {
+      const data = input.dataInizio ?? oggi();
+      // Chiudi eventuale anagrafica attiva per la stessa unità
+      assertOk(
+        await db
+          .from('anagrafiche_unita')
+          .update({ data_fine: data })
+          .eq('unita_id', input.unitaId)
+          .is('data_fine', null)
+      );
+
+      // Inserisci nuova anagrafica
+      const nuova = unwrap(
+        await db
+          .from('anagrafiche_unita')
+          .insert({
+            unita_id: input.unitaId,
+            utente_id: input.utenteId,
+            tipo_possesso: input.tipoPossesso,
+            quota_possesso: input.quotaPossesso ?? 100,
+            data_inizio: data,
+          })
+          .select('*')
+          .single()
+      );
+
+      // Se fornito condominioId, sincronizza il ruolo CONDOMINO in utente_entita_ruolo se non esiste
+      if (input.condominioId) {
+        try {
+          const ruoloCondomino = unwrap(
+            await db.from('ruoli_piattaforma').select('id').eq('codice', 'CONDOMINO').single()
+          );
+          if (ruoloCondomino) {
+            const esisteRuolo = unwrap(
+              await db
+                .from('utente_entita_ruolo')
+                .select('id')
+                .eq('utente_id', input.utenteId)
+                .eq('ruolo_id', ruoloCondomino.id)
+                .eq('condominio_id', input.condominioId)
+                .maybeSingle()
+            );
+            if (!esisteRuolo) {
+              await db.from('utente_entita_ruolo').insert({
+                utente_id: input.utenteId,
+                ruolo_id: ruoloCondomino.id,
+                condominio_id: input.condominioId,
+                unita_id: input.unitaId,
+              });
+            }
+          }
+        } catch {
+          // Ignora errori di sincronizzazione ruolo se permessi RLS sono ristretti
+        }
+      }
+
+      return nuova;
+    },
+
+    async rimuoviResidente(anagraficaId: string, dataTermine?: string): Promise<void> {
+      const data = dataTermine ?? oggi();
+      assertOk(
+        await db
+          .from('anagrafiche_unita')
+          .update({ data_fine: data })
+          .eq('id', anagraficaId)
       );
     },
 
@@ -349,28 +517,15 @@ export function createStrutturaService(db: TypedSupabaseClient) {
       nuovoUtenteId: string;
       tipoPossesso: IAnagraficaUnita['tipo_possesso'];
       dataSubentro?: string;
+      condominioId?: string;
     }): Promise<IAnagraficaUnita> {
-      const data = input.dataSubentro ?? oggi();
-      assertOk(
-        await db
-          .from('anagrafiche_unita')
-          .update({ data_fine: data })
-          .eq('unita_id', input.unitaId)
-          .eq('tipo_possesso', input.tipoPossesso)
-          .is('data_fine', null),
-      );
-      return unwrap(
-        await db
-          .from('anagrafiche_unita')
-          .insert({
-            unita_id: input.unitaId,
-            utente_id: input.nuovoUtenteId,
-            tipo_possesso: input.tipoPossesso,
-            data_inizio: data,
-          })
-          .select('*')
-          .single(),
-      );
+      return this.associaResidente({
+        unitaId: input.unitaId,
+        utenteId: input.nuovoUtenteId,
+        tipoPossesso: input.tipoPossesso,
+        dataInizio: input.dataSubentro,
+        condominioId: input.condominioId,
+      });
     },
 
     // =========================================================================

@@ -630,6 +630,13 @@ Esempio:
 
 Non mostrare conferme di operazioni che il server non ha effettivamente completato.
 
+10.5 Menù a tendina e selezioni (Select)
+
+* Il componente Select adotta un pulsante trigger (combobox) che apre un elenco di opzioni accessibile.
+* Il contenitore dell'elenco ha bordi arrotondati (`radii.control`, 8 px) e ritaglio del contenuto (`overflow: hidden`).
+* Raccordo angoli prima e ultima riga: la prima opzione dell'elenco deve impostare `borderTopLeftRadius` e `borderTopRightRadius` pari al raggio interno (`radii.control - borderWidths.thin`, 7 px); l'ultima opzione deve impostare `borderBottomLeftRadius` e `borderBottomRightRadius` pari a 7 px.
+* Indicatore di focus accessibile: su web, l'anello di focus accessibile `#0284C7` sulle opzioni utilizza `boxShadow: inset 0 0 0 2px #0284C7` (con `outlineStyle: 'none'`), così da curvarsi in modo continuo e armonico lungo il raggio di 7 px dei vertici senza venire ritagliato dal contenitore.
+
 ⸻
 
 11. TABELLE E DATI ECONOMICI

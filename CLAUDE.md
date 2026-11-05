@@ -45,6 +45,7 @@ frontend-design: usala solo per la cura dei dettagli, non per cambiare stile.
 
 ## Promemoria operativi
 - Modali (Modal di @iocondo/ui): non annidare mai <ScrollView> all'interno di <Modal> (include già scorrimento e respiro focusRingInset). I children vanno in un semplice <View> con gap e paddingBottom. Seguire le regole della sez. 13.1 di DESIGN_SYSTEM.md.
+- Menù a tendina (Select di @iocondo/ui): l'elenco ha bordi arrotondati e overflow nascosto. Le opzioni prima e ultima impostano borderTopLeft/RightRadius e borderBottomLeft/RightRadius a 7px (radii.control - borderWidths.thin) e l'anello di focus accessibile usa boxShadow inset (2px #0284C7) senza mai venire ritagliato.
 - Token solo da packages/ui/src/tokens.ts, icone solo Lucide.
 - Mai dati dimostrativi nella UI: dati reali da Supabase. Per ora esiste un solo
   progetto Supabase (MVP): trattalo come ambiente di prova, senza dati reali.

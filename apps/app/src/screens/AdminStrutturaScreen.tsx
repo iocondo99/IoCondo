@@ -17,6 +17,7 @@ import {
   type PalazzoGruppoView,
   type ScalaGruppoView,
   type RisultatoValidazioneCSV,
+  type CondominoDisponibile,
   validaImportMillesimiCSV,
   generaTemplateCSVMillesimi,
   parseValoreMillesimale,
@@ -87,7 +88,17 @@ function AdminStrutturaContenuto() {
   const [nomeNuovoPalazzo, setNomeNuovoPalazzo] = useState('');
   const [indirizzoNuovoPalazzo, setIndirizzoNuovoPalazzo] = useState('');
   const [salvataggioPalazzoInCorso, setSalvataggioPalazzoInCorso] = useState(false);
+  const [erroreFormPalazzo, setErroreFormPalazzo] = useState<string | null>(null);
 
+  // Modale Scala / Colonna
+  const [modaleScalaAperta, setModaleScalaAperta] = useState(false);
+  const [palazzoScalaId, setPalazzoScalaId] = useState('');
+  const [tipoScala, setTipoScala] = useState<'SCALA' | 'COLONNA'>('SCALA');
+  const [nomeNuovaScala, setNomeNuovaScala] = useState('');
+  const [salvataggioScalaInCorso, setSalvataggioScalaInCorso] = useState(false);
+  const [erroreFormScala, setErroreFormScala] = useState<string | null>(null);
+
+  // Modale Unità
   const [modaleUnitaAperta, setModaleUnitaAperta] = useState(false);
   const [unitaInModifica, setUnitaInModifica] = useState<UnitaDettaglioView | null>(null);
   const [palazzoSelezionatoId, setPalazzoSelezionatoId] = useState('');
@@ -99,12 +110,29 @@ function AdminStrutturaContenuto() {
   const [foglioInput, setFoglioInput] = useState('');
   const [particellaInput, setParticellaInput] = useState('');
   const [subalternoInput, setSubalternoInput] = useState('');
+  const [condominoUnitaId, setCondominoUnitaId] = useState('');
+  const [tipoPossessoUnita, setTipoPossessoUnita] = useState<'PROPRIETARIO' | 'INQUILINO' | 'USUFRUTTUARIO'>('PROPRIETARIO');
+  const [quotaPossessoUnita, setQuotaPossessoUnita] = useState('100');
+  const [dataInizioUnita, setDataInizioUnita] = useState('');
   const [salvataggioUnitaInCorso, setSalvataggioUnitaInCorso] = useState(false);
   const [erroreFormUnita, setErroreFormUnita] = useState<string | null>(null);
+
+  // Modale Residente / Condomino
+  const [modaleResidenteAperta, setModaleResidenteAperta] = useState(false);
+  const [unitaResidenteTarget, setUnitaResidenteTarget] = useState<UnitaDettaglioView | null>(null);
+  const [condominiDisponibili, setCondominiDisponibili] = useState<CondominoDisponibile[]>([]);
+  const [caricamentoCondomini, setCaricamentoCondomini] = useState(false);
+  const [utenteSelezionatoId, setUtenteSelezionatoId] = useState('');
+  const [tipoPossessoSelezionato, setTipoPossessoSelezionato] = useState<'PROPRIETARIO' | 'INQUILINO' | 'USUFRUTTUARIO'>('PROPRIETARIO');
+  const [quotaPossessoInput, setQuotaPossessoInput] = useState('100');
+  const [dataInizioInput, setDataInizioInput] = useState('');
+  const [salvataggioResidenteInCorso, setSalvataggioResidenteInCorso] = useState(false);
+  const [erroreFormResidente, setErroreFormResidente] = useState<string | null>(null);
 
   const [unitaDettaglio, setUnitaDettaglio] = useState<UnitaDettaglioView | null>(null);
 
   // Modale Import Millesimi CSV (UC-09)
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [modaleCSVAperta, setModaleCSVAperta] = useState(false);
   const [tabellaCSVSelezionataId, setTabellaCSVSelezionataId] = useState<string>('');
   const [testoCSV, setTestoCSV] = useState('');
@@ -125,12 +153,18 @@ function AdminStrutturaContenuto() {
       if (res.tabelle.length > 0 && !tabellaCSVSelezionataId) {
         setTabellaCSVSelezionataId(res.tabelle[0].id);
       }
+      try {
+        const condomini = await services.struttura.listCondominiDisponibili(condominio.id);
+        setCondominiDisponibili(condomini);
+      } catch {
+        // Fallback lista condomini
+      }
     } catch {
       setErrore(true);
     } finally {
       setCaricamento(false);
     }
-  }, [condominio?.id, tabellaCSVSelezionataId]);
+  }, [condominio?.id, tabellaCSVSelezionataId, services.struttura]);
 
   useEffect(() => {
     caricaDati();
@@ -197,16 +231,69 @@ function AdminStrutturaContenuto() {
     }));
   }, [dati]);
 
+  const opzioniTipoScala: SelectOption[] = useMemo(
+    () => [
+      { value: 'SCALA', label: 'Scala' },
+      { value: 'COLONNA', label: 'Colonna' },
+    ],
+    []
+  );
+
+  const opzioniTipoPossesso: SelectOption[] = useMemo(
+    () => [
+      { value: 'PROPRIETARIO', label: 'Proprietario' },
+      { value: 'INQUILINO', label: 'Inquilino / Affittuario' },
+      { value: 'USUFRUTTUARIO', label: 'Usufruttuario' },
+    ],
+    []
+  );
+
+  const opzioniCondominiSelect: SelectOption[] = useMemo(() => {
+    if (condominiDisponibili.length === 0) {
+      return [
+        {
+          value: '',
+          label: caricamentoCondomini ? 'Caricamento residenti...' : 'Nessun condòmino registrato',
+        },
+      ];
+    }
+    return condominiDisponibili.map((c) => ({
+      value: c.id,
+      label: `${c.nomeCognome}${c.email ? ` (${c.email})` : ''}`,
+    }));
+  }, [condominiDisponibili, caricamentoCondomini]);
+
+  const opzioniCondominiPerUnitaSelect: SelectOption[] = useMemo(() => {
+    const list: SelectOption[] = [
+      {
+        value: '',
+        label: 'Nessun condòmino (assegna in seguito)',
+      },
+    ];
+    for (const c of condominiDisponibili) {
+      list.push({
+        value: c.id,
+        label: `${c.nomeCognome}${c.email ? ` (${c.email})` : ''}`,
+      });
+    }
+    return list;
+  }, [condominiDisponibili]);
+
   // Gestione creazione Palazzo
   const apriModalePalazzo = () => {
     setNomeNuovoPalazzo('');
     setIndirizzoNuovoPalazzo('');
+    setErroreFormPalazzo(null);
     setModalePalazzoAperta(true);
   };
 
   const salvaNuovoPalazzo = async () => {
-    if (!condominio?.id || !nomeNuovoPalazzo.trim()) return;
+    if (!condominio?.id || !nomeNuovoPalazzo.trim()) {
+      setErroreFormPalazzo('Il nome identificativo dell’edificio è obbligatorio.');
+      return;
+    }
     setSalvataggioPalazzoInCorso(true);
+    setErroreFormPalazzo(null);
     try {
       await services.struttura.creaPalazzo({
         condominioId: condominio.id,
@@ -215,17 +302,144 @@ function AdminStrutturaContenuto() {
       });
       toast.show({
         message: `Palazzo "${nomeNuovoPalazzo.trim()}" creato con successo.`,
-        type: 'success',
+        tone: 'success',
       });
       setModalePalazzoAperta(false);
       caricaDati();
-    } catch {
-      toast.show({
-        message: 'Errore durante la creazione del palazzo.',
-        type: 'error',
-      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Errore durante la creazione del palazzo.';
+      setErroreFormPalazzo(msg);
     } finally {
       setSalvataggioPalazzoInCorso(false);
+    }
+  };
+
+  // Gestione creazione Scala / Colonna
+  const apriModaleNuovaScala = (prefillPalazzoId?: string) => {
+    setPalazzoScalaId(prefillPalazzoId || (dati?.palazzi[0]?.id ?? ''));
+    setTipoScala('SCALA');
+    setNomeNuovaScala('');
+    setErroreFormScala(null);
+    setModaleScalaAperta(true);
+  };
+
+  const salvaNuovaScala = async () => {
+    if (!palazzoScalaId || !nomeNuovaScala.trim()) {
+      setErroreFormScala('Edificio e nome identificativo della scala o colonna sono obbligatori.');
+      return;
+    }
+    setSalvataggioScalaInCorso(true);
+    setErroreFormScala(null);
+    try {
+      await services.struttura.creaScalaColonna({
+        palazzoId: palazzoScalaId,
+        nome: nomeNuovaScala.trim(),
+        tipo: tipoScala,
+      });
+      toast.show({
+        message: `${tipoScala === 'SCALA' ? 'Scala' : 'Colonna'} "${nomeNuovaScala.trim()}" creata con successo.`,
+        tone: 'success',
+      });
+      setModaleScalaAperta(false);
+      caricaDati();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Errore durante la creazione della scala/colonna.';
+      setErroreFormScala(msg);
+    } finally {
+      setSalvataggioScalaInCorso(false);
+    }
+  };
+
+  // Gestione associazione Residente / Condòmino
+  const apriModaleAssociaResidente = async (unita: UnitaDettaglioView) => {
+    setUnitaResidenteTarget(unita);
+    setUtenteSelezionatoId(unita.residenteAttivo?.utenteId || '');
+    setTipoPossessoSelezionato(unita.residenteAttivo?.tipoPossesso || 'PROPRIETARIO');
+    setQuotaPossessoInput('100');
+    setDataInizioInput(new Date().toISOString().slice(0, 10));
+    setErroreFormResidente(null);
+    setModaleResidenteAperta(true);
+
+    if (condominio?.id) {
+      setCaricamentoCondomini(true);
+      try {
+        const lista = await services.struttura.listCondominiDisponibili(condominio.id);
+        setCondominiDisponibili(lista);
+        if (!unita.residenteAttivo && lista.length > 0 && !unita.residenteAttivo?.utenteId) {
+          setUtenteSelezionatoId(lista[0].id);
+        }
+      } catch {
+        // Fallback lista vuota
+      } finally {
+        setCaricamentoCondomini(false);
+      }
+    }
+  };
+
+  const salvaAssociazioneResidente = async () => {
+    if (!unitaResidenteTarget || !utenteSelezionatoId) {
+      setErroreFormResidente('Seleziona un condòmino da associare.');
+      return;
+    }
+
+    const quotaNum = parseFloat(quotaPossessoInput.replace(',', '.'));
+    if (isNaN(quotaNum) || quotaNum <= 0 || quotaNum > 100) {
+      setErroreFormResidente('La quota di possesso deve essere una percentuale compresa tra 1 e 100.');
+      return;
+    }
+
+    setSalvataggioResidenteInCorso(true);
+    setErroreFormResidente(null);
+
+    try {
+      await services.struttura.associaResidente({
+        unitaId: unitaResidenteTarget.id,
+        utenteId: utenteSelezionatoId,
+        tipoPossesso: tipoPossessoSelezionato,
+        quotaPossesso: quotaNum,
+        dataInizio: dataInizioInput.trim() || undefined,
+        condominioId: condominio?.id,
+      });
+
+      const utente = condominiDisponibili.find((u) => u.id === utenteSelezionatoId);
+      toast.show({
+        message: `Condòmino ${utente?.nomeCognome || ''} associato con successo all'Int. ${unitaResidenteTarget.interno}.`,
+        tone: 'success',
+      });
+      setModaleResidenteAperta(false);
+      if (unitaDettaglio?.id === unitaResidenteTarget.id) {
+        setUnitaDettaglio(null);
+      }
+      caricaDati();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Errore durante l’associazione del residente.';
+      setErroreFormResidente(msg);
+    } finally {
+      setSalvataggioResidenteInCorso(false);
+    }
+  };
+
+  const terminaAssegnazioneResidente = async () => {
+    if (!unitaResidenteTarget?.residenteAttivo?.anagraficaId) return;
+    setSalvataggioResidenteInCorso(true);
+    setErroreFormResidente(null);
+
+    try {
+      await services.struttura.rimuoviResidente(unitaResidenteTarget.residenteAttivo.anagraficaId);
+      toast.show({
+        message: `Assegnazione per Int. ${unitaResidenteTarget.interno} terminata con successo.`,
+        tone: 'success',
+      });
+      setModaleResidenteAperta(false);
+      if (unitaDettaglio?.id === unitaResidenteTarget.id) {
+        setUnitaDettaglio(null);
+      }
+      caricaDati();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Errore durante la chiusura dell’assegnazione.';
+      setErroreFormResidente(msg);
+    } finally {
+      setSalvataggioResidenteInCorso(false);
     }
   };
 
@@ -241,6 +455,10 @@ function AdminStrutturaContenuto() {
     setFoglioInput('');
     setParticellaInput('');
     setSubalternoInput('');
+    setCondominoUnitaId('');
+    setTipoPossessoUnita('PROPRIETARIO');
+    setQuotaPossessoUnita('100');
+    setDataInizioUnita(new Date().toISOString().slice(0, 10));
     setErroreFormUnita(null);
     setModaleUnitaAperta(true);
   };
@@ -256,6 +474,17 @@ function AdminStrutturaContenuto() {
     setFoglioInput(unita.foglioCatastale || '');
     setParticellaInput(unita.particella || '');
     setSubalternoInput(unita.subalterno || '');
+    if (unita.residenteAttivo) {
+      setCondominoUnitaId(unita.residenteAttivo.utenteId);
+      setTipoPossessoUnita(unita.residenteAttivo.tipoPossesso);
+      setQuotaPossessoUnita(String(unita.residenteAttivo.quotaPossesso ?? 100));
+      setDataInizioUnita(new Date().toISOString().slice(0, 10));
+    } else {
+      setCondominoUnitaId('');
+      setTipoPossessoUnita('PROPRIETARIO');
+      setQuotaPossessoUnita('100');
+      setDataInizioUnita(new Date().toISOString().slice(0, 10));
+    }
     setErroreFormUnita(null);
     setModaleUnitaAperta(true);
   };
@@ -278,6 +507,27 @@ function AdminStrutturaContenuto() {
       return;
     }
 
+    let infoResidente: {
+      utenteId: string;
+      tipoPossesso: 'PROPRIETARIO' | 'INQUILINO' | 'USUFRUTTUARIO';
+      quotaPossesso: number;
+      dataInizio?: string;
+    } | null = null;
+
+    if (condominoUnitaId) {
+      const quotaNum = parseFloat(quotaPossessoUnita.replace(',', '.'));
+      if (isNaN(quotaNum) || quotaNum <= 0 || quotaNum > 100) {
+        setErroreFormUnita('La quota di possesso del condòmino deve essere una percentuale compresa tra 1 e 100.');
+        return;
+      }
+      infoResidente = {
+        utenteId: condominoUnitaId,
+        tipoPossesso: tipoPossessoUnita,
+        quotaPossesso: quotaNum,
+        dataInizio: dataInizioUnita.trim() || undefined,
+      };
+    }
+
     setSalvataggioUnitaInCorso(true);
     setErroreFormUnita(null);
 
@@ -294,10 +544,12 @@ function AdminStrutturaContenuto() {
           foglioCatastale: foglioInput.trim() || null,
           particella: particellaInput.trim() || null,
           subalterno: subalternoInput.trim() || null,
+          condominioId: condominio?.id,
+          residente: infoResidente,
         });
         toast.show({
           message: `Unità ${internoInput.trim()} aggiornata con successo.`,
-          type: 'success',
+          tone: 'success',
         });
       } else {
         await services.struttura.creaUnita({
@@ -310,10 +562,12 @@ function AdminStrutturaContenuto() {
           foglioCatastale: foglioInput.trim() || null,
           particella: particellaInput.trim() || null,
           subalterno: subalternoInput.trim() || null,
+          condominioId: condominio?.id,
+          residente: infoResidente,
         });
         toast.show({
           message: `Unità ${internoInput.trim()} creata con successo.`,
-          type: 'success',
+          tone: 'success',
         });
       }
       setModaleUnitaAperta(false);
@@ -353,7 +607,7 @@ function AdminStrutturaContenuto() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        toast.show({ message: 'Template CSV scaricato sul tuo dispositivo.', type: 'info' });
+        toast.show({ message: 'Template CSV scaricato sul tuo dispositivo.', tone: 'info' });
         return;
       } catch {
         // Fallback: copia testo nell'input
@@ -363,7 +617,7 @@ function AdminStrutturaContenuto() {
     setTestoCSV(template);
     toast.show({
       message: 'Template CSV di esempio inserito nell’area di import.',
-      type: 'info',
+      tone: 'info',
     });
   };
 
@@ -399,7 +653,7 @@ function AdminStrutturaContenuto() {
       const tab = dati?.tabelle.find((t) => t.id === tabellaCSVSelezionataId);
       toast.show({
         message: `Quote millesimali aggiornate con successo per "${tab?.nome || 'tabella'}".`,
-        type: 'success',
+        tone: 'success',
       });
       setModaleCSVAperta(false);
       caricaDati();
@@ -540,16 +794,34 @@ function AdminStrutturaContenuto() {
                 }}
               >
                 <View style={styles.palazzoCorpo}>
-                  {/* Badge riepilogo edificio */}
+                  {/* Badge riepilogo edificio e azioni rapide */}
                   <View style={styles.rigaRiepilogoEdificio}>
-                    <Badge
-                      status="info"
-                      label={`${palazzo.totaleUnita} ${palazzo.totaleUnita === 1 ? 'Unità' : 'Unità'}`}
-                    />
-                    <Badge
-                      status="neutral"
-                      label={`${palazzo.totaleMq} mq complessivi`}
-                    />
+                    <View style={styles.badgeEdificioGruppo}>
+                      <Badge
+                        status="info"
+                        label={`${palazzo.totaleUnita} ${palazzo.totaleUnita === 1 ? 'Unità' : 'Unità'}`}
+                      />
+                      <Badge
+                        status="neutral"
+                        label={`${palazzo.totaleMq} mq complessivi`}
+                      />
+                    </View>
+                    <View style={styles.azioniRapidePalazzo}>
+                      <Button
+                        variant="secondary"
+                        icon="layers"
+                        label="+ Nuova scala"
+                        onPress={() => apriModaleNuovaScala(palazzo.id)}
+                        accessibilityHint={`Aggiungi una nuova scala o colonna nel ${palazzo.nome}`}
+                      />
+                      <Button
+                        variant="secondary"
+                        icon="home"
+                        label="+ Nuova unità"
+                        onPress={() => apriModaleNuovaUnita(palazzo.id)}
+                        accessibilityHint={`Aggiungi una nuova unità immobiliare nel ${palazzo.nome}`}
+                      />
+                    </View>
                   </View>
 
                   {/* Elenco Scale/Colonne */}
@@ -613,6 +885,13 @@ function AdminStrutturaContenuto() {
                                   label="Dettagli"
                                   onPress={() => setUnitaDettaglio(unita)}
                                   accessibilityHint={`Visualizza dettagli completi dell’interno ${unita.interno}`}
+                                />
+                                <Button
+                                  variant="secondary"
+                                  icon={unita.residenteAttivo ? 'user-check' : 'user-plus'}
+                                  label={unita.residenteAttivo ? 'Residente' : 'Associa'}
+                                  onPress={() => apriModaleAssociaResidente(unita)}
+                                  accessibilityHint={`${unita.residenteAttivo ? 'Gestisci o modifica residente' : 'Associa condòmino'} per interno ${unita.interno}`}
                                 />
                                 <Button
                                   variant="text"
@@ -782,6 +1061,14 @@ function AdminStrutturaContenuto() {
         />
         <Button
           variant="secondary"
+          icon="layers"
+          label="Nuova scala"
+          onPress={() => apriModaleNuovaScala()}
+          accessibilityHint="Apre il modulo per inserire una nuova scala o colonna"
+        />
+        <Button
+          variant="secondary"
+          icon="home"
           label="Nuova unità"
           onPress={() => apriModaleNuovaUnita()}
           accessibilityHint="Apre il modulo per inserire una nuova unità immobiliare"
@@ -885,29 +1172,20 @@ function AdminStrutturaContenuto() {
 
               {Platform.OS === 'web' ? (
                 <View style={styles.contenitoreInputFileWeb}>
-                  <label
-                    htmlFor="csv-file-input"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: colors.action.default,
-                      color: colors.text.inverse,
-                      padding: '8px 16px',
-                      borderRadius: radii.button,
-                      cursor: 'pointer',
-                      fontSize: 14,
-                      fontWeight: '600',
-                    }}
-                  >
-                    Sfoglia file CSV (.csv)
-                  </label>
                   <input
-                    id="csv-file-input"
+                    ref={fileInputRef}
                     type="file"
                     accept=".csv,text/csv,text/plain"
                     style={{ display: 'none' }}
                     onChange={caricaFileCSVWeb}
+                  />
+                  <Button
+                    variant="secondary"
+                    label="Sfoglia file CSV"
+                    icon="upload"
+                    onPress={() => fileInputRef.current?.click()}
+                    accessibilityHint="Sfoglia e carica un file CSV dal tuo dispositivo"
+                    disabled={importazioneInCorso}
                   />
                 </View>
               ) : null}
@@ -1038,6 +1316,7 @@ function AdminStrutturaContenuto() {
         }
       >
         <View style={styles.formModale}>
+          {erroreFormPalazzo ? <Alert tone="error" message={erroreFormPalazzo} /> : null}
           <Input
             label="Nome identificativo *"
             placeholder="Es. Palazzo C, Edificio Centrale..."
@@ -1051,6 +1330,60 @@ function AdminStrutturaContenuto() {
             value={indirizzoNuovoPalazzo}
             onChangeText={setIndirizzoNuovoPalazzo}
             disabled={salvataggioPalazzoInCorso}
+          />
+        </View>
+      </Modal>
+
+      {/* ==================================================================== */}
+      {/* MODALE AGGIUNGI SCALA / COLONNA */}
+      {/* ==================================================================== */}
+      <Modal
+        visible={modaleScalaAperta}
+        onClose={() => setModaleScalaAperta(false)}
+        title="Aggiungi scala o colonna"
+        description="Definisci una nuova scala o colonna per raggruppare le unità immobiliari dell'edificio."
+        dismissible={!salvataggioScalaInCorso}
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Annulla"
+              onPress={() => setModaleScalaAperta(false)}
+              disabled={salvataggioScalaInCorso}
+            />
+            <Button
+              variant="primary"
+              label="Crea scala"
+              icon="check"
+              onPress={salvaNuovaScala}
+              disabled={!nomeNuovaScala.trim() || !palazzoScalaId || salvataggioScalaInCorso}
+              loading={salvataggioScalaInCorso}
+            />
+          </ModalActions>
+        }
+      >
+        <View style={styles.formModale}>
+          {erroreFormScala ? <Alert tone="error" message={erroreFormScala} /> : null}
+          <Select
+            label="Edificio / Palazzo *"
+            options={opzioniPalazziSelect}
+            value={palazzoScalaId}
+            onChange={setPalazzoScalaId}
+            disabled={salvataggioScalaInCorso}
+          />
+          <Select
+            label="Tipo *"
+            options={opzioniTipoScala}
+            value={tipoScala}
+            onChange={(val) => setTipoScala(val as 'SCALA' | 'COLONNA')}
+            disabled={salvataggioScalaInCorso}
+          />
+          <Input
+            label="Nome identificativo *"
+            placeholder="Es. Scala A, Scala B, Colonna Nord..."
+            value={nomeNuovaScala}
+            onChangeText={setNomeNuovaScala}
+            disabled={salvataggioScalaInCorso}
           />
         </View>
       </Modal>
@@ -1172,6 +1505,42 @@ function AdminStrutturaContenuto() {
                 />
               </View>
             </View>
+
+            {/* Assegnazione condòmino (opzionale) */}
+            <Text style={[textStyle('label', breakpoint), styles.sezioneCatastaleTitolo]}>
+              Condòmino assegnato (opzionale):
+            </Text>
+
+            <Select
+              label="Condòmino / Intestatario"
+              options={opzioniCondominiPerUnitaSelect}
+              value={condominoUnitaId}
+              onChange={setCondominoUnitaId}
+              disabled={salvataggioUnitaInCorso}
+            />
+
+            {condominoUnitaId ? (
+              <View style={styles.rigaCampiDoppia}>
+                <View style={styles.campoMezzo}>
+                  <Select
+                    label="Titolo di possesso *"
+                    options={opzioniTipoPossesso}
+                    value={tipoPossessoUnita}
+                    onChange={(val) => setTipoPossessoUnita(val as 'PROPRIETARIO' | 'INQUILINO' | 'USUFRUTTUARIO')}
+                    disabled={salvataggioUnitaInCorso}
+                  />
+                </View>
+                <View style={styles.campoMezzo}>
+                  <Input
+                    label="Quota di possesso (%) *"
+                    placeholder="100"
+                    value={quotaPossessoUnita}
+                    onChangeText={setQuotaPossessoUnita}
+                    disabled={salvataggioUnitaInCorso}
+                  />
+                </View>
+              </View>
+            ) : null}
           </View>
       </Modal>
 
@@ -1275,15 +1644,151 @@ function AdminStrutturaContenuto() {
                       {unitaDettaglio.residenteAttivo.quotaPossesso}%
                     </Text>
                   </View>
+                  <View style={{ marginTop: space[2] }}>
+                    <Button
+                      variant="secondary"
+                      icon="users"
+                      label="Modifica / Subentro residente"
+                      onPress={() => {
+                        const target = unitaDettaglio;
+                        setUnitaDettaglio(null);
+                        apriModaleAssociaResidente(target);
+                      }}
+                      accessibilityHint="Apre il modulo per gestire o cambiare il residente attivo"
+                    />
+                  </View>
                 </View>
               ) : (
-                <Text style={[textStyle('secondary', breakpoint), styles.nessunResidente]}>
-                  Nessun condomino o residente attivo registrato per questa unità immobiliare.
-                </Text>
+                <View style={{ gap: space[3], alignItems: 'flex-start' }}>
+                  <Text style={[textStyle('secondary', breakpoint), styles.nessunResidente]}>
+                    Nessun condòmino o residente attivo registrato per questa unità immobiliare.
+                  </Text>
+                  <Button
+                    variant="secondary"
+                    icon="user-plus"
+                    label="Assegna condòmino"
+                    onPress={() => {
+                      const target = unitaDettaglio;
+                      setUnitaDettaglio(null);
+                      apriModaleAssociaResidente(target);
+                    }}
+                    accessibilityHint="Apre il modulo per associare un condòmino a questa unità"
+                  />
+                </View>
               )}
             </View>
           </View>
         ) : null}
+      </Modal>
+
+      {/* ==================================================================== */}
+      {/* MODALE ASSOCIA RESIDENTE / SUBENTRO (UC-11) */}
+      {/* ==================================================================== */}
+      <Modal
+        visible={modaleResidenteAperta}
+        onClose={() => setModaleResidenteAperta(false)}
+        title={
+          unitaResidenteTarget?.residenteAttivo
+            ? `Gestione residente · Int. ${unitaResidenteTarget.interno}`
+            : `Associa condòmino · Int. ${unitaResidenteTarget?.interno ?? ''}`
+        }
+        description="Seleziona il condòmino da associare all'unità e specifica il tipo di possesso e la data di decorrenza."
+        dismissible={!salvataggioResidenteInCorso}
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Annulla"
+              onPress={() => setModaleResidenteAperta(false)}
+              disabled={salvataggioResidenteInCorso}
+            />
+            <Button
+              variant="primary"
+              label="Salva associazione"
+              icon="check"
+              onPress={salvaAssociazioneResidente}
+              disabled={!utenteSelezionatoId || salvataggioResidenteInCorso}
+              loading={salvataggioResidenteInCorso}
+            />
+          </ModalActions>
+        }
+      >
+        <View style={styles.formModale}>
+          {erroreFormResidente ? <Alert tone="error" message={erroreFormResidente} /> : null}
+
+          {unitaResidenteTarget ? (
+            <View style={styles.riassuntoUnitaBox}>
+              <Text style={[textStyle('body', breakpoint), styles.testoRiassuntoUnita]}>
+                {unitaResidenteTarget.palazzoNome} · {unitaResidenteTarget.scalaNome || 'Generale'} · Interno {unitaResidenteTarget.interno} ({unitaResidenteTarget.tipologiaDescrizione})
+              </Text>
+            </View>
+          ) : null}
+
+          {unitaResidenteTarget?.residenteAttivo ? (
+            <View style={styles.bloccoResidenteAttuale}>
+              <Text style={[textStyle('label', breakpoint), { color: colors.text.secondary }]}>
+                Residente attualmente assegnato:
+              </Text>
+              <View style={styles.rigaResidenteAttuale}>
+                <Badge
+                  status={unitaResidenteTarget.residenteAttivo.tipoPossesso === 'PROPRIETARIO' ? 'success' : 'info'}
+                  label={unitaResidenteTarget.residenteAttivo.tipoPossesso === 'PROPRIETARIO' ? 'Proprietario' : 'Inquilino'}
+                />
+                <Text style={[textStyle('body', breakpoint), { fontWeight: '600', color: colors.text.primary }]}>
+                  {unitaResidenteTarget.residenteAttivo.nomeCognome}
+                </Text>
+              </View>
+              <Button
+                variant="secondary"
+                icon="user-x"
+                label="Termina assegnazione attuale"
+                onPress={terminaAssegnazioneResidente}
+                disabled={salvataggioResidenteInCorso}
+                accessibilityHint="Termina l'assegnazione attuale impostando la data di fine a oggi"
+              />
+              <Text style={[textStyle('secondary', breakpoint), { marginTop: space[2] }]}>
+                Oppure seleziona un nuovo condòmino per registrare un subentro:
+              </Text>
+            </View>
+          ) : null}
+
+          <Select
+            label="Condòmino da associare *"
+            options={opzioniCondominiSelect}
+            value={utenteSelezionatoId}
+            onChange={setUtenteSelezionatoId}
+            disabled={salvataggioResidenteInCorso || caricamentoCondomini}
+          />
+
+          <Select
+            label="Tipo di possesso *"
+            options={opzioniTipoPossesso}
+            value={tipoPossessoSelezionato}
+            onChange={(val) => setTipoPossessoSelezionato(val as 'PROPRIETARIO' | 'INQUILINO' | 'USUFRUTTUARIO')}
+            disabled={salvataggioResidenteInCorso}
+          />
+
+          <View style={styles.rigaCampiDoppia}>
+            <View style={styles.campoMezzo}>
+              <Input
+                label="Quota di possesso (%)"
+                placeholder="Es. 100"
+                value={quotaPossessoInput}
+                onChangeText={setQuotaPossessoInput}
+                disabled={salvataggioResidenteInCorso}
+              />
+            </View>
+            <View style={styles.campoMezzo}>
+              <Input
+                label="Data decorrenza (inizio)"
+                placeholder="AAAA-MM-GG"
+                value={dataInizioInput}
+                onChangeText={setDataInizioInput}
+                disabled={salvataggioResidenteInCorso}
+              />
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -1338,6 +1843,44 @@ const styles = StyleSheet.create({
     gap: space[2],
     flexWrap: 'wrap',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  badgeEdificioGruppo: {
+    flexDirection: 'row',
+    gap: space[2],
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  azioniRapidePalazzo: {
+    flexDirection: 'row',
+    gap: space[2],
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  riassuntoUnitaBox: {
+    padding: space[3],
+    backgroundColor: colors.background,
+    borderRadius: radii.control,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
+  },
+  testoRiassuntoUnita: {
+    color: colors.brand.navy,
+    fontWeight: '600',
+  },
+  bloccoResidenteAttuale: {
+    gap: space[2],
+    padding: space[3],
+    backgroundColor: colors.background,
+    borderRadius: radii.control,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
+  },
+  rigaResidenteAttuale: {
+    flexDirection: 'row',
+    gap: space[2],
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   sezioneScala: {
     borderTopWidth: borderWidths.thin,

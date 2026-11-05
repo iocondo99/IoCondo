@@ -8,18 +8,20 @@
 --   - Palazzo B: d0000000-0000-4000-8000-000000000004
 --
 -- Che cosa predispone:
---   1. Scale e Colonne:
+--   1. Palazzi (Palazzo A e Palazzo B)
+--   2. Scale e Colonne:
 --      - Scala A e Scala B per Palazzo A
 --      - Scala Unica per Palazzo B
---   2. 6 Unità Immobiliari complessive:
+--   3. 6 Unità Immobiliari complessive:
 --      - Palazzo A: Int 1 (80 mq), Int 2 (65 mq), Int 3 (95 mq), Int 4 (110 mq)
 --      - Palazzo B: Int 1 (75 mq), Int 2 (85 mq)
---   3. Anagrafiche residenti attivi (Proprietari) collegate a utenti di prova.
---   4. Tabelle millesimali e relative quote:
+--   4. Anagrafiche residenti attivi (Proprietari) collegate a utenti di prova.
+--   5. Tabelle millesimali e relative quote:
 --      - Tabella A (Proprietà Generale, 1000 ‰) con 6 quote perfettamente quadrate:
 --        200,000 + 175,000 + 225,000 + 150,000 + 120,000 + 130,000 = 1000,000 ‰
 --      - Tabella B (Scale e Ascensore Palazzo A, 1000 ‰) con 4 quote per Palazzo A:
 --        250,000 + 250,000 + 250,000 + 250,000 = 1000,000 ‰
+--   6. Ruolo ADMIN su Condominio di Prova e Condominio Roma Appia per l'utente di prova.
 --
 -- GARANZIE:
 --   - Idempotente e rieseguibile senza duplicati (on conflict do nothing / update).
@@ -29,6 +31,7 @@
 do $seed_admin_struttura$
 declare
   c_condominio          constant uuid := 'd0000000-0000-4000-8000-000000000001';
+  c_condominio_appia    constant uuid := '30000000-0000-4000-8000-000000000001';
   c_palazzo_a           constant uuid := 'd0000000-0000-4000-8000-000000000002';
   c_palazzo_b           constant uuid := 'd0000000-0000-4000-8000-000000000004';
 
@@ -55,6 +58,9 @@ declare
   c_user_8              constant uuid := '10000000-0000-4000-8000-000000000008'; -- Andrea De Luca
   c_user_9              constant uuid := '10000000-0000-4000-8000-000000000009'; -- Sara Greco
 
+  c_ruolo_admin         constant uuid := '21000000-0000-4000-8000-000000000002'; -- Ruolo ADMIN
+  c_uer_admin_luca      constant uuid := 'd0000000-0000-4000-8000-000000000999';
+
   -- Anagrafiche
   c_anag_u3_a           constant uuid := 'd0000000-0000-4000-8000-000000000933';
   c_anag_u4_a           constant uuid := 'd0000000-0000-4000-8000-000000000934';
@@ -70,7 +76,32 @@ begin
     return;
   end if;
 
-  -- 1. Scale e Colonne
+  -- 0. Ruolo ADMIN su Condominio di Prova per utente di prova
+  insert into public.utente_entita_ruolo (id, utente_id, ruolo_id, condominio_id)
+  select c_uer_admin_luca, c_user_4, c_ruolo_admin, c_condominio
+  where exists (select 1 from public.utenti where id = c_user_4)
+  on conflict (id) do nothing;
+
+  insert into public.utente_entita_ruolo (id, utente_id, ruolo_id, condominio_id)
+  select 'd0000000-0000-4000-8000-000000000998'::uuid, 'b6e76a6a-bf37-43fd-b00b-efb1cb6921ad'::uuid, c_ruolo_admin, c_condominio
+  where exists (select 1 from public.utenti where id = 'b6e76a6a-bf37-43fd-b00b-efb1cb6921ad'::uuid)
+  on conflict (id) do nothing;
+
+  -- 0b. Ruolo ADMIN su Condominio Roma Appia per Luca Romano se esiste il condominio
+  insert into public.utente_entita_ruolo (id, utente_id, ruolo_id, condominio_id)
+  select 'd0000000-0000-4000-8000-000000000997'::uuid, c_user_4, c_ruolo_admin, c_condominio_appia
+  where exists (select 1 from public.utenti where id = c_user_4)
+    and exists (select 1 from public.condomini where id = c_condominio_appia)
+  on conflict (id) do nothing;
+
+  -- 1. Palazzi (Palazzo A e Palazzo B)
+  insert into public.palazzi (id, condominio_id, nome_identificativo, indirizzo)
+  values
+    (c_palazzo_a, c_condominio, 'Palazzo A', 'Via dei Test 1'),
+    (c_palazzo_b, c_condominio, 'Palazzo B', 'Via dei Test 1 / Edificio Est')
+  on conflict (id) do nothing;
+
+  -- 2. Scale e Colonne
   insert into public.scale_colonne (id, palazzo_id, tipo, nome)
   values
     (c_scala_a, c_palazzo_a, 'SCALA', 'Scala A'),
@@ -81,7 +112,7 @@ begin
   -- Aggiorna le scale per le unità 1 e 2 già presenti
   update public.unita_immobiliari set scala_colonna_id = c_scala_a where id in (c_u1_a, c_u2_a);
 
-  -- 2. Inserimento unità aggiuntive per completare 6 unità totali
+  -- 3. Inserimento unità aggiuntive per completare 6 unità totali
   insert into public.unita_immobiliari (id, palazzo_id, scala_colonna_id, tipologia_id, interno, piano, mq)
   values
     (c_u3_a, c_palazzo_a, c_scala_b, c_tipologia_app, '3', 2, 95.00),
@@ -90,7 +121,7 @@ begin
     (c_u2_b, c_palazzo_b, c_scala_unica_b, c_tipologia_app, '2', 1, 85.00)
   on conflict (id) do nothing;
 
-  -- 3. Anagrafiche residenti attivi per le nuove unità
+  -- 4. Anagrafiche residenti attivi per le nuove unità
   insert into public.anagrafiche_unita (id, unita_id, utente_id, tipo_possesso, data_inizio, quota_possesso)
   values
     (c_anag_u3_a, c_u3_a, c_user_6, 'PROPRIETARIO', '2024-01-01', 100),
@@ -99,14 +130,14 @@ begin
     (c_anag_u2_b, c_u2_b, c_user_9, 'PROPRIETARIO', '2024-01-01', 100)
   on conflict (id) do nothing;
 
-  -- 4. Tabelle Millesimali
+  -- 5. Tabelle Millesimali
   insert into public.tabelle_millesimali (id, condominio_id, nome, totale)
   values
     (c_tab_a, c_condominio, 'Tabella A - Proprietà Generale', 1000.000),
     (c_tab_b, c_condominio, 'Tabella B - Scale e Ascensore Palazzo A', 1000.000)
   on conflict (id) do nothing;
 
-  -- 5. Quote Millesimali Tabella A (tutte le 6 unità = 1000,000 ‰)
+  -- 6. Quote Millesimali Tabella A (tutte le 6 unità = 1000,000 ‰)
   insert into public.quote_millesimali (id, tabella_id, unita_id, valore_millesimale)
   values
     ('d0000000-0000-4000-8000-000000000961', c_tab_a, c_u1_a, 200.000),
@@ -117,7 +148,7 @@ begin
     ('d0000000-0000-4000-8000-000000000966', c_tab_a, c_u2_b, 130.000)
   on conflict (id) do nothing;
 
-  -- 6. Quote Millesimali Tabella B (4 unità di Palazzo A = 1000,000 ‰)
+  -- 7. Quote Millesimali Tabella B (4 unità di Palazzo A = 1000,000 ‰)
   insert into public.quote_millesimali (id, tabella_id, unita_id, valore_millesimale)
   values
     ('d0000000-0000-4000-8000-000000000971', c_tab_b, c_u1_a, 250.000),
@@ -128,4 +159,3 @@ begin
 
   raise notice 'Dati extra Struttura e Millesimi pronti: 2 palazzi, 6 unita, 2 tabelle millesimali quadrate a 1000 ‰.';
 end $seed_admin_struttura$;
-

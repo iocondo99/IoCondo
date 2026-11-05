@@ -54,6 +54,10 @@ import {
   Shield,
   ShieldAlert,
   UserCog,
+  UserPlus,
+  UserCheck,
+  UserX,
+  Plus,
   type LucideIcon,
 } from 'lucide-react-native';
 import { colors, iconSizes, iconStrokeWidth, type IconSizeName } from './tokens';
@@ -106,6 +110,10 @@ export const iconMap = {
   'panel-left-open': PanelLeftOpen,
   'receipt': Receipt,
   'user-cog': UserCog,
+  'user-plus': UserPlus,
+  'user-check': UserCheck,
+  'user-x': UserX,
+  plus: Plus,
   phone: Phone,
   shield: Shield,
   'shield-alert': ShieldAlert,
@@ -133,6 +141,12 @@ export function Icon({
   accessibilityLabel,
 }: IconProps) {
   const Glyph = iconMap[name];
+  if (!Glyph) {
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      console.warn(`[Icon] Icon "${name}" non trovata in iconMap.`);
+    }
+    return null;
+  }
   const glyph = <Glyph size={iconSizes[size]} color={color} strokeWidth={iconStrokeWidth} />;
 
   if (accessibilityLabel) {

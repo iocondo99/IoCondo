@@ -675,7 +675,27 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
   **Risultato atteso:** si apre la modale "Modifica Unità" precompilata con i dati correnti dell'unità; modificando un valore (es. piano o mq) e premendo "Salva modifiche", la modifica viene salvata e la lista aggiornata.
 
 - [ ] **Cosa fare:** premere il pulsante "Aggiungi edificio" in testata.
-  **Risultato atteso:** si apre la modale accessibile "Aggiungi nuovo edificio o palazzo"; compilare nome identificativo (es. "Palazzo C") e indirizzo, poi premere "Crea edificio". L'edificio viene creato e compare nell'albero e nelle StatCard.
+  **Risultato atteso:** si apre la modale accessibile "Aggiungi nuovo edificio o palazzo"; compilare nome identificativo (es. "Palazzo C") e indirizzo, poi premere "Crea edificio". L'edificio viene creato e compare nell'albero e nelle StatCard. In caso di errore o restrizione permessi, la modale rimane aperta mostrando un `Alert` rosso inline con il messaggio esplicativo del problema, senza mostrare notifiche toast verdi di successo errate.
+
+- [ ] **Cosa fare:** premere il pulsante "Nuova scala" in testata oppure "+ Nuova scala" nella card di un edificio/palazzo.
+  **Risultato atteso:** si apre la modale accessibile "Aggiungi scala o colonna":
+  - Se aperta dalla card dell'edificio, il campo "Edificio / Palazzo *" è già preselezionato con il palazzo di riferimento;
+  - Selezionare la tipologia ("Scala" o "Colonna") e inserire il nome identificativo (es. "Scala A", "Scala B", "Colonna Nord");
+  - Premere "Crea scala": la scala viene creata su Supabase con toast di conferma verde (`tone: 'success'`), la modale si chiude e la nuova scala compare immediatamente nell'albero dell'edificio e nell'elenco di selezione delle unità.
+
+- [ ] **Cosa fare:** testare l'associazione tra condòmino e appartamento (unità immobiliare):
+  - Per un'unità non assegnata: premere il pulsante "Associa" sulla riga dell'unità (o "Assegna condòmino" dalla modale "Dettagli");
+  - Si apre la modale "Associa condòmino · Int. X" con il riassunto della collocazione spaziale;
+  - Selezionare il condòmino dal menù a tendina (elenco degli utenti del condominio), scegliere il tipo di possesso ("Proprietario", "Inquilino / Affittuario", "Usufruttuario"), la quota di possesso (es. 100%) e la data di decorrenza (es. data odierna);
+  - Premere "Salva associazione": l'anagrafica viene registrata su `anagrafiche_unita`, la modale si chiude e sulla riga compare il badge con il nominativo del residente attivo.
+  - Per un'unità con residente attivo: premere il pulsante "Residente" (o "Modifica / Subentro residente" da "Dettagli");
+  - La modale mostra il box riepilogativo dell'attuale residente assegnato con pulsante "Termina assegnazione attuale" (per chiudere il possesso) e la possibilità di selezionare un nuovo condòmino per registrare un subentro (UC-11).
+
+- [ ] **Cosa fare:** verificare la visualizzazione e l'anello di focus delle opzioni nei menù a tendina (`Select`):
+  - Aprire una modale contenente un menù a tendina (es. "Nuova scala", "Nuova unità" o "Associa condòmino") e cliccare sul controllo per espandere le opzioni;
+  - Verificare che la prima riga dell'elenco abbia gli angoli superiori raccordati con un raggio di 7 px corrispondente al bordo interno del contenitore;
+  - Verificare che l'ultima riga dell'elenco abbia gli angoli inferiori raccordati con un raggio di 7 px;
+  - Spostare il focus con la tastiera (frecce Su/Giù) o selezionare la prima e l'ultima opzione: verificare che l'anello di focus accessibile `#0284C7` (con `boxShadow` inset) segua la curvatura arrotondata degli angoli senza essere minimamente ritagliato dal contenitore con `overflow: hidden`.
 
 - [ ] **Cosa fare:** premere il pulsante "Nuova unità" in testata.
   **Risultato atteso:** si apre la modale accessibile "Nuova unità immobiliare":
@@ -684,7 +704,8 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
   - verificare che i box dei campi sul lato destro abbiano il respiro previsto dai token e non siano minimamente ritagliati o schiacciati;
   - verificare che quando si valorizzano i campi di testo (es. "Numero Interno *", "Piano", "Superficie calpestabile (mq)", "Subalterno") il bordo e l'anello di focus accessibile `#0284C7` siano nitidi, continui e mai ritagliati sui lati destro, superiore o inferiore;
   - verificare che la barra di scorrimento verticale della finestra sia posizionata all'estremo bordo destro della modale (in piena conformità con `ModuloNuovaSegnalazione` del condòmino), lasciando ampio spazio tra i controlli e la barra di scorrimento;
-  - selezionare palazzo, tipologia, inserire interno obbligatorio, piano e superficie; premendo "Crea unità", la nuova unità viene inserita e collegata alla scala/palazzo selezionato.
+  - verificare la sezione "Condòmino assegnato (opzionale)": selezionando un condòmino dal menù a tendina compaiono i campi tipologia possesso (Proprietario, Inquilino, Usufruttuario) e quota di possesso (es. 100%), consentendo l'assegnazione immediata del residente all'atto della creazione dell'unità (o in fase di modifica);
+  - selezionare palazzo, tipologia, inserire interno obbligatorio, piano e superficie; premendo "Crea unità", la nuova unità viene inserita e collegata alla scala/palazzo selezionato (e al condòmino assegnato, se indicato).
 
 - [ ] **Cosa fare:** passare alla Scheda 2 ("Tabelle Millesimali") premendo il relativo tab.
   **Risultato atteso:** il pannello mostra le tabelle millesimali attive (es. "Tabella A - Proprietà Generale" e "Tabella B - Scale e Ascensore Palazzo A"):
@@ -693,7 +714,8 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 
 - [ ] **Cosa fare:** nella Scheda 2 o in testata premere "Importa millesimi CSV" (UC-09):
   1. Verificare che la modale "Importa millesimi da file CSV" si apra con focus intrappolato e ruoli accessibili.
-  2. Premere "Scarica template CSV": verificare che scarichi il file `.csv` di esempio precompilato con le unità e scale esistenti (o incolli il template nell'area di testo).
+  2. Verificare che il pulsante "Sfoglia file CSV" sia un `Button` ufficiale del design system (variante secondaria con icona `upload`), con altezza touch di 44 px, perfettamente armonizzato con "Scarica template CSV" e conforme all'accessibilità da tastiera.
+  3. Premere "Scarica template CSV": verificare che scarichi il file `.csv` di esempio precompilato con le unità e scale esistenti (o incolli il template nell'area di testo).
   3. Modificare una riga impostando una somma errata (es. totale 950 ‰): verificare che l'anteprima segnali il disavanzo ("Disavanzo: +50,000 ‰") e che il pulsante "Applica e salva quote" sia bloccato/disabilitato.
   4. Inserire una riga con formato numerico italiano con virgola (es. `250,500`) e verificare la corretta interpretazione decimale.
   5. Inserire una riga con un interno inesistente (es. `Int. 99`): verificare che la riga venga evidenziata in rosso con la spiegazione dell'errore ("Unità non trovata nel condominio").
