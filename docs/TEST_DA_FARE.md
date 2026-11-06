@@ -797,51 +797,46 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 ## Comunicazioni e Bacheca in Scrittura (/admin/comunicazioni, Passo 4 modulo Amministratore)
 
 - [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_comunicazioni_extra.sql` (dopo `01_dati_prova.sql`).
-  **Risultato atteso:** lo script termina con `NOTICE: Dati di prova comunicazioni bacheca inseriti/aggiornati con successo.` senza errori. L'esecuzione è idempotente e inserisce 3 comunicazioni di prova per il Condominio di Prova (`d0000000-0000-4000-8000-000000000001`): 1 in evidenza per l'intero condominio (`d0000000-0000-4000-8000-000000000301`), 1 ordinaria specifica per Palazzo A con 2 commenti di prova dei residenti (`d0000000-0000-4000-8000-000000000302`), 1 ordinaria generica per l'intero condominio (`d0000000-0000-4000-8000-000000000303`).
+  **Risultato atteso:** lo script termina con `NOTICE: Dati di prova comunicazioni bacheca inseriti/aggiornati con successo.` senza errori. L'esecuzione è idempotente e inserisce 3 comunicazioni di prova per il Condominio di Prova (`d0000000-0000-4000-8000-000000000001`): 1 in evidenza per il condominio (`d0000000-0000-4000-8000-000000000301`), 1 ordinaria specifica per Palazzo A (`d0000000-0000-4000-8000-000000000302`), 1 ordinaria generica per il condominio (`d0000000-0000-4000-8000-000000000303`).
 
 - [ ] **Cosa fare:** con un utente con ruolo `ADMIN` (oppure `is_superadmin = true`), accedere all'applicazione e navigare su `/admin/comunicazioni` tramite il menu laterale ("Comunicazioni") o via URL diretto sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844).
   **Risultato atteso:** si apre la pagina protetta da guardia ADMIN con `Breadcrumbs` (`Home / Comunicazioni`), `PageHeader` ("Comunicazioni e Bacheca") con sottotitolo e pulsante primario d'azione "Pubblica comunicazione" (icona `plus`). La navigazione da tastiera e l'anello di focus accessibile `#0284C7` (o bianco su navy) sono visibili e mai ritagliati.
 
-- [ ] **Cosa fare:** verificare le 3 `StatCard` ufficiali (Sez. 8 Design System):
+- [ ] **Cosa fare:** verificare le 2 `StatCard` ufficiali (Sez. 8 Design System):
   1. "Comunicazioni attive": conteggio totale dei post pubblicati (es. "3"), icona `message-circle`, tessera blu e nota "Avvisi pubblicati in bacheca".
-  2. "Avvisi in evidenza": conteggio dei post fissati in cima (`is_pinned = true`, es. "1"), icona `pin`, tessera navy e nota "Fissati in cima alla bacheca".
-  3. "Commenti dei residenti": conteggio totale delle interazioni ricevute sui post (es. "2"), icona `messages-square`, tessera teal e nota "Interazioni ricevute sui post".
+  2. "Avvisi in evidenza": conteggio dei post fissati in cima (`is_pinned = true`), icona `pin` (senza warning in console), tessera navy e nota "Fissati in cima alla bacheca".
 
-- [ ] **Cosa fare:** testare la barra di controllo con i `FilterChips` e la `SearchBar`:
-  - Premere il chip "In evidenza": la tabella mostra solo l'avviso fissato in cima;
-  - Premere il chip "Con commenti": la tabella mostra solo l'avviso con interazioni;
-  - Premere il chip "Tutte": la visualizzazione include tutti i post;
-  - Premere il chip dello stabile "Palazzo A": la tabella mostra solo i post dedicati a Palazzo A;
-  - Premere il chip "Tutti gli stabili": la tabella mostra tutti gli avvisi;
-  - Digitare un termine nel campo di ricerca "Cerca avvisi" (es. "caldaia" o "citofoni"): la lista si filtra in tempo reale su titolo e corpo dell'avviso;
+- [ ] **Cosa fare:** testare la sezione di ricerca e i filtri all'interno della `Card`:
+  - Verificare che la `SearchBar` ("Cerca avvisi") sia posizionata in alto, sopra i `FilterChips`, conformemente allo standard grafico della sezione condòmino e manutenzione amministratore;
+  - Premere il chip "In evidenza": la visualizzazione mostra solo gli avvisi fissati in cima;
+  - Premere il chip "Tutte": la visualizzazione mostra tutti i post;
+  - Premere il chip dello stabile "Palazzo A": la visualizzazione mostra solo i post dedicati a Palazzo A;
+  - Premere il chip "Tutti gli stabili": la visualizzazione ripristina tutti gli stabili;
+  - Digitare un termine nel campo di ricerca "Cerca avvisi" (es. "caldaia" o "regolamento"): la lista si filtra in tempo reale su titolo e corpo dell'avviso;
   - Inserire una stringa priva di corrispondenze (es. "xyz"): compare l'`EmptyState` con titolo "Nessun avviso corrisponde ai criteri", descrizione esplicativa e pulsante "Azzera filtri" che ripristina la vista completa.
 
-- [ ] **Cosa fare:** verificare la visualizzazione `ResponsiveDataView` (tabella su desktop/tablet e lista di card su smartphone):
-  - Post in evidenza: compare per primo nella graduatoria, contrassegnato da badge navy con icona spilla "In evidenza";
-  - Destinatari: badge o dicitura chiara ("Intero condominio" con icona utenti, oppure "Palazzo A" con icona edificio);
-  - Data di pubblicazione: formattata in italiano (es. "4 nov 2026");
-  - Commenti: badge con conteggio declinato ("0 commenti", "2 commenti");
-  - Anteprima del testo dell'avviso: troncamento pulito a due righe con ellissi.
+- [ ] **Cosa fare:** verificare la visualizzazione `ResponsiveDataView` racchiusa in `Card` (tabella su desktop/tablet e lista di card su mobile):
+  - Colonne tabella: "Avviso", "Destinatari", "Data pubblicazione", "Azioni" (nessuna colonna commenti); il titolo "Azioni" e i relativi bottoni sono allineati a sinistra in modo coerente con le altre colonne della tabella;
+  - Cella Avviso: il badge "In evidenza" (icona `pin`) è posizionato su una riga dedicata in alto; il titolo dell'avviso è SEMPRE collocato sulla riga sottostante anche quando è breve; sotto il titolo è presente l'anteprima del corpo troncata a 2 righe con ellissi;
+  - Cella Destinatari: riporta "Condominio" per le comunicazioni generali (non "Intero condominio") oppure il nome del palazzo specifico (es. "Palazzo A");
+  - Data di pubblicazione: formattata in italiano (es. "2 nov 2026").
+
+- [ ] **Cosa fare:** cliccare su una qualsiasi riga della tabella delle comunicazioni:
+  - **Risultato atteso:** la riga è interamente cliccabile (cursore pointer) e apre la modale "Dettaglio comunicazione" (standard allineato a manutenzione amministratore) con titolo, badge "In evidenza" se presente, destinatari, data formattata, testo completo dell'avviso e pulsanti di azione ordinati come "Chiudi", "Modifica" (primario azzurro/blu `#0A79AB` con icona `pencil`) ed "Elimina" (rosso distruttivo).
 
 - [ ] **Cosa fare:** testare le azioni su riga della tabella:
+  - Verificare che su riga siano presenti esclusivamente `[Fissato / Fissa]` ed `[Elimina]` disposti rigorosamente sulla stessa riga (senza pulsante modifica a livello di riga);
+  - Verificare che il pulsante "Fissa" abbia lo stesso contorno grafico di "Fissato" (`variant="secondary"` con bordo `#CBD5E1`);
   - Toggle rapido evidenza ("Fissa" / "Fissato"): premere "Fissa" sul post ordinario; la dicitura passa a "Fissato", il post sale al vertice della bacheca e compare il toast informativo "Comunicazione fissata in cima alla bacheca."; premere nuovamente per rimuovere il pin;
-  - Pulsante "Modifica": apre la modale di modifica precompilata con titolo, destinatari, testo e stato di pin del post;
-  - Pulsante "Elimina": apre la finestra modale accessibile `ConfirmDialog` con titolo "Eliminare questa comunicazione?", descrizione che avvisa della cancellazione irreversibile anche dei commenti associati e pulsanti "Annulla" ed "Elimina avviso" (rosso distruttivo).
+  - Pulsante "Elimina": apre la finestra modale accessibile `ConfirmDialog` con titolo "Eliminare questa comunicazione?" e pulsanti "Annulla" ed "Elimina avviso" (rosso distruttivo).
 
 - [ ] **Cosa fare:** premere il pulsante primario "Pubblica comunicazione" (o "Modifica"):
   1. Si apre la modale accessibile con focus automatico posizionato sul campo "Titolo dell'avviso".
   2. Test validazione titolo: lasciare vuoto o con meno di 3 caratteri e tentare la pubblicazione; verificare la comparsa del messaggio di errore "Inserisci il titolo della comunicazione." o "Il titolo deve contenere almeno 3 caratteri." con stato `aria-invalid`.
-  3. Test selettore Destinatari / Ambito: verificare il menù a tendina custom `Select` con opzioni "Intero condominio (Tutti i palazzi)" oppure selezione del singolo edificio (es. "Solo Palazzo A").
-  4. Test validazione corpo dell'avviso: verificare la textarea multilinea confortevole, il contatore dinamico di caratteri e l'errore per testi inferiori a 10 caratteri.
+  3. Test selettore Destinatari / Ambito: verificare il menù a tendina custom `Select` con opzioni "Condominio" oppure selezione del singolo edificio (es. "Palazzo A").
+  4. Test validazione corpo dell'avviso: verificare la textarea multilinea, il contatore dinamico di caratteri e l'errore per testi inferiori a 10 caratteri.
   5. Test casella di controllo "Fissa in evidenza in cima alla bacheca": verificare l'attivazione/disattivazione con descrizione accessibile.
   6. Compilare con dati validi e salvare: verificare la creazione della comunicazione su `bacheca_post`, la generazione automatica delle notifiche per i condòmini destinatari nella tabella `notifiche`, il Toast di conferma e la chiusura della modale con aggiornamento istantaneo dell'elenco.
-
-- [ ] **Cosa fare:** testare la moderazione commenti residenti (pulsante "Commenti"):
-  1. Premere "Commenti" sul post con 2 commenti (Palazzo A): si apre la modale di moderazione "Moderazione commenti residenti" con indicazione del post selezionato.
-  2. Verificare l'elenco dei commenti dei residenti con nominativo dell'autore (es. "Laura Bianchi", "Marco Verdi"), data formattata e testo del commento.
-  3. Premere il pulsante icona cestino ("Elimina commento"): compare il blocco di conferma inline con pulsanti "Annulla" ed "Elimina commento".
-  4. Confermare l'eliminazione: il commento viene rimosso dal database (`bacheca_commenti`), la lista dei commenti si aggiorna, il conteggio commenti sul post scala automaticamente e compare il Toast di conferma.
-  5. Premere "Chiudi" per chiudere la modale.
 
 - [ ] **Cosa fare:** verificare la schermata sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844):
   **Risultato atteso:** `document.documentElement.scrollWidth <= window.innerWidth` su tutti i breakpoint (zero scroll orizzontale); passaggio fluido da tabella a card verticali su mobile; nessun taglio visivo o sovrapposizione.
@@ -852,7 +847,7 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
   - Testare a zoom 200% verificando che i testi rifluiscano regolarmente e non ci sia scroll orizzontale.
 
 - [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_comunicazioni_extra_pulizia.sql`.
-  **Risultato atteso:** le 3 comunicazioni di prova, i commenti e le relative notifiche vengono rimossi in modo sicuro dal database senza lasciare residui.
+  **Risultato atteso:** le 3 comunicazioni di prova e le relative notifiche vengono rimosse in modo sicuro dal database senza lasciare residui.
 
 ---
 

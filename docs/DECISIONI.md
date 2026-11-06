@@ -116,3 +116,8 @@ Verifiche fatte sullo schema reale (sola lettura): `utenti.id` è FK di `auth.us
        - Il bordo inferiore di entrambe le card termina alla medesima quota (1222 px a 1440 px di viewport).
        - Il margine inferiore degli elementi attivi interni coincide al pixel (1197 px).
        - Viene eliminato qualsiasi dislivello visivo o spazio bianco asimmetrico tra la colonna di sinistra e la colonna di destra.
+
+
+## 2026-11-06 — Modulo Amministratore: Contabilità rimandata, precedenza a Documenti ed Assemblee
+- **Decisione:** su indicazione esplicita dell'utente, lo sviluppo della sezione Contabilità (`/admin/contabilita`: bilanci, prima nota movimenti, emissione rate e riconciliazioni) viene temporaneamente rimandato a dopo il completamento dei moduli Documenti (`/admin/documenti`), Assemblee (`/admin/assemblee`) e Impostazioni (`/admin/impostazioni`).
+- **Ordine aggiornato per l'Amministratore:** Passo 5 Manutenzione (completato) → Passo 6 Documenti (`/admin/documenti`) → Passo 7 Assemblee (`/admin/assemblee`) → Passo 8 Impostazioni (`/admin/impostazioni`) → Contabilità.

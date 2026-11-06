@@ -252,7 +252,7 @@ export function Select({
                         style.push({
                           boxShadow: `inset 0 0 0 ${focusRingSize.width}px ${colors.focus}`,
                           outlineStyle: 'none',
-                        } as ViewStyle);
+                        } as unknown as ViewStyle);
                       } else {
                         style.push({ borderColor: colors.focus });
                       }

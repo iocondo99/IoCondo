@@ -6,13 +6,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   calcolaStatisticheComunicazioni,
   filtraComunicazioni,
   formattaDataItaliana,
-  troncaTesto,
   validaComunicazione,
-  type CommentoPostAdminView,
   type ComunicazioneAdminView,
   type OpzionePalazzoComunicazione,
 } from '@iocondo/data';
@@ -20,12 +19,12 @@ import {
   Alert,
   Badge,
   Button,
+  Card,
   Checkbox,
   ConfirmDialog,
   EmptyState,
   FilterChips,
   Icon,
-  IconButton,
   Input,
   Modal,
   ModalActions,
@@ -52,7 +51,6 @@ import { services } from '@/services';
 
 const OPZIONI_STATO: readonly FilterOption[] = [
   { value: 'in_evidenza', label: 'In evidenza' },
-  { value: 'con_commenti', label: 'Con commenti' },
 ];
 
 export function AdminComunicazioniScreen() {
@@ -66,7 +64,7 @@ export function AdminComunicazioniScreen() {
       <View style={styles.pagina}>
         <PageHeader
           title="Comunicazioni e Bacheca"
-          subtitle="Pubblica comunicazioni ufficiali, gestisci gli avvisi in evidenza e modera i commenti dei residenti."
+          subtitle="Pubblica comunicazioni ufficiali e gestisci gli avvisi in evidenza per i condòmini."
         />
         <NonAutorizzato />
       </View>
@@ -77,6 +75,7 @@ export function AdminComunicazioniScreen() {
 }
 
 function AdminComunicazioniContenuto() {
+  const router = useRouter();
   const { condominio, profilo } = useProfilo();
   const { isMobile } = useBreakpoint();
   const toast = useToast();
@@ -91,6 +90,10 @@ function AdminComunicazioniContenuto() {
   const [filtroPalazzo, setFiltroPalazzo] = useState<string>('');
   const [filtroRicerca, setFiltroRicerca] = useState<string>('');
 
+  // Modale Dettaglio Avviso (riga cliccabile)
+  const [avvisoDettaglio, setAvvisoDettaglio] = useState<ComunicazioneAdminView | null>(null);
+  const [modaleDettaglioAperta, setModaleDettaglioAperta] = useState(false);
+
   // Modale Scrittura / Modifica
   const [modaleScritturaAperta, setModaleScritturaAperta] = useState(false);
   const [comunicazioneInModifica, setComunicazioneInModifica] = useState<ComunicazioneAdminView | null>(null);
@@ -103,14 +106,6 @@ function AdminComunicazioniContenuto() {
   const [erroreModale, setErroreModale] = useState<string | null>(null);
   const [salvataggioInCorso, setSalvataggioInCorso] = useState(false);
   const titoloInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
-
-  // Modale Moderazione Commenti
-  const [modaleCommentiAperta, setModaleCommentiAperta] = useState(false);
-  const [postSelezionato, setPostSelezionato] = useState<ComunicazioneAdminView | null>(null);
-  const [commenti, setCommenti] = useState<CommentoPostAdminView[]>([]);
-  const [caricamentoCommenti, setCaricamentoCommenti] = useState(false);
-  const [commentoDaEliminare, setCommentoDaEliminare] = useState<CommentoPostAdminView | null>(null);
-  const [eliminazioneCommentoInCorso, setEliminazioneCommentoInCorso] = useState(false);
 
   // Eliminazione Post (ConfirmDialog)
   const [comunicazioneDaEliminare, setComunicazioneDaEliminare] = useState<ComunicazioneAdminView | null>(null);
@@ -145,7 +140,7 @@ function AdminComunicazioniContenuto() {
     caricaDati();
   }, [caricaDati]);
 
-  // Statistiche e KPI riepilogativi
+  // Statistiche e KPI riepilogativi (2 StatCard: attive e in evidenza)
   const statistiche = useMemo(() => calcolaStatisticheComunicazioni(comunicazioni), [comunicazioni]);
 
   // Lista filtrata
@@ -160,7 +155,7 @@ function AdminComunicazioniContenuto() {
   // Opzioni dropdown edifici nella modale
   const opzioniSelectDestinatari = useMemo<SelectOption[]>(() => {
     return [
-      { value: '', label: 'Intero condominio (Tutti i palazzi)' },
+      { value: '', label: 'Condominio (Tutti i palazzi)' },
       ...palazzi.map((p) => ({
         value: p.id,
         label: `Solo ${p.nome}`,
@@ -175,6 +170,12 @@ function AdminComunicazioniContenuto() {
       label: p.nome,
     }));
   }, [palazzi]);
+
+  // Apertura modale visualizzazione dettaglio (riga cliccabile standard)
+  const apriDettaglioAvviso = (post: ComunicazioneAdminView) => {
+    setAvvisoDettaglio(post);
+    setModaleDettaglioAperta(true);
+  };
 
   // Apertura modale nuovo avviso
   const apriModaleNuovaComunicazione = () => {
@@ -191,6 +192,7 @@ function AdminComunicazioniContenuto() {
 
   // Apertura modale modifica avviso
   const apriModaleModifica = (post: ComunicazioneAdminView) => {
+    setModaleDettaglioAperta(false);
     setComunicazioneInModifica(post);
     setTitoloInput(post.titolo);
     setPalazzoInput(post.palazzoId ?? '');
@@ -226,7 +228,8 @@ function AdminComunicazioniContenuto() {
     try {
       if (comunicazioneInModifica) {
         // Modifica
-        await services.comunicazioniAdmin.update(comunicazioneInModifica.id, {
+        await services.comunicazioniAdmin.update({
+          id: comunicazioneInModifica.id,
           titolo: titoloInput.trim(),
           corpo: corpoInput.trim(),
           palazzoId: palazzoInput.trim() ? palazzoInput.trim() : null,
@@ -318,59 +321,6 @@ function AdminComunicazioniContenuto() {
     }
   };
 
-  // Apertura modale moderazione commenti
-  const apriModaleCommenti = async (post: ComunicazioneAdminView) => {
-    setPostSelezionato(post);
-    setModaleCommentiAperta(true);
-    setCaricamentoCommenti(true);
-    try {
-      const lista = await services.comunicazioniAdmin.listCommenti(post.id);
-      setCommenti(lista);
-    } catch (err) {
-      console.error('Errore caricamento commenti:', err);
-      toast.show({
-        tone: 'error',
-        message: 'Impossibile caricare i commenti per questa comunicazione.',
-      });
-    } finally {
-      setCaricamentoCommenti(false);
-    }
-  };
-
-  // Eliminazione singolo commento
-  const confermaEliminaCommento = async () => {
-    if (!commentoDaEliminare || !postSelezionato) return;
-    setEliminazioneCommentoInCorso(true);
-    try {
-      await services.comunicazioniAdmin.deleteCommento(commentoDaEliminare.id);
-      toast.show({
-        tone: 'success',
-        message: 'Commento eliminato.',
-      });
-      setCommenti((prev) => prev.filter((c) => c.id !== commentoDaEliminare.id));
-      setComunicazioni((prev) =>
-        prev.map((p) =>
-          p.id === postSelezionato.id
-            ? {
-                ...p,
-                conteggioCommenti: Math.max(0, p.conteggioCommenti - 1),
-                etichettaCommenti: `${Math.max(0, p.conteggioCommenti - 1)} commenti`,
-              }
-            : p,
-        ),
-      );
-      setCommentoDaEliminare(null);
-    } catch (err) {
-      console.error('Errore eliminazione commento:', err);
-      toast.show({
-        tone: 'error',
-        message: 'Impossibile eliminare il commento. Riprova.',
-      });
-    } finally {
-      setEliminazioneCommentoInCorso(false);
-    }
-  };
-
   const azzeraFiltri = () => {
     setFiltroStato('');
     setFiltroPalazzo('');
@@ -384,21 +334,19 @@ function AdminComunicazioniContenuto() {
         key: 'avviso',
         header: 'Avviso',
         weight: 3,
-        minWidth: 260,
+        minWidth: 280,
         mobile: 'title',
         cell: (r) => (
           <View style={styles.cellaAvviso}>
-            <View style={styles.rigaIntestazioneAvviso}>
-              {r.isPinned ? (
-                <View style={styles.badgeInEvidenza} accessible accessibilityLabel="Avviso in evidenza">
-                  <Icon name="pin" size="indicator" color={colors.brand.navy} />
-                  <Text style={styles.testoInEvidenza}>In evidenza</Text>
-                </View>
-              ) : null}
-              <Text style={styles.titoloAvviso} numberOfLines={2}>
-                {r.titolo}
-              </Text>
-            </View>
+            {r.isPinned ? (
+              <View style={styles.badgeInEvidenza} accessible accessibilityLabel="Avviso in evidenza">
+                <Icon name="pin" size="indicator" color={colors.brand.navy} />
+                <Text style={styles.testoInEvidenza}>In evidenza</Text>
+              </View>
+            ) : null}
+            <Text style={styles.titoloAvviso} numberOfLines={2}>
+              {r.titolo}
+            </Text>
             <Text style={styles.anteprimaCorpo} numberOfLines={2} ellipsizeMode="tail">
               {r.corpo}
             </Text>
@@ -414,7 +362,7 @@ function AdminComunicazioniContenuto() {
         cell: (r) => (
           <View style={styles.cellaDestinatari}>
             <Icon
-              name={r.palazzoNome ? 'building' : 'users'}
+              name={r.palazzoNome ? 'building-2' : 'users'}
               size="indicator"
               color={r.palazzoNome ? colors.action.default : colors.text.muted}
             />
@@ -437,51 +385,27 @@ function AdminComunicazioniContenuto() {
         ),
       },
       {
-        key: 'commenti',
-        header: 'Commenti',
-        weight: 1,
-        minWidth: 120,
-        mobileLabel: 'Interazioni',
-        cell: (r) => (
-          <Badge
-            label={r.etichettaCommenti}
-            status={r.conteggioCommenti > 0 ? 'info' : 'neutral'}
-          />
-        ),
-      },
-      {
         key: 'azioni',
         header: 'Azioni',
-        weight: 2,
-        minWidth: 280,
-        align: 'right',
-        mobile: 'actions',
+        weight: 1,
+        minWidth: 300,
+        mobile: 'hidden',
         cell: (r) => (
           <View style={styles.rigaAzioni}>
             <Button
-              variant={r.isPinned ? 'secondary' : 'text'}
+              variant="secondary"
               label={r.isPinned ? 'Fissato' : 'Fissa'}
               icon="pin"
               onPress={() => eseguiTogglePin(r)}
               loading={idInPinning === r.id}
-            />
-            <Button
-              variant="text"
-              label="Modifica"
-              icon="pencil"
-              onPress={() => apriModaleModifica(r)}
-            />
-            <Button
-              variant="text"
-              label="Commenti"
-              icon="message-square"
-              onPress={() => apriModaleCommenti(r)}
+              accessibilityHint={r.isPinned ? 'Rimuovi evidenza dall’avviso' : 'Fissa l’avviso in cima alla bacheca'}
             />
             <Button
               variant="destructive"
               label="Elimina"
               icon="trash-2"
               onPress={() => setComunicazioneDaEliminare(r)}
+              accessibilityHint={`Elimina definitivamente ${r.titolo}`}
             />
           </View>
         ),
@@ -498,9 +422,9 @@ function AdminComunicazioniContenuto() {
     <View style={styles.pagina}>
       <PageHeader
         title="Comunicazioni e Bacheca"
-        subtitle="Pubblica comunicazioni ufficiali, gestisci gli avvisi in evidenza e modera i commenti dei residenti."
+        subtitle="Pubblica comunicazioni ufficiali e gestisci gli avvisi in evidenza per i condòmini."
         breadcrumbs={[
-          { label: 'Home', href: '/admin/dashboard' },
+          { label: 'Home', onPress: () => router.push('/admin/dashboard') },
           { label: 'Comunicazioni' },
         ]}
         action={{
@@ -510,7 +434,7 @@ function AdminComunicazioniContenuto() {
         }}
       />
 
-      {/* 3 StatCard Ufficiali (Sez. 8 Design System) */}
+      {/* 2 StatCard Ufficiali: Comunicazioni attive e Avvisi in evidenza */}
       <View style={styles.schede}>
         <View style={styles.scheda}>
           <StatCard
@@ -534,90 +458,158 @@ function AdminComunicazioniContenuto() {
             error={erroreScheda}
           />
         </View>
-        <View style={styles.scheda}>
-          <StatCard
-            icon="messages-square"
-            tile="teal"
-            title="Commenti dei residenti"
-            value={caricamento ? '' : String(statistiche.totaleCommenti)}
-            description="Interazioni ricevute sui post"
-            loading={caricamento}
-            error={erroreScheda}
-          />
-        </View>
       </View>
 
-      {/* Tabella o Card Mobile con Barra di controllo integrata */}
-      <ResponsiveDataView
-        label="Elenco comunicazioni e avvisi del condominio"
-        columns={colonne}
-        rows={comunicazioniFiltrate}
-        getRowKey={(r) => r.id}
-        getRowLabel={(r) => r.titolo}
-        loading={caricamento}
-        error={erroreScheda}
-        filters={
-          <View style={styles.barraFiltri}>
-            <View style={styles.rigaChips}>
-              <FilterChips
-                label="Filtra per stato avviso"
-                allLabel="Tutte"
-                options={OPZIONI_STATO}
-                value={filtroStato ? [filtroStato] : []}
-                onChange={(val) => setFiltroStato(val[0] || '')}
-              />
-              {palazzi.length > 0 ? (
-                <FilterChips
-                  label="Filtra per stabile o palazzo"
-                  allLabel="Tutti gli stabili"
-                  options={opzioniFiltroEdifici}
-                  value={filtroPalazzo ? [filtroPalazzo] : []}
-                  onChange={(val) => setFiltroPalazzo(val[0] || '')}
-                />
-              ) : null}
-            </View>
-            <View style={styles.rigaRicerca}>
+      {/* Card contenitore standard per tabella responsive con riga cliccabile */}
+      <Card>
+        <ResponsiveDataView
+          label="Elenco comunicazioni e avvisi del condominio"
+          columns={colonne}
+          rows={comunicazioniFiltrate}
+          getRowKey={(r) => r.id}
+          getRowLabel={(r) => r.titolo}
+          onRowPress={apriDettaglioAvviso}
+          loading={caricamento}
+          error={errore ? { title: 'Impossibile caricare le comunicazioni' } : undefined}
+          onRetry={caricaDati}
+          filters={
+            <View style={styles.filtri}>
+              {/* Ricerca SOPRA i filtri, identica allo standard condòmino e manutenzione */}
               <SearchBar
                 value={filtroRicerca}
                 onChangeText={setFiltroRicerca}
-                placeholder="Cerca per titolo o contenuto dell’avviso…"
+                placeholder="Cerca una comunicazione…"
                 label="Cerca avvisi"
+                showLabel
               />
+
+              {/* Filtri per stato e per stabile SOTTO la ricerca */}
+              <View style={styles.rigaChips}>
+                <FilterChips
+                  label="Filtra per stato"
+                  allLabel="Tutte"
+                  options={OPZIONI_STATO}
+                  value={filtroStato ? [filtroStato] : []}
+                  onChange={(val) => setFiltroStato(val[0] || '')}
+                />
+                {palazzi.length > 0 ? (
+                  <FilterChips
+                    label="Filtra per stabile o palazzo"
+                    allLabel="Tutti gli stabili"
+                    options={opzioniFiltroEdifici}
+                    value={filtroPalazzo ? [filtroPalazzo] : []}
+                    onChange={(val) => setFiltroPalazzo(val[0] || '')}
+                  />
+                ) : null}
+              </View>
+            </View>
+          }
+          empty={{
+            icon: 'message-circle',
+            title: haFiltriAttivi
+              ? 'Nessun avviso corrisponde ai criteri'
+              : 'Nessuna comunicazione pubblicata',
+            description: haFiltriAttivi
+              ? 'Prova a modificare i filtri applicati o a cancellare il testo di ricerca.'
+              : 'Non è ancora presente alcun avviso in bacheca. Clicca su "Pubblica comunicazione" per iniziare.',
+            action: haFiltriAttivi
+              ? {
+                  label: 'Azzera filtri',
+                  onPress: azzeraFiltri,
+                  icon: 'refresh-cw',
+                }
+              : {
+                  label: 'Pubblica comunicazione',
+                  onPress: apriModaleNuovaComunicazione,
+                  icon: 'plus',
+                },
+          }}
+        />
+      </Card>
+
+      {/* Modale Visualizzazione Dettagli Avviso (aperta al click sulla riga) */}
+      <Modal
+        visible={modaleDettaglioAperta}
+        onClose={() => setModaleDettaglioAperta(false)}
+        title="Dettaglio comunicazione"
+        description="Visualizza le informazioni complete e il testo della comunicazione."
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Chiudi"
+              onPress={() => setModaleDettaglioAperta(false)}
+            />
+            <Button
+              variant="primary"
+              label="Modifica"
+              icon="pencil"
+              onPress={() => {
+                if (!avvisoDettaglio) return;
+                apriModaleModifica(avvisoDettaglio);
+              }}
+            />
+            <Button
+              variant="destructive"
+              label="Elimina"
+              icon="trash-2"
+              onPress={() => {
+                if (!avvisoDettaglio) return;
+                const target = avvisoDettaglio;
+                setModaleDettaglioAperta(false);
+                setComunicazioneDaEliminare(target);
+              }}
+            />
+          </ModalActions>
+        }
+      >
+        {avvisoDettaglio ? (
+          <View style={styles.corpoDettaglio}>
+            {avvisoDettaglio.isPinned ? (
+              <View style={styles.badgeInEvidenzaDettaglio} accessible accessibilityLabel="Avviso in evidenza">
+                <Icon name="pin" size="indicator" color={colors.brand.navy} />
+                <Text style={styles.testoInEvidenza}>Avviso in evidenza</Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.titoloDettaglio}>{avvisoDettaglio.titolo}</Text>
+
+            <View style={styles.metadatiDettaglio}>
+              <View style={styles.rigaMetadato}>
+                <Icon
+                  name={avvisoDettaglio.palazzoNome ? 'building-2' : 'users'}
+                  size="indicator"
+                  color={colors.text.muted}
+                />
+                <Text style={styles.testoMetadato}>
+                  Destinatari: <Text style={styles.testoMetadatoForte}>{avvisoDettaglio.destinatariEtichetta}</Text>
+                </Text>
+              </View>
+              <View style={styles.rigaMetadato}>
+                <Icon name="calendar-days" size="indicator" color={colors.text.muted} />
+                <Text style={styles.testoMetadato}>
+                  Pubblicato il: <Text style={styles.testoMetadatoForte}>{avvisoDettaglio.dataPubblicazioneFormattata}</Text>
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.bloccoTestoDettaglio}>
+              <Text style={styles.testoCorpoDettaglio}>{avvisoDettaglio.corpo}</Text>
             </View>
           </View>
-        }
-        empty={{
-          title: haFiltriAttivi
-            ? 'Nessun avviso corrisponde ai criteri'
-            : 'Nessuna comunicazione pubblicata',
-          description: haFiltriAttivi
-            ? 'Prova a modificare i filtri applicati o a cancellare il testo di ricerca.'
-            : 'Non è ancora presente alcun avviso in bacheca. Clicca su "Pubblica comunicazione" per iniziare.',
-          action: haFiltriAttivi
-            ? {
-                label: 'Azzera filtri',
-                onPress: azzeraFiltri,
-                variant: 'secondary',
-              }
-            : {
-                label: 'Pubblica comunicazione',
-                onPress: apriModaleNuovaComunicazione,
-                variant: 'primary',
-              },
-        }}
-      />
+        ) : null}
+      </Modal>
 
       {/* Modale Scrittura / Modifica Comunicazione */}
       <Modal
         visible={modaleScritturaAperta}
         onClose={chiudiModaleScrittura}
         title={comunicazioneInModifica ? 'Modifica comunicazione' : 'Pubblica nuova comunicazione'}
-        subtitle={
+        description={
           comunicazioneInModifica
             ? 'Aggiorna i dettagli o l’ambito di destinazione dell’avviso.'
-            : 'Scrivi un avviso ufficiale visibile a tutti i condòmini o limitato a un palazzo.'
+            : 'Scrivi un avviso ufficiale visibile all’intero condominio o limitato a un palazzo.'
         }
-        size="lg"
         initialFocusRef={titoloInputRef}
         actions={
           <ModalActions>
@@ -650,7 +642,7 @@ function AdminComunicazioniContenuto() {
 
           {/* Campo Titolo */}
           <Input
-            ref={titoloInputRef}
+            inputRef={titoloInputRef}
             label="Titolo dell'avviso"
             placeholder="Es. Interventi manutenzione ascensore"
             value={titoloInput}
@@ -661,7 +653,7 @@ function AdminComunicazioniContenuto() {
             error={erroreTitolo}
             helperText="Minimo 3 caratteri."
             required
-            editable={!salvataggioInCorso}
+            disabled={salvataggioInCorso}
           />
 
           {/* Selettore Destinatari */}
@@ -671,7 +663,7 @@ function AdminComunicazioniContenuto() {
             options={opzioniSelectDestinatari}
             value={palazzoInput}
             onChange={(val) => setPalazzoInput(val)}
-            helperText="Seleziona l'intero condominio o limita la visibilità ai soli residenti del palazzo selezionato."
+            helperText="Seleziona 'Condominio' o limita la visibilità ai soli residenti del palazzo selezionato."
             disabled={salvataggioInCorso}
           />
 
@@ -687,8 +679,8 @@ function AdminComunicazioniContenuto() {
             error={erroreCorpo}
             helperText={`Minimo 10 caratteri. Conteggio: ${corpoInput.trim().length} caratteri.`}
             required
-            rows={5}
-            editable={!salvataggioInCorso}
+            minHeight={120}
+            disabled={salvataggioInCorso}
           />
 
           {/* Checkbox In Evidenza */}
@@ -702,89 +694,13 @@ function AdminComunicazioniContenuto() {
         </View>
       </Modal>
 
-      {/* Modale Moderazione Commenti */}
-      <Modal
-        visible={modaleCommentiAperta}
-        onClose={() => setModaleCommentiAperta(false)}
-        title="Moderazione commenti residenti"
-        subtitle={
-          postSelezionato
-            ? `Post: "${troncaTesto(postSelezionato.titolo, 60)}"`
-            : 'Commenti associati all’avviso'
-        }
-        size="md"
-        actions={
-          <ModalActions>
-            <Button
-              variant="secondary"
-              label="Chiudi"
-              onPress={() => setModaleCommentiAperta(false)}
-            />
-          </ModalActions>
-        }
-      >
-        <View style={styles.corpoModaleCommenti}>
-          {caricamentoCommenti ? (
-            <Text style={styles.testoCaricamento}>Caricamento commenti in corso…</Text>
-          ) : commenti.length === 0 ? (
-            <EmptyState
-              title="Nessun commento presente"
-              description="Nessun residente ha ancora lasciato commenti sotto questo avviso."
-              icon="message-square"
-            />
-          ) : (
-            <View style={styles.listaCommenti}>
-              {commenti.map((c) => (
-                <View key={c.id} style={styles.schedaCommento}>
-                  <View style={styles.rigaIntestazioneCommento}>
-                    <View style={styles.bloccoAutoreCommento}>
-                      <Icon name="user" size="indicator" color={colors.text.muted} />
-                      <Text style={styles.nomeAutoreCommento}>{c.autoreNome}</Text>
-                      <Text style={styles.dataCommento}>{c.createdAtFormatted}</Text>
-                    </View>
-                    <IconButton
-                      icon="trash-2"
-                      accessibilityLabel={`Elimina commento di ${c.autoreNome}`}
-                      variant="ghost"
-                      onPress={() => setCommentoDaEliminare(c)}
-                    />
-                  </View>
-                  <Text style={styles.testoCommento}>{c.commento}</Text>
-                  {commentoDaEliminare?.id === c.id ? (
-                    <View style={styles.confermaInlineCommento}>
-                      <Text style={styles.testoConfermaInline}>
-                        Eliminare definitivamente questo commento?
-                      </Text>
-                      <View style={styles.rigaAzioniConfermaInline}>
-                        <Button
-                          variant="secondary"
-                          label="Annulla"
-                          onPress={() => setCommentoDaEliminare(null)}
-                          disabled={eliminazioneCommentoInCorso}
-                        />
-                        <Button
-                          variant="destructive"
-                          label={eliminazioneCommentoInCorso ? 'Eliminazione…' : 'Elimina commento'}
-                          loading={eliminazioneCommentoInCorso}
-                          onPress={confermaEliminaCommento}
-                        />
-                      </View>
-                    </View>
-                  ) : null}
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      </Modal>
-
       {/* Dialog Conferma Eliminazione Post */}
       <ConfirmDialog
         visible={Boolean(comunicazioneDaEliminare)}
         title="Eliminare questa comunicazione?"
         description={
           comunicazioneDaEliminare
-            ? `L'avviso "${comunicazioneDaEliminare.titolo}" verrà eliminato definitivamente dalla bacheca insieme a tutti i commenti associati.`
+            ? `L'avviso "${comunicazioneDaEliminare.titolo}" verrà eliminato definitivamente dalla bacheca.`
             : ''
         }
         confirmLabel="Elimina avviso"
@@ -812,9 +728,9 @@ const styles = StyleSheet.create({
   },
   scheda: {
     flex: 1,
-    minWidth: 240,
+    minWidth: 260,
   },
-  barraFiltri: {
+  filtri: {
     gap: space[3],
   },
   rigaChips: {
@@ -823,19 +739,11 @@ const styles = StyleSheet.create({
     gap: space[3],
     alignItems: 'center',
   },
-  rigaRicerca: {
-    maxWidth: 420,
-    width: '100%',
-  },
   cellaAvviso: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     gap: space[1],
     paddingVertical: space[1],
-  },
-  rigaIntestazioneAvviso: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: space[2],
   },
   badgeInEvidenza: {
     flexDirection: 'row',
@@ -847,6 +755,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.badge,
     paddingVertical: 2,
     paddingHorizontal: space[2],
+    alignSelf: 'flex-start',
   },
   testoInEvidenza: {
     fontSize: 12,
@@ -882,84 +791,64 @@ const styles = StyleSheet.create({
   },
   rigaAzioni: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     alignItems: 'center',
-    justifyContent: 'flex-end',
     gap: space[2],
   },
   formModale: {
     gap: space[4],
     paddingBottom: space[4],
   },
-  corpoModaleCommenti: {
+  corpoDettaglio: {
     gap: space[4],
-    minHeight: 180,
+    paddingBottom: space[4],
   },
-  testoCaricamento: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    paddingVertical: space[8],
-  },
-  listaCommenti: {
-    gap: space[3],
-  },
-  schedaCommento: {
-    padding: space[3],
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+  badgeInEvidenzaDettaglio: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    backgroundColor: colors.tile.navy.background,
+    borderColor: colors.brand.navy,
     borderWidth: borderWidths.thin,
-    borderRadius: radii.card,
-    gap: space[2],
+    borderRadius: radii.badge,
+    paddingVertical: 2,
+    paddingHorizontal: space[2],
+    alignSelf: 'flex-start',
   },
-  rigaIntestazioneCommento: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: space[3],
-  },
-  bloccoAutoreCommento: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    flexWrap: 'wrap',
-  },
-  nomeAutoreCommento: {
-    fontSize: 14,
-    lineHeight: 20,
+  titoloDettaglio: {
+    fontSize: 20,
+    lineHeight: 26,
     fontWeight: '700',
     color: colors.text.primary,
   },
-  dataCommento: {
-    fontSize: 12,
-    lineHeight: 16,
+  metadatiDettaglio: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[4],
+    paddingVertical: space[2],
+    borderBottomWidth: borderWidths.thin,
+    borderBottomColor: colors.border,
+  },
+  rigaMetadato: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  testoMetadato: {
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.text.muted,
   },
-  testoCommento: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text.secondary,
-  },
-  confermaInlineCommento: {
-    marginTop: space[2],
-    padding: space[3],
-    backgroundColor: colors.semantic.error.background,
-    borderColor: colors.semantic.error.foreground,
-    borderWidth: borderWidths.thin,
-    borderRadius: radii.card,
-    gap: space[2],
-  },
-  testoConfermaInline: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.semantic.error.foreground,
+  testoMetadatoForte: {
     fontWeight: '600',
+    color: colors.text.primary,
   },
-  rigaAzioniConfermaInline: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: space[2],
-    flexWrap: 'wrap',
+  bloccoTestoDettaglio: {
+    paddingVertical: space[2],
+  },
+  testoCorpoDettaglio: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: colors.text.secondary,
   },
 });

@@ -17,7 +17,6 @@ export interface ComunicazioneAdminRaw {
     id: string;
     nome_identificativo: string;
   } | null;
-  bacheca_commenti?: Array<{ id: string }> | null;
 }
 
 export interface ComunicazioneAdminView {
@@ -33,22 +32,10 @@ export interface ComunicazioneAdminView {
   isPinned: boolean;
   dataPubblicazione: string; // ISO
   dataPubblicazioneFormattata: string;
-  conteggioCommenti: number;
-  etichettaCommenti: string;
-}
-
-export interface CommentoPostAdminView {
-  id: string;
-  postId: string;
-  autoreId: string | null;
-  autoreNome: string;
-  commento: string;
-  createdAt: string;
-  createdAtFormatted: string;
 }
 
 export interface FiltriComunicazioniAdmin {
-  stato: 'tutte' | 'in_evidenza' | 'con_commenti' | string;
+  stato: 'tutte' | 'in_evidenza' | string;
   palazzoId?: string | 'tutti';
   ricerca?: string;
 }
@@ -56,7 +43,6 @@ export interface FiltriComunicazioniAdmin {
 export interface StatisticheComunicazioniAdmin {
   totaleAttive: number;
   inEvidenza: number;
-  totaleCommenti: number;
 }
 
 export interface NuovaComunicazioneAdminInput {
@@ -125,21 +111,13 @@ export function formattaDataItaliana(dataIsoOrDate: string | Date | null | undef
   return `${giorno} ${mese} ${anno}`;
 }
 
-/** Formatta l'etichetta per i destinatari dell'avviso. */
+/** Formatta l'etichetta per i destinatari dell'avviso: "Condominio" per l'intero stabile o il nome del palazzo specifico. */
 export function formattaDestinatari(palazzoNome?: string | null): string {
   const trimmed = palazzoNome?.trim();
   if (!trimmed) {
-    return 'Intero condominio';
+    return 'Condominio';
   }
   return trimmed;
-}
-
-/** Formatta l'etichetta del conteggio commenti con declinazione corretta. */
-export function formattaEtichettaCommenti(conteggio: number): string {
-  if (conteggio === 1) {
-    return '1 commento';
-  }
-  return `${conteggio} commenti`;
 }
 
 /** Tronca un testo a un numero massimo di caratteri aggiungendo ellissi. */
@@ -155,7 +133,6 @@ export function troncaTesto(testo: string | null | undefined, maxLength = 120): 
  */
 export function trasformaComunicazioneRawInView(raw: ComunicazioneAdminRaw): ComunicazioneAdminView {
   const palazzoNome = raw.palazzi?.nome_identificativo ?? null;
-  const conteggioCommenti = Array.isArray(raw.bacheca_commenti) ? raw.bacheca_commenti.length : 0;
   const corpo = raw.corpo ?? '';
 
   return {
@@ -171,8 +148,6 @@ export function trasformaComunicazioneRawInView(raw: ComunicazioneAdminRaw): Com
     isPinned: Boolean(raw.is_pinned),
     dataPubblicazione: raw.data_pubblicazione,
     dataPubblicazioneFormattata: formattaDataItaliana(raw.data_pubblicazione),
-    conteggioCommenti,
-    etichettaCommenti: formattaEtichettaCommenti(conteggioCommenti),
   };
 }
 
@@ -181,7 +156,7 @@ export function trasformaComunicazioneRawInView(raw: ComunicazioneAdminRaw): Com
  * 1. Post in evidenza (`is_pinned = true`) sempre per primi.
  * 2. A parità di pin, ordine cronologico decrescente (`data_pubblicazione` più recente prima).
  */
-export function ordinaComunicazioni<T extends { isPinned: boolean; dataPubblicazione: string }>(
+export function ordinaComunicazioniAdmin<T extends { isPinned: boolean; dataPubblicazione: string }>(
   items: readonly T[],
 ): T[] {
   return [...items].sort((a, b) => {
@@ -194,9 +169,11 @@ export function ordinaComunicazioni<T extends { isPinned: boolean; dataPubblicaz
   });
 }
 
+export const ordinaComunicazioni = ordinaComunicazioniAdmin;
+
 /**
  * Filtra le comunicazioni per:
- * - Stato: 'tutte', 'in_evidenza', 'con_commenti'
+ * - Stato: 'tutte', 'in_evidenza'
  * - Palazzo/Edificio: 'tutti' o ID specifico
  * - Ricerca testuale: su titolo e corpo
  */
@@ -211,9 +188,6 @@ export function filtraComunicazioni<T extends ComunicazioneAdminView>(
   const filtrati = items.filter((item) => {
     // 1. Filtro stato
     if (stato === 'in_evidenza' && !item.isPinned) {
-      return false;
-    }
-    if (stato === 'con_commenti' && item.conteggioCommenti <= 0) {
       return false;
     }
 
@@ -240,28 +214,23 @@ export function filtraComunicazioni<T extends ComunicazioneAdminView>(
 }
 
 /**
- * Calcola i 3 KPI riepilogativi per le StatCard ufficiali:
+ * Calcola i KPI riepilogativi per le StatCard ufficiali:
  * - Comunicazioni attive (totale)
  * - Avvisi in evidenza (is_pinned = true)
- * - Commenti dei residenti (somma conteggio commenti)
  */
-export function calcolaStatisticheComunicazioni<T extends { isPinned: boolean; conteggioCommenti: number }>(
+export function calcolaStatisticheComunicazioni<T extends { isPinned: boolean }>(
   items: readonly T[],
 ): StatisticheComunicazioniAdmin {
   let inEvidenza = 0;
-  let totaleCommenti = 0;
 
   for (const item of items) {
     if (item.isPinned) {
       inEvidenza += 1;
     }
-    totaleCommenti += item.conteggioCommenti || 0;
   }
 
   return {
     totaleAttive: items.length,
     inEvidenza,
-    totaleCommenti,
   };
 }
-

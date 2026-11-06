@@ -5,7 +5,6 @@ import {
   filtraComunicazioni,
   formattaDataItaliana,
   formattaDestinatari,
-  formattaEtichettaCommenti,
   ordinaComunicazioni,
   trasformaComunicazioneRawInView,
   troncaTesto,
@@ -61,11 +60,11 @@ test('ordinaComunicazioni: prioritizza isPinned = true e poi dataPubblicazione d
   const ordinati = ordinaComunicazioni(items);
 
   // Le prime due devono essere quelle con isPinned = true, ordinate per data decrescente
-  assert.equal(ordinati[0].id, '4'); // 3 nov (pinned)
-  assert.equal(ordinati[1].id, '2'); // 15 ott (pinned)
+  assert.equal(ordinati[0]?.id, '4'); // 3 nov (pinned)
+  assert.equal(ordinati[1]?.id, '2'); // 15 ott (pinned)
   // Poi le non-pinned, ordinate per data decrescente
-  assert.equal(ordinati[2].id, '3'); // 4 nov
-  assert.equal(ordinati[3].id, '1'); // 1 nov
+  assert.equal(ordinati[2]?.id, '3'); // 4 nov
+  assert.equal(ordinati[3]?.id, '1'); // 1 nov
 });
 
 test('filtraComunicazioni: filtra correttamente per stato, palazzo e ricerca testuale', () => {
@@ -75,7 +74,7 @@ test('filtraComunicazioni: filtra correttamente per stato, palazzo e ricerca tes
       condominioId: 'cond1',
       palazzoId: null,
       palazzoNome: null,
-      destinatariEtichetta: 'Intero condominio',
+      destinatariEtichetta: 'Condominio',
       autoreId: 'admin1',
       titolo: 'Regole per la raccolta differenziata',
       corpo: 'Si ricorda di posizionare i sacchi trasparenti nei bidoni appositi.',
@@ -83,8 +82,6 @@ test('filtraComunicazioni: filtra correttamente per stato, palazzo e ricerca tes
       isPinned: true,
       dataPubblicazione: '2026-11-01T08:00:00Z',
       dataPubblicazioneFormattata: '1 nov 2026',
-      conteggioCommenti: 2,
-      etichettaCommenti: '2 commenti',
     },
     {
       id: 'c2',
@@ -99,8 +96,6 @@ test('filtraComunicazioni: filtra correttamente per stato, palazzo e ricerca tes
       isPinned: false,
       dataPubblicazione: '2026-11-03T10:00:00Z',
       dataPubblicazioneFormattata: '3 nov 2026',
-      conteggioCommenti: 0,
-      etichettaCommenti: '0 commenti',
     },
     {
       id: 'c3',
@@ -115,8 +110,6 @@ test('filtraComunicazioni: filtra correttamente per stato, palazzo e ricerca tes
       isPinned: false,
       dataPubblicazione: '2026-11-04T15:00:00Z',
       dataPubblicazioneFormattata: '4 nov 2026',
-      conteggioCommenti: 1,
-      etichettaCommenti: '1 commento',
     },
   ];
 
@@ -126,27 +119,22 @@ test('filtraComunicazioni: filtra correttamente per stato, palazzo e ricerca tes
   // Filtro stato: in_evidenza
   const inEvidenza = filtraComunicazioni(sampleItems, { stato: 'in_evidenza' });
   assert.equal(inEvidenza.length, 1);
-  assert.equal(inEvidenza[0].id, 'c1');
-
-  // Filtro stato: con_commenti
-  const conCommenti = filtraComunicazioni(sampleItems, { stato: 'con_commenti' });
-  assert.equal(conCommenti.length, 2);
-  assert.deepEqual(conCommenti.map((c) => c.id), ['c1', 'c3']);
+  assert.equal(inEvidenza[0]?.id, 'c1');
 
   // Filtro palazzo: palA
   const palA = filtraComunicazioni(sampleItems, { stato: 'tutte', palazzoId: 'palA' });
   assert.equal(palA.length, 1);
-  assert.equal(palA[0].id, 'c2');
+  assert.equal(palA[0]?.id, 'c2');
 
   // Filtro ricerca: titolo 'citofoni'
   const ricercaTitolo = filtraComunicazioni(sampleItems, { stato: 'tutte', ricerca: 'citofoni' });
   assert.equal(ricercaTitolo.length, 1);
-  assert.equal(ricercaTitolo[0].id, 'c3');
+  assert.equal(ricercaTitolo[0]?.id, 'c3');
 
   // Filtro ricerca: corpo 'trasparenti'
   const ricercaCorpo = filtraComunicazioni(sampleItems, { stato: 'tutte', ricerca: 'trasparenti' });
   assert.equal(ricercaCorpo.length, 1);
-  assert.equal(ricercaCorpo[0].id, 'c1');
+  assert.equal(ricercaCorpo[0]?.id, 'c1');
 
   // Ricerca senza corrispondenze
   const nonTrovato = filtraComunicazioni(sampleItems, { stato: 'tutte', ricerca: 'parolaInesistente' });
@@ -155,35 +143,30 @@ test('filtraComunicazioni: filtra correttamente per stato, palazzo e ricerca tes
   // Combinazione: palA con ricerca 'pulizia'
   const combinato = filtraComunicazioni(sampleItems, { stato: 'tutte', palazzoId: 'palA', ricerca: 'pulizia' });
   assert.equal(combinato.length, 1);
-  assert.equal(combinato[0].id, 'c2');
+  assert.equal(combinato[0]?.id, 'c2');
 });
 
-test('calcolaStatisticheComunicazioni: calcola totale, in evidenza e totale commenti', () => {
+test('calcolaStatisticheComunicazioni: calcola totale e in evidenza', () => {
   const items = [
-    { isPinned: true,  conteggioCommenti: 3 },
-    { isPinned: false, conteggioCommenti: 0 },
-    { isPinned: true,  conteggioCommenti: 2 },
-    { isPinned: false, conteggioCommenti: 5 },
+    { isPinned: true },
+    { isPinned: false },
+    { isPinned: true },
+    { isPinned: false },
   ];
 
   const stats = calcolaStatisticheComunicazioni(items);
   assert.equal(stats.totaleAttive, 4);
   assert.equal(stats.inEvidenza, 2);
-  assert.equal(stats.totaleCommenti, 10);
 });
 
 test('formatters e trasformazione raw: formatta correttamente i campi', () => {
-  assert.equal(formattaEtichettaCommenti(0), '0 commenti');
-  assert.equal(formattaEtichettaCommenti(1), '1 commento');
-  assert.equal(formattaEtichettaCommenti(5), '5 commenti');
-
-  assert.equal(formattaDestinatari(null), 'Intero condominio');
-  assert.equal(formattaDestinatari(''), 'Intero condominio');
-  assert.equal(formattaDestinatari('  '), 'Intero condominio');
+  assert.equal(formattaDestinatari(null), 'Condominio');
+  assert.equal(formattaDestinatari(''), 'Condominio');
+  assert.equal(formattaDestinatari('  '), 'Condominio');
   assert.equal(formattaDestinatari('Palazzo Nord'), 'Palazzo Nord');
 
   assert.equal(troncaTesto('Testo breve', 20), 'Testo breve');
-  assert.equal(troncaTesto('Questo è un testo molto lungo che deve essere tagliato', 15), 'Questo è un…');
+  assert.equal(troncaTesto('Questo è un testo molto lungo che deve essere tagliato', 15), 'Questo è un tes…');
 
   const raw: ComunicazioneAdminRaw = {
     id: '123',
@@ -198,7 +181,6 @@ test('formatters e trasformazione raw: formatta correttamente i campi', () => {
       id: 'pal-1',
       nome_identificativo: 'Palazzo A',
     },
-    bacheca_commenti: [{ id: 'comm-1' }, { id: 'comm-2' }],
   };
 
   const view = trasformaComunicazioneRawInView(raw);
@@ -206,8 +188,5 @@ test('formatters e trasformazione raw: formatta correttamente i campi', () => {
   assert.equal(view.palazzoNome, 'Palazzo A');
   assert.equal(view.destinatariEtichetta, 'Palazzo A');
   assert.equal(view.isPinned, true);
-  assert.equal(view.conteggioCommenti, 2);
-  assert.equal(view.etichettaCommenti, '2 commenti');
   assert.equal(formattaDataItaliana(view.dataPubblicazione), '5 nov 2026');
 });
-

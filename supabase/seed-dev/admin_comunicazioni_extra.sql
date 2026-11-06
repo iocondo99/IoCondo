@@ -6,7 +6,6 @@
 -- Crea 3 comunicazioni di prova per il Condominio di Prova (d0000000-0000-4000-8000-000000000001):
 --   1. Comunicazione in evidenza per l'intero condominio (palazzo_id = null, is_pinned = true)
 --   2. Comunicazione ordinaria per Palazzo A (palazzo_id = c_palazzo_a, is_pinned = false)
---      con 2 commenti residenti associati
 --   3. Avviso generico ordinario per l'intero condominio (palazzo_id = null, is_pinned = false)
 --
 -- GARANZIE:
@@ -24,11 +23,7 @@ declare
   c_post_2 constant uuid := 'd0000000-0000-4000-8000-000000000302';
   c_post_3 constant uuid := 'd0000000-0000-4000-8000-000000000303';
 
-  c_comm_1 constant uuid := 'd0000000-0000-4000-8000-000000000351';
-  c_comm_2 constant uuid := 'd0000000-0000-4000-8000-000000000352';
-
   v_admin_id  uuid;
-  v_utente_id uuid;
 begin
   -- Verifica esistenza condominio di prova
   if not exists (select 1 from public.condomini where id = c_condominio) then
@@ -44,12 +39,6 @@ begin
   select admin_id into v_admin_id from public.condomini where id = c_condominio;
   if v_admin_id is null then
     select id into v_admin_id from public.utenti order by created_at limit 1;
-  end if;
-
-  -- Recupera un utente per i commenti di prova (diverso dall'admin se possibile)
-  select id into v_utente_id from public.utenti where id <> coalesce(v_admin_id, '00000000-0000-0000-0000-000000000000'::uuid) order by created_at limit 1;
-  if v_utente_id is null then
-    v_utente_id := v_admin_id;
   end if;
 
   -- 1. Comunicazione in evidenza per tutto il condominio
@@ -81,7 +70,7 @@ begin
       data_pubblicazione = excluded.data_pubblicazione,
       updated_at = now();
 
-  -- 2. Comunicazione ordinaria per Palazzo A (con commenti)
+  -- 2. Comunicazione ordinaria per Palazzo A
   insert into public.bacheca_post (
     id,
     condominio_id,
@@ -109,43 +98,6 @@ begin
       is_pinned = excluded.is_pinned,
       data_pubblicazione = excluded.data_pubblicazione,
       updated_at = now();
-
-  -- Commenti dei residenti al post 2
-  insert into public.bacheca_commenti (
-    id,
-    post_id,
-    autore_id,
-    commento,
-    created_at
-  )
-  values (
-    c_comm_1,
-    c_post_2,
-    v_utente_id,
-    'Buongiorno, il tecnico dovrà accedere anche agli appartamenti per verificare la cornetta interna?',
-    now() - interval '2 days'
-  )
-  on conflict (id) do update
-  set commento = excluded.commento,
-      created_at = excluded.created_at;
-
-  insert into public.bacheca_commenti (
-    id,
-    post_id,
-    autore_id,
-    commento,
-    created_at
-  )
-  values (
-    c_comm_2,
-    c_post_2,
-    v_utente_id,
-    'Confermo che il mio citofono al secondo piano ha un fruscio persistente durante le chiamate.',
-    now() - interval '1 day'
-  )
-  on conflict (id) do update
-  set commento = excluded.commento,
-      created_at = excluded.created_at;
 
   -- 3. Avviso generico per tutto il condominio
   insert into public.bacheca_post (
@@ -177,4 +129,3 @@ begin
       updated_at = now();
 
 end $seed_admin_comunicazioni$;
-

@@ -1,9 +1,7 @@
 import { assertOk, unwrap, type TypedSupabaseClient } from '@iocondo/supabase-client';
 import type { TablesInsert, TablesUpdate } from '@iocondo/shared-types';
 import {
-  formattaDataItaliana,
   trasformaComunicazioneRawInView,
-  type CommentoPostAdminView,
   type ComunicazioneAdminRaw,
   type ComunicazioneAdminView,
   type ModificaComunicazioneAdminInput,
@@ -17,12 +15,12 @@ export interface OpzionePalazzoComunicazione {
 
 /**
  * Servizio per la gestione della Bacheca e Comunicazioni lato Amministratore (Passo 4).
- * Permette pubblicazione, modifica, toggle pin, cancellazione post e moderazione commenti.
+ * Permette pubblicazione, modifica, toggle pin e cancellazione post.
  */
 export function createComunicazioniAdminService(db: TypedSupabaseClient) {
   return {
     /**
-     * Lettura comunicazioni del condominio attivo con conteggio commenti aggregati e join su palazzi.
+     * Lettura comunicazioni del condominio attivo con join su palazzi.
      */
     async list(condominioId: string): Promise<ComunicazioneAdminView[]> {
       const res = unwrap(
@@ -41,9 +39,6 @@ export function createComunicazioniAdminService(db: TypedSupabaseClient) {
             palazzi:palazzo_id (
               id,
               nome_identificativo
-            ),
-            bacheca_commenti (
-              id
             )
           `)
           .eq('condominio_id', condominioId)
@@ -140,64 +135,10 @@ export function createComunicazioniAdminService(db: TypedSupabaseClient) {
     },
 
     /**
-     * Eliminazione comunicazione (cancella a cascata i commenti associati via FK).
+     * Eliminazione comunicazione.
      */
     async delete(id: string): Promise<void> {
       assertOk(await db.from('bacheca_post').delete().eq('id', id));
-    },
-
-    /**
-     * Lettura commenti di un post per la modale di moderazione.
-     */
-    async listCommenti(postId: string): Promise<CommentoPostAdminView[]> {
-      const commentiRaw = unwrap(
-        await db
-          .from('bacheca_commenti')
-          .select(`
-            id,
-            post_id,
-            autore_id,
-            commento,
-            created_at
-          `)
-          .eq('post_id', postId)
-          .order('created_at', { ascending: true }),
-      );
-
-      if (commentiRaw.length === 0) return [];
-
-      const autoreIds = [...new Set(commentiRaw.flatMap((c) => (c.autore_id ? [c.autore_id] : [])))];
-      const nomiAutori = new Map<string, string>();
-
-      if (autoreIds.length > 0) {
-        const { data: profili } = await db
-          .from('profili_pubblici')
-          .select('id, nome_cognome')
-          .in('id', autoreIds);
-
-        if (profili) {
-          for (const p of profili) {
-            if (p.id && p.nome_cognome) nomiAutori.set(p.id, p.nome_cognome);
-          }
-        }
-      }
-
-      return commentiRaw.map((c) => ({
-        id: c.id,
-        postId: c.post_id,
-        autoreId: c.autore_id,
-        autoreNome: (c.autore_id && nomiAutori.get(c.autore_id)) || 'Condòmino residente',
-        commento: c.commento,
-        createdAt: c.created_at,
-        createdAtFormatted: formattaDataItaliana(c.created_at),
-      }));
-    },
-
-    /**
-     * Eliminazione di un singolo commento (moderazione amministrativa).
-     */
-    async deleteCommento(commentoId: string): Promise<void> {
-      assertOk(await db.from('bacheca_commenti').delete().eq('id', commentoId));
     },
   };
 }
@@ -294,4 +235,3 @@ async function generaNotificheDestinatari(
 
   await db.from('notifiche').insert(notificheDaInserire);
 }
-
