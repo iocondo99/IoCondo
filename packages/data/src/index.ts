@@ -25,9 +25,10 @@ export * from './admin/comunicazioniAdminLogic';
 export * from './admin/comunicazioniAdminService';
 export * from './admin/manutenzioneLogic';
 export * from './admin/manutenzioneService';
+export * from './admin/documentiAdminLogic';
+export * from './admin/documentiAdminService';
 
 // Risoluzione ambiguità esportazioni duplicate
 export { formattaDataItaliana } from './admin/invitiAdminLogic';
 export type { PrioritaTicket, StatoTicket } from './segnalazioni/segnalazioniLogic';
 export { ordinaComunicazioni } from './comunicazioni/comunicazioniLogic';
-

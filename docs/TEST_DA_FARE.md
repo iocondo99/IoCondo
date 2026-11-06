@@ -933,4 +933,92 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 - [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_manutenzione_extra_pulizia.sql`.
   **Risultato atteso:** i token magic link, gli allegati, i messaggi, gli interventi, i 4 ticket di prova e i 2 fornitori convenzionati vengono rimossi in modo pulito e sicuro dal database senza lasciare residui.
 
+---
+
+## Documenti e Drive Condominiale (/admin/documenti, Passo 6 modulo Amministratore)
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_documenti_extra.sql`.
+  **Risultato atteso:** lo script viene eseguito con successo, inserendo 3 cartelle di prova ("Verbali assemblee", "Contratti e polizze", "Regolamento e tabelle") e 4 metadati di documenti collegati al condominio attivo (di cui 3 pubblici e 1 riservato all'Unità Int. 1), in modo idempotente e senza duplicati.
+
+- [ ] **Cosa fare:** accedere come amministratore (`superadmin@iocondo.it`) e navigare su `/admin/documenti` (o cliccare sulla voce "Documenti" nel menu principale).
+  **Risultato atteso:** la pagina si apre correttamente sotto la guardia ADMIN, visualizzando il percorso di navigazione `Home / Documenti`, il titolo "Documenti e Drive Condominiale" e i due pulsanti primari in testata: "Nuova cartella" (icona `folder-plus`) e "Carica documento" (icona `upload`).
+
+- [ ] **Cosa fare:** verificare le 3 StatCard ufficiali (Sez. 8 Design System):
+  - "Documenti archiviati": conteggio totale documenti del condominio, icona `file-text`, tessera blu;
+  - "Cartelle create": conteggio totale cartelle create, icona `folder`, tessera navy;
+  - "Documenti riservati": conteggio file a visibilità limitata per specifica unità, icona `lock`, tessera teal.
+
+- [ ] **Cosa fare:** testare la sezione "Cartelle del condominio" ed il filtro cartelle:
+  - Verificare la scheda "Tutte le cartelle" con il totale dei documenti complessivi;
+  - Cliccare su una singola cartella (es. "Verbali assemblea"):
+    * La cartella diventa attiva (bordo marcato e badge attivo);
+    * I breadcrumbs si aggiornano dinamicamente in `Home / Documenti / [Nome Cartella]`;
+    * Il titolo della tabella si aggiorna con "Documenti in: [Nome Cartella]" e mostra solo i file appartenenti a quella cartella;
+  - Cliccare di nuovo su "Tutte le cartelle" o sul breadcrumb "Documenti" per reimpostare la vista completa.
+
+- [ ] **Cosa fare:** testare la barra dei filtri (SearchBar e FilterChips):
+  - Digitare del testo nella `SearchBar` (es. "Verbale"): la lista si aggiorna in tempo reale filtrando per corrispondenza nel nome file;
+  - Selezionare il chip "Condominio": vengono mostrati solo i documenti visibili a tutti i condòmini (`unita_id IS NULL`);
+  - Selezionare il chip "Riservati per unità": vengono mostrati solo i documenti riservati a una specifica unità (`unita_id IS NOT NULL`);
+  - Inserire una stringa priva di corrispondenze (es. "xyz"): compare l'`EmptyState` con titolo "Nessun documento corrisponde ai criteri" e descrizione per guidare l'utente.
+
+- [ ] **Cosa fare:** verificare la visualizzazione `ResponsiveDataView` dei documenti (tabella racchiusa in `<Card>` su desktop/tablet e schede per smartphone):
+  - 5 colonne essenziali e pulite (nessuna colonna "Azioni" o "Dimensione" per massima leggibilità e respiro):
+    1. Tipo (Badge colorato con icona coerente: PDF = rosso, Immagini = teal, Fogli di calcolo/Excel = verde, Word/Testo = blu, Generico = grigio);
+    2. Nome file (nome pulito del file su una o due righe senza ridondanze);
+    3. Cartella (nome della cartella di appartenenza con icona cartella);
+    4. Caricato il (data formattata in italiano GG/MM/AAAA);
+    5. Destinatario (Badge allargato con solo il destinatario reale: "Condominio" per i file comuni, oppure "Palazzo X - Int. Y" / "Int. X" per i file di unità, senza prefisso "Riservato:").
+  - Click sulla riga: premendo su qualsiasi punto della riga della tabella (o toccando la scheda da smartphone), si apre direttamente la modale "Dettagli documento".
+  - Verificare che tutti gli elementi entrino nella pagina con zero scroll orizzontale (`document.documentElement.scrollWidth <= window.innerWidth`).
+
+- [ ] **Cosa fare:** testare la modale "Dettagli documento" (apertura al click su qualsiasi riga):
+  1. Cliccare sulla riga di un documento: si apre la modale accessibile con il titolo del file, badge di tipologia e badge destinatario;
+  2. Verifica riepilogo metadati: Cartella, Caricato il, Dimensione formattata (B, KB, MB) e Destinatario ("Condominio" o unità specifica);
+  3. Verifica avviso sicurezza Storage: indicazione del bucket protetto `documenti-condominio` e link temporaneo;
+  4. Test pulsante "Scarica": genera in tempo reale il link firmato temporaneo (600 s via `createSignedUrl`) e apre il file in sicurezza in una nuova scheda, senza mai esporre URL pubblici permanenti;
+  5. Test pulsante "Elimina": chiude il dettaglio e apre il `ConfirmDialog` distruttivo per rimuovere il documento dallo storage e dal database;
+  6. Premere "Chiudi" o tasto Escape per chiudere la modale.
+
+- [ ] **Cosa fare:** testare la modale "Nuova cartella":
+  1. Premere "Nuova cartella": si apre la modale accessibile con focus automatico sull'input del nome;
+  2. Testare validazione: inserire 1 solo carattere o lasciare vuoto e premere "Crea cartella": compare il messaggio di errore "Il nome della cartella deve contenere almeno 2 caratteri" e l'input assume lo stato `aria-invalid="true"`;
+  3. Inserire un nome valido (es. "Manutenzioni straordinarie 2026") e confermare: la nuova cartella viene creata in `cartelle_documenti`, compare istantaneamente tra le cartelle, il contatore StatCard si aggiorna e viene mostrato un Toast di successo;
+  4. Testare chiusura modale con pulsante "Annulla" o tasto Escape.
+
+- [ ] **Cosa fare:** testare la cancellazione di una cartella vuota:
+  - Individuare la cartella appena creata (vuota, con icona cestino rossa accanto al nome);
+  - Cliccare sull'icona di eliminazione della cartella: compare il `ConfirmDialog` distruttivo con titolo "Eliminare questa cartella?";
+  - Confermare l'eliminazione: la cartella viene rimossa dal database, la lista si aggiorna e compare il Toast di notifica.
+
+- [ ] **Cosa fare:** testare la modale "Carica nuovo documento" (REQ-A04):
+  1. Premere il pulsante "Carica documento": si apre la modale accessibile;
+  2. Verificare il selettore Cartella di destinazione (menù a tendina custom `Select` con bordi a 7px);
+  3. Verificare l'area drag & drop / selezione file (`FileUpload`) con visualizzazione anteprima del nome file, dimensione ed estensione;
+  4. Testare il selettore "Ambito di Visibilità e Privacy (RLS)":
+     * Opzione predefinita: "Visibile a tutti i condòmini" (`unita_id = null`);
+     * Selezionare l'opzione "Riservato a una specifica unità immobiliare": compare dinamicamente il menù a tendina custom `Select` "Unità immobiliare di destinazione *" con l'elenco delle unità del condominio (Palazzo / Scala / Interno);
+     * Se non viene selezionata alcuna unità con ambito riservato, la validazione blocca il salvataggio con messaggio di errore esplicito;
+  5. Caricare un file reale (es. PDF o immagine), scegliere cartella e ambito di riservatezza e premere "Carica documento":
+     * Il file viene inviato allo Storage Supabase nel percorso RLS corretto `${condominio_id}/${cartella_id}/${timestamp}_${nome}`;
+     * I metadati vengono salvati nella tabella `documenti_metadata`;
+     * La tabella si aggiorna con il nuovo file, le StatCard riflettono i conteggi aggiornati e compare il Toast di conferma;
+  6. Premere "Annulla" o tasto Escape per verificare la corretta chiusura della modale.
+
+- [ ] **Cosa fare:** testare l'eliminazione di un documento:
+  - Cliccare sul pulsante "Elimina" di un file nella tabella: si apre il `ConfirmDialog` distruttivo con titolo "Eliminare questo documento?" e descrizione con il nome del file;
+  - Premere "Elimina documento": il record viene rimosso da `documenti_metadata` e il file fisico eliminato dal bucket `documenti-condominio`;
+  - La riga scompare dalla tabella e compare il Toast di conferma.
+
+- [ ] **Cosa fare:** verificare la schermata sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844):
+  **Risultato atteso:** `document.documentElement.scrollWidth <= window.innerWidth` su tutti i breakpoint (zero scroll orizzontale); passaggio fluido da tabella desktop a card su smartphone; target touch conformi a 44 px minimi.
+
+- [ ] **Cosa fare:** verificare conformità WCAG 2.2 AA e navigazione con tastiera:
+  - Navigare con Tab, Shift+Tab, Invio, Spazio ed Escape;
+  - Verificare l'anello di focus `#0284C7` (o bianco su navy) sempre visibile e mai ritagliato su cartelle, righe, pulsanti, input e modali;
+  - Testare a zoom reale 200% verificando che i testi e le cartelle rifluiscano regolarmente senza alcuno scroll orizzontale della pagina.
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_documenti_extra_pulizia.sql`.
+  **Risultato atteso:** i 4 documenti di prova e le 3 cartelle create dal seed vengono rimossi in modo pulito e sicuro dal database senza lasciare residui.
+
 

@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import React from 'react';
+import { AdminDocumentiScreen } from '@/screens/AdminDocumentiScreen';
 
-export default function DocumentiPage() {
-  return <PaginaInArrivo voceId="documenti" />;
+export default function AdminDocumentiPage() {
+  return <AdminDocumentiScreen />;
 }

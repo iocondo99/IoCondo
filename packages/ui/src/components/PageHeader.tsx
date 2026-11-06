@@ -22,16 +22,25 @@ export interface PageHeaderProps {
   subtitle?: string;
   /** Azione principale della pagina: una sola, allineata al titolo. */
   action?: PageHeaderAction;
+  /** Azione secondaria opzionale (es. "Nuova cartella"), affiancata alla primaria. */
+  secondaryAction?: PageHeaderAction;
   breadcrumbs?: readonly BreadcrumbItem[];
   /** Se presente compare il pulsante "Indietro" sopra il titolo. */
   onBack?: () => void;
 }
 
 /**
- * Intestazione di pagina (sez. 5.3): titolo, sottotitolo e azione principale. Da tablet
+ * Intestazione di pagina (sez. 5.3): titolo, sottotitolo e azioni principali. Da tablet
  * in su l'azione sta a destra del titolo; su smartphone va sotto, a tutta larghezza.
  */
-export function PageHeader({ title, subtitle, action, breadcrumbs, onBack }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  subtitle,
+  action,
+  secondaryAction,
+  breadcrumbs,
+  onBack,
+}: PageHeaderProps) {
   const { isMobile } = useBreakpoint();
   const titleStyle = useTextStyle('h1');
   const subtitleStyle = useTextStyle('body');
@@ -51,15 +60,30 @@ export function PageHeader({ title, subtitle, action, breadcrumbs, onBack }: Pag
           </Text>
           {subtitle ? <Text style={[subtitleStyle, styles.subtitle]}>{subtitle}</Text> : null}
         </View>
-        {action ? (
-          <Button
-            fullWidth={isMobile}
-            label={action.label}
-            icon={action.icon}
-            loading={action.loading}
-            disabled={action.disabled}
-            onPress={action.onPress}
-          />
+        {action || secondaryAction ? (
+          <View style={[styles.actionsGroup, isMobile && styles.actionsGroupMobile]}>
+            {secondaryAction ? (
+              <Button
+                variant="secondary"
+                fullWidth={isMobile}
+                label={secondaryAction.label}
+                icon={secondaryAction.icon}
+                loading={secondaryAction.loading}
+                disabled={secondaryAction.disabled}
+                onPress={secondaryAction.onPress}
+              />
+            ) : null}
+            {action ? (
+              <Button
+                fullWidth={isMobile}
+                label={action.label}
+                icon={action.icon}
+                loading={action.loading}
+                disabled={action.disabled}
+                onPress={action.onPress}
+              />
+            ) : null}
+          </View>
         ) : null}
       </View>
     </View>
@@ -80,4 +104,15 @@ const styles = StyleSheet.create({
   text: { flex: 1, gap: space[1] },
   title: { color: colors.text.primary },
   subtitle: { color: colors.text.secondary },
+  actionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    flexWrap: 'wrap',
+  },
+  actionsGroupMobile: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: space[2],
+  },
 });

@@ -19,7 +19,14 @@ import {
   Clock,
   Coins,
   CreditCard,
+  Download,
+  File,
   FileText,
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  Image as LucideImage,
+  Table as LucideTable,
   Ellipsis,
   Eye,
   EyeOff,
@@ -134,6 +141,13 @@ export const iconMap = {
   'external-link': ExternalLink,
   'hard-hat': HardHat,
   truck: Truck,
+  folder: Folder,
+  'folder-plus': FolderPlus,
+  'folder-open': FolderOpen,
+  download: Download,
+  image: LucideImage,
+  table: LucideTable,
+  file: File,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof iconMap;
