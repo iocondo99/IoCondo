@@ -30,6 +30,8 @@ export * from './admin/documentiAdminService';
 export * from './admin/assembleeAdminLogic';
 export * from './admin/assembleeAdminService';
 export * from './contabilita/contabilitaLogic';
+export * from './contabilita/registroContabileLogic';
+export * from './contabilita/contabilitaService';
 
 // Risoluzione ambiguità esportazioni duplicate
 export { formattaDataItaliana } from './admin/invitiAdminLogic';
