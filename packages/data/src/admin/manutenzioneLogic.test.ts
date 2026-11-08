@@ -303,32 +303,32 @@ test('filtraTicket: filtra per chip e per ricerca testuale', () => {
   // Aperti
   const aperti = filtraTicket(dummyTickets, { stato: 'aperti' });
   assert.equal(aperti.length, 1);
-  assert.equal(aperti[0].id, '1');
+  assert.equal(aperti[0]?.id, '1');
 
   // In lavorazione
   const inLav = filtraTicket(dummyTickets, { stato: 'in_lavorazione' });
   assert.equal(inLav.length, 1);
-  assert.equal(inLav[0].id, '2');
+  assert.equal(inLav[0]?.id, '2');
 
   // Urgenti
   const urg = filtraTicket(dummyTickets, { stato: 'urgenti' });
   assert.equal(urg.length, 1);
-  assert.equal(urg[0].id, '1');
+  assert.equal(urg[0]?.id, '1');
 
   // Aree comuni
   const areeComuni = filtraTicket(dummyTickets, { stato: 'aree_comuni' });
   assert.equal(areeComuni.length, 1);
-  assert.equal(areeComuni[0].id, '1');
+  assert.equal(areeComuni[0]?.id, '1');
 
   // Ricerca fornitore
   const perFornitore = filtraTicket(dummyTickets, { ricerca: 'volta' });
   assert.equal(perFornitore.length, 1);
-  assert.equal(perFornitore[0].id, '2');
+  assert.equal(perFornitore[0]?.id, '2');
 
   // Ricerca ubicazione
   const perUbicazione = filtraTicket(dummyTickets, { ricerca: 'Int. 2' });
   assert.equal(perUbicazione.length, 1);
-  assert.equal(perUbicazione[0].id, '2');
+  assert.equal(perUbicazione[0]?.id, '2');
 });
 
 test('filtraFornitori: filtra per ragione sociale o categoria', () => {
@@ -435,8 +435,8 @@ test('trasformaTicketRawInView: converte correttamente raw in view con ubicazion
   assert.equal(view.categoria_nome, 'Idraulico');
   assert.equal(view.fornitore_assegnato_nome, 'Idro Rossi Srl');
   assert.equal(view.interventi.length, 1);
-  assert.equal(view.interventi[0].magic_token, 'tok-abc');
-  assert.equal(view.interventi[0].importo_consuntivo_formattato, '€ 180,00');
+  assert.equal(view.interventi[0]?.magic_token, 'tok-abc');
+  assert.equal(view.interventi[0]?.importo_consuntivo_formattato, '€ 180,00');
   assert.equal(view.allegati.length, 1);
   assert.equal(view.messaggi.length, 1);
 });

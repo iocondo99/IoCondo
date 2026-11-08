@@ -244,12 +244,12 @@ test('filtraInviti: filtra per stato e ricerca libera', () => {
   // Ricerca email
   const perEmail = filtraInviti(inviti, { stato: 'tutti', ricerca: 'portiere' });
   assert.equal(perEmail.length, 1);
-  assert.equal(perEmail[0].email, 'luigi.portiere@test.it');
+  assert.equal(perEmail[0]?.email, 'luigi.portiere@test.it');
 
   // Ricerca per interno o palazzo
   const perPalazzo = filtraInviti(inviti, { stato: 'tutti', ricerca: 'palazzo b' });
   assert.equal(perPalazzo.length, 1);
-  assert.equal(perPalazzo[0].token, '3');
+  assert.equal(perPalazzo[0]?.token, '3');
 });
 
 test('calcolaStatisticheInviti: calcola in attesa, accettati mese e scaduti', () => {

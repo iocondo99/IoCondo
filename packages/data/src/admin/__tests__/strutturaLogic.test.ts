@@ -88,8 +88,8 @@ test('isAnagraficaAttiva e selezionaResidenteAttivo: preferisce proprietario att
     },
   ];
 
-  assert.equal(isAnagraficaAttiva(anagrafiche[0], oggi), true);
-  assert.equal(isAnagraficaAttiva(anagrafiche[2], oggi), false);
+  assert.equal(isAnagraficaAttiva(anagrafiche[0]!, oggi), true);
+  assert.equal(isAnagraficaAttiva(anagrafiche[2]!, oggi), false);
 
   const residente = selezionaResidenteAttivo(anagrafiche, oggi);
   assert.ok(residente);
@@ -156,7 +156,7 @@ test('costruisciAlberoStruttura: raggruppa correttamente per palazzo e scala', (
   const scA = palA.scale.find((s) => s.id === 'sc1');
   assert.ok(scA);
   assert.equal(scA.unita.length, 2);
-  assert.equal(scA.unita[0].residenteAttivo?.nomeCognome, 'Gianni Morandi');
+  assert.equal(scA.unita[0]?.residenteAttivo?.nomeCognome, 'Gianni Morandi');
 });
 
 test('calcolaQuadraturaTabella: verifica quadratura esatta e disavanzo', () => {
@@ -213,7 +213,7 @@ test('calcolaQuadraturaTabella: verifica quadratura esatta e disavanzo', () => {
   assert.equal(resQuadrata.disavanzo, 0);
   assert.equal(resQuadrata.isQuadrata, true);
   assert.equal(resQuadrata.statoQuadratura, 'QUADRATA');
-  assert.equal(resQuadrata.quote[0].percentuale, 60);
+  assert.equal(resQuadrata.quote[0]?.percentuale, 60);
 
   // Caso 2: Disavanzo
   const quoteDisavanzo: QuotaMillesimaleRaw[] = [
@@ -291,13 +291,13 @@ test('validaImportMillesimiCSV (UC-09): valida CSV corretto e quadratura 1000 â€
   const val4 = validaImportMillesimiCSV(csvDuplicato, unita);
   assert.equal(val4.puoSalvare, false);
   assert.equal(val4.righeErrate, 1);
-  assert.ok(val4.righe[1].errori.some((e) => e.includes('duplicata')));
+  assert.ok(val4.righe[1]?.errori.some((e) => e.includes('duplicata')));
 
   // CSV con unitÃ  inesistente
   const csvInesistente = 'Scala;Interno;Millesimi\r\nScala A;99;1000,000';
   const val5 = validaImportMillesimiCSV(csvInesistente, unita);
   assert.equal(val5.puoSalvare, false);
-  assert.ok(val5.righe[0].errori.some((e) => e.includes('non trovata')));
+  assert.ok(val5.righe[0]?.errori.some((e) => e.includes('non trovata')));
 });
 
 test('generaTemplateCSVMillesimi: genera template corretto', () => {

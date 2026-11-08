@@ -47,7 +47,7 @@ export interface CreaScalaColonnaInput {
 
 export interface ResidenteAssegnatoInput {
   utenteId: string;
-  tipoPossesso: 'PROPRIETARIO' | 'INQUILINO' | 'USUFRUTTUARIO';
+  tipoPossesso: 'PROPRIETARIO' | 'INQUILINO';
   quotaPossesso?: number;
   dataInizio?: string;
 }
@@ -96,7 +96,7 @@ export interface CondominoDisponibile {
 export interface AssociaResidenteInput {
   unitaId: string;
   utenteId: string;
-  tipoPossesso: 'PROPRIETARIO' | 'INQUILINO' | 'USUFRUTTUARIO';
+  tipoPossesso: 'PROPRIETARIO' | 'INQUILINO';
   quotaPossesso?: number;
   dataInizio?: string;
   condominioId?: string;
@@ -194,7 +194,7 @@ export function createStrutturaService(db: TypedSupabaseClient) {
         unita,
         tipologie,
         anagrafiche,
-        dataRiferimento: oggi(),
+        dataRifOggi: oggi(),
       });
 
       // 7. Carica tabelle millesimali e relative quote
@@ -330,17 +330,20 @@ export function createStrutturaService(db: TypedSupabaseClient) {
     },
 
     async createUnita(input: TablesInsert<'unita_immobiliari'> | CreaUnitaInput): Promise<UnitaImmobiliareRaw> {
-      const payload: TablesInsert<'unita_immobiliari'> = {
-        palazzo_id: 'palazzoId' in input ? input.palazzoId : input.palazzo_id,
-        scala_colonna_id: ('scalaColonnaId' in input ? input.scalaColonnaId : input.scala_colonna_id) || null,
-        tipologia_id: 'tipologiaId' in input ? input.tipologiaId : input.tipologia_id,
-        interno: input.interno.trim(),
-        piano: input.piano !== undefined ? input.piano : null,
-        mq: input.mq !== undefined ? input.mq : null,
-        foglio_catastale: ('foglioCatastale' in input ? input.foglioCatastale : input.foglio_catastale)?.trim() || null,
-        particella: input.particella ? input.particella.trim() : null,
-        subalterno: input.subalterno ? input.subalterno.trim() : null,
-      };
+      const isCreaInput = 'palazzoId' in input;
+      const payload: TablesInsert<'unita_immobiliari'> = isCreaInput
+        ? {
+            palazzo_id: input.palazzoId,
+            scala_colonna_id: input.scalaColonnaId || null,
+            tipologia_id: input.tipologiaId,
+            interno: input.interno.trim(),
+            piano: input.piano !== undefined ? input.piano : null,
+            mq: input.mq !== undefined ? input.mq : null,
+            foglio_catastale: input.foglioCatastale?.trim() || null,
+            particella: input.particella ? input.particella.trim() : null,
+            subalterno: input.subalterno ? input.subalterno.trim() : null,
+          }
+        : input;
       const unita = unwrap(await db.from('unita_immobiliari').insert(payload).select('*').single()) as UnitaImmobiliareRaw;
 
       // Se fornito condòmino al momento della creazione, associa subito l'anagrafica

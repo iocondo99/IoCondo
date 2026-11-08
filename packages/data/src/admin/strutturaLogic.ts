@@ -211,6 +211,7 @@ export function selezionaResidenteAttivo(
   });
 
   const scelta = attive[0];
+  if (!scelta) return null;
   const quota = typeof scelta.quota_possesso === 'number' ? scelta.quota_possesso : Number(scelta.quota_possesso) || 100;
   const tipo = (scelta.tipo_possesso === 'INQUILINO' ? 'INQUILINO' : 'PROPRIETARIO') as TipoPossesso;
 
@@ -597,7 +598,22 @@ export function validaImportMillesimiCSV(
     };
   }
 
-  const header = matrice[0].map((h) => h.toLowerCase().trim());
+  const headerRow = matrice[0];
+  if (!headerRow) {
+    return {
+      righe: [],
+      sommaMillesimi: 0,
+      disavanzo: totalePrevisto,
+      isQuadrata: false,
+      totaleRighe: 0,
+      righeValide: 0,
+      righeErrate: 0,
+      erroriGlobali: ['Intestazione CSV mancante.'],
+      puoSalvare: false,
+    };
+  }
+
+  const header = headerRow.map((h) => h.toLowerCase().trim());
 
   // Rileva indici delle colonne
   const colInterno = header.findIndex((h) => h === 'interno' || h.startsWith('int') || h === 'unita' || h === 'sub');
@@ -664,6 +680,7 @@ export function validaImportMillesimiCSV(
 
   for (let r = 1; r < matrice.length; r++) {
     const rawRow = matrice[r];
+    if (!rawRow) continue;
     const rigaNumero = r + 1;
     const erroriRiga: string[] = [];
 
@@ -698,7 +715,7 @@ export function validaImportMillesimiCSV(
     if (!unitaTrovata) {
       const perInterno = lookupSoloInterno.get(normInt) ?? [];
       if (perInterno.length === 1) {
-        unitaTrovata = perInterno[0];
+        unitaTrovata = perInterno[0] ?? null;
       } else if (perInterno.length > 1) {
         erroriRiga.push(
           `Interno "${rawInterno}" ambiguo presente in più scale (${perInterno.map((u) => u.scalaNome || 'Gen').join(', ')}). Specifica la Scala nel CSV.`

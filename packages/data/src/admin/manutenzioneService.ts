@@ -366,8 +366,9 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
             .limit(1),
         );
 
-        if (ultimiInterventi && ultimiInterventi.length > 0) {
-          const interventoId = ultimiInterventi[0].id;
+        const primoIntervento = ultimiInterventi?.[0];
+        if (primoIntervento) {
+          const interventoId = primoIntervento.id;
           const patch: TablesUpdate<'ticket_interventi'> = {};
           if (input.importoConsuntivo !== undefined) {
             patch.importo_consuntivo = input.importoConsuntivo;
@@ -422,8 +423,9 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
             .limit(1),
         );
 
-        if (ultimiInterventi && ultimiInterventi.length > 0) {
-          const intId = ultimiInterventi[0].id;
+        const primoIntervento = ultimiInterventi?.[0];
+        if (primoIntervento) {
+          const intId = primoIntervento.id;
           const patchInt: TablesUpdate<'ticket_interventi'> = {
             fornitore_id: input.fornitoreId,
             data_prevista: input.dataPrevista || null,
@@ -442,8 +444,9 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
               .eq('ticket_intervento_id', intId)
               .limit(1),
           );
-          if (tokens && tokens.length > 0) {
-            resUrlMagico = tokens[0].url_magico;
+          const primoToken = tokens?.[0];
+          if (primoToken?.url_magico) {
+            resUrlMagico = primoToken.url_magico;
           } else {
             const token = generaTokenSicuro();
             const scadenza = new Date(Date.now() + 14 * 86_400_000).toISOString();

@@ -126,9 +126,9 @@ test('ordinaTicketUrgenti: ordina per peso priorità e poi per data decrescente'
 
   const ordinati = ordinaTicketUrgenti(tickets, 3);
   assert.equal(ordinati.length, 3);
-  assert.equal(ordinati[0].id, '3'); // Urgente recente
-  assert.equal(ordinati[1].id, '2'); // Urgente vecchia
-  assert.equal(ordinati[2].id, '5'); // Alta
+  assert.equal(ordinati[0]?.id, '3'); // Urgente recente
+  assert.equal(ordinati[1]?.id, '2'); // Urgente vecchia
+  assert.equal(ordinati[2]?.id, '5'); // Alta
 });
 
 test('formattaStatoEsercizio e formattaTipoAssemblea', () => {
