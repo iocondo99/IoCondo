@@ -1,16 +1,23 @@
 import type { TypedSupabaseClient } from '@iocondo/supabase-client';
 import type {
+  IAnagraficaUnita,
   IAuditLog,
   IBollettino,
   IBollettinoRiga,
   IMovimentoContabile,
+  IPagamentoRata,
   IPreventivo,
   IPreventivoVoce,
   IQuotaMillesimale,
   IRataDettaglio,
   IRataTestata,
+  IRiconciliazioneLog,
   IRipartoSpesa,
+  ISaldoPregresso,
+  IScadenziarioRecuperoCredito,
+  ISoggettoContabile,
   ITabellaMillesimale,
+  ITransazioneBancaria,
   IVoceSpesaCatalogo,
   Json,
   TablesInsert,
@@ -104,6 +111,39 @@ import {
   type UnitaPianoRateInput,
   type VocePreventivoInput,
 } from './bollettiniLogic.ts';
+import {
+  analizzaMorositaCondominio as analizzaMorositaCondominioLogic,
+  calcolaConguagliSenzaRedistribuzioneMorosi as calcolaConguagliSenzaRedistribuzioneMorosiLogic,
+  creaVoceScadenziarioRecupero as creaVoceScadenziarioRecuperoLogic,
+  generaElencoMorosiPerCreditori as generaElencoMorosiPerCreditoriLogic,
+  imputaIncasso as imputaIncassoLogic,
+  stornaIncassoRespinto as stornaIncassoRespintoLogic,
+  transitaStatoRecuperoCredito as transitaStatoRecuperoCreditoLogic,
+  type AnalisiMorositaCondominioOutput,
+  type AnagraficaMorosoArt63Input,
+  type CreditoMorositaInput,
+  type CriterioDecorrenzaRecuperoMesi,
+  type CriterioEsigibilitaRatePreventivo,
+  type DebitoImputabileInput,
+  type ElencoMorosiArt63Output,
+  type ImputazioneManualeInput,
+  type ImputazionePrecedenteDaStornareInput,
+  type MetodoPagamentoIncasso,
+  type OrdineImputazioneIncassoInput,
+  type PosizioneUnitaPerConguaglioNoMorositaInput,
+  type RisultatoConguaglioSenzaRedistribuzioneMorosi,
+  type RisultatoImputazioneIncasso,
+  type RisultatoStornoIncassoRespinto,
+  type StatoRecuperoCreditoInput,
+  type VoceScadenziarioRecuperoValutata,
+} from './morositaLogic.ts';
+import {
+  registraSubentroCompravendita as registraSubentroCompravenditaLogic,
+  type DebitoSubentroInput,
+  type RataSubentroInput,
+  type RegistraSubentroCompravenditaInput,
+  type RisultatoSubentroCompravendita,
+} from './subentriLogic.ts';
 
 export interface FiltriRegistroContabile {
   esercizioId?: string;
@@ -469,6 +509,159 @@ export interface RettificaBollettinoEmessoServiceOutput {
   nuovoBollettino: IBollettino;
   nuoveRighe: IBollettinoRiga[];
   esitoRettifica: RettificaBollettinoEmessoOutput;
+  auditLog: IAuditLog;
+}
+
+// ============================================================================
+// INTERFACCE SEZIONE 6 (RC-F1..F4) E SEZIONE 7 (RC-G1..G5, RC-H1..H6):
+// INCASSI, STORNI, MOROSITA', SCADENZIARIO RECUPERO E SUBENTRI
+// ============================================================================
+
+export interface RegistraEImputaIncassoServiceInput {
+  condominioId: string;
+  dataValuta: string;
+  importoIncassoCent: CentesimiInput;
+  contoAccredito?: string | null;
+  riferimentoCro?: string | null;
+  causale?: string | null;
+  metodo?: MetodoPagamentoIncasso;
+  debitoreUtenteId?: string | null;
+  debitoreSoggettoId?: string | null;
+  debitoreNome?: string | null;
+  unitaId?: string | null;
+  pagatoreNome: string;
+  pagatoreUtenteId?: string | null;
+  pagatoreSoggettoId?: string | null;
+  pagatoreRelazione?: 'PROPRIETARIO' | 'CONDUTTORE' | 'FAMILIARE' | 'TERZO' | null;
+  isPagamentoDaTerzo?: boolean;
+  ordineImputazione?: OrdineImputazioneIncassoInput;
+  /** Se passati in memoria evita query di caricamento dei debiti aperti. */
+  debiti?: readonly DebitoImputabileInput[];
+  imputazioniManuali?: readonly ImputazioneManualeInput[];
+  completaEccedenzaManualeConFifo?: boolean;
+  autoreId?: string | null;
+}
+
+export interface RegistraEImputaIncassoServiceOutput {
+  transazioneBancaria: ITransazioneBancaria;
+  pagamentiRate: IPagamentoRata[];
+  riconciliazioniLog: IRiconciliazioneLog[];
+  rateAggiornate: IRataDettaglio[];
+  saldiPregressiAggiornati: ISaldoPregresso[];
+  esitoImputazione: RisultatoImputazioneIncasso;
+  auditLog: IAuditLog;
+}
+
+export interface StornaIncassoRespintoServiceInput {
+  incassoOriginaleId: string;
+  condominioId: string;
+  dataStorno?: string;
+  motivoStorno: string;
+  importoOriginaleCent?: CentesimiInput;
+  dataValutaOriginale?: string;
+  pagatoreNome?: string | null;
+  riferimentoCroOriginale?: string | null;
+  giustificazioniImputazione?: readonly ImputazionePrecedenteDaStornareInput[];
+  autoreId?: string | null;
+}
+
+export interface StornaIncassoRespintoServiceOutput {
+  transazioneStorno: ITransazioneBancaria;
+  rateRiaperte: IRataDettaglio[];
+  saldiPregressiRiaperti: ISaldoPregresso[];
+  esitoStorno: RisultatoStornoIncassoRespinto;
+  auditLog: IAuditLog;
+}
+
+export interface AnalizzaMorositaServiceInput {
+  condominioId: string;
+  dataRiferimento?: string;
+  esercizioId?: string;
+  criterioEsigibilitaRatePreventivo?: CriterioEsigibilitaRatePreventivo;
+  crediti?: readonly CreditoMorositaInput[];
+}
+
+export interface CreaVoceScadenziarioRecuperoServiceInput {
+  condominioId: string;
+  esercizioId: string;
+  unitaId: string;
+  utenteId?: string | null;
+  soggettoId?: string | null;
+  rataDettaglioId?: string | null;
+  saldoPregressoId?: string | null;
+  importoEsigibileCent: CentesimiInput;
+  dataEsigibilita: string;
+  dataChiusuraEsercizio: string;
+  dataApprovazioneRendiconto?: string | null;
+  decorrenza?: CriterioDecorrenzaRecuperoMesi;
+  statoIniziale?: StatoRecuperoCreditoInput;
+  dataAvvioAzione?: string | null;
+  dataDispensa?: string | null;
+  deliberaDispensa?: string | null;
+  dataChiusura?: string | null;
+  note?: string | null;
+  dataValutazione?: string;
+  autoreId?: string | null;
+}
+
+export interface CreaVoceScadenziarioRecuperoServiceOutput {
+  record: IScadenziarioRecuperoCredito;
+  valutazione: VoceScadenziarioRecuperoValutata;
+}
+
+export interface AggiornaStatoScadenziarioRecuperoServiceInput {
+  scadenziarioId: string;
+  condominioId: string;
+  nuovoStato: StatoRecuperoCreditoInput;
+  dataAvvioAzione?: string | null;
+  dataDispensa?: string | null;
+  deliberaDispensa?: string | null;
+  dataChiusura?: string | null;
+  note?: string | null;
+  dataValutazione?: string;
+  autoreId?: string | null;
+}
+
+export interface AggiornaStatoScadenziarioRecuperoServiceOutput {
+  record: IScadenziarioRecuperoCredito;
+  valutazione: VoceScadenziarioRecuperoValutata;
+  auditLog: IAuditLog;
+}
+
+export interface GeneraElencoMorosiArt63ServiceInput {
+  condominioId: string;
+  dataRiferimento?: string;
+  creditoreRichiedente: {
+    ragioneSociale: string;
+    codiceFiscaleOPiva?: string | null;
+    pecOEmail?: string | null;
+    riferimentoFatturaOCredito: string;
+    importoCreditoInsolutoCent?: CentesimiInput | null;
+    dataRichiesta: string;
+    dataRisposta?: string;
+  };
+  criterioEsigibilitaRatePreventivo?: CriterioEsigibilitaRatePreventivo;
+  crediti?: readonly CreditoMorositaInput[];
+  anagraficheSoggetti?: readonly AnagraficaMorosoArt63Input[];
+  autoreId?: string | null;
+}
+
+export interface GeneraElencoMorosiArt63ServiceOutput {
+  elenco: ElencoMorosiArt63Output;
+  auditLog: IAuditLog;
+}
+
+export interface RegistraSubentroCompravenditaServiceInput
+  extends RegistraSubentroCompravenditaInput {
+  aggiornaDatabase?: boolean;
+}
+
+export interface RegistraSubentroCompravenditaServiceOutput {
+  esitoSubentro: RisultatoSubentroCompravendita;
+  anagraficaVenditoreChiusa: IAnagraficaUnita | null;
+  anagraficaAcquirenteAperta: IAnagraficaUnita;
+  saldiPregressiAggiornati: ISaldoPregresso[];
+  rateDettaglioAggiornate: IRataDettaglio[];
   auditLog: IAuditLog;
 }
 
@@ -2683,6 +2876,877 @@ export function createContabilitaService(db: TypedSupabaseClient) {
       }
 
       return { esito, auditLog };
+    },
+
+    // =========================================================================
+    // 9. INCASSI CON IMPUTAZIONE CONFIGURABILE E STORNO PER INSOLUTO (RC-F1..F4)
+    // =========================================================================
+
+    /**
+     * Registra un incasso manuale con data valuta, importo, conto, pagatore e riferimento CRO (RC-F1),
+     * imputandolo secondo l'ordine configurato (default FIFO sul debito più vecchio, `PIU_VECCHIO`,
+     * oppure `PIU_RECENTE` o `MANUALE`, RC-F2), gestendo incasso parziale, eccedenza a credito del
+     * soggetto e pagamento eseguito da un terzo (es. inquilino per il proprietario, RC-F3).
+     */
+    async registraEImputaIncasso(
+      input: RegistraEImputaIncassoServiceInput,
+    ): Promise<RegistraEImputaIncassoServiceOutput> {
+      let ordineConfig = input.ordineImputazione;
+      if (!ordineConfig && (!input.imputazioniManuali || input.imputazioniManuali.length === 0)) {
+        const { data: cfg } = await db
+          .from('configurazioni_condominio')
+          .select('ordine_imputazione_incassi')
+          .eq('condominio_id', input.condominioId)
+          .maybeSingle();
+        if (cfg?.ordine_imputazione_incassi) {
+          ordineConfig = cfg.ordine_imputazione_incassi;
+        }
+      }
+
+      let debitiInMemoria: DebitoImputabileInput[] = input.debiti ? [...input.debiti] : [];
+      if (!input.debiti) {
+        let saldiQuery = db
+          .from('saldi_pregressi')
+          .select('*')
+          .eq('condominio_id', input.condominioId);
+        if (input.unitaId) saldiQuery = saldiQuery.eq('unita_id', input.unitaId);
+        else if (input.debitoreSoggettoId) {
+          saldiQuery = saldiQuery.eq('soggetto_id', input.debitoreSoggettoId);
+        } else if (input.debitoreUtenteId) {
+          saldiQuery = saldiQuery.eq('utente_id', input.debitoreUtenteId);
+        }
+        const saldiRows = unwrap(await saldiQuery);
+
+        let rateQuery = db
+          .from('rate_dettaglio')
+          .select('*')
+          .eq('condominio_id', input.condominioId);
+        if (input.unitaId) rateQuery = rateQuery.eq('unita_id', input.unitaId);
+        else if (input.debitoreSoggettoId) {
+          rateQuery = rateQuery.eq('soggetto_id', input.debitoreSoggettoId);
+        } else if (input.debitoreUtenteId) {
+          rateQuery = rateQuery.eq('utente_id', input.debitoreUtenteId);
+        }
+        const rateRows = unwrap(await rateQuery);
+
+        for (const sp of saldiRows) {
+          const dovutoCent = sp.importo_centesimi ?? Math.round(sp.importo * 100);
+          const pagatoCent = sp.importo_pagato_centesimi ?? 0;
+          if (dovutoCent > pagatoCent) {
+            debitiInMemoria.push({
+              id: sp.id,
+              tipoDebito: 'SALDO_PREGRESSO',
+              unitaId: sp.unita_id,
+              esercizioId: sp.esercizio_id,
+              gestioneId: sp.gestione_id ?? null,
+              annoCompetenza: sp.anno_competenza ?? null,
+              utenteId: sp.utente_id,
+              soggettoId: sp.soggetto_id ?? null,
+              obbligatoInSolidoUtenteId: sp.obbligato_in_solido_utente_id ?? null,
+              descrizione: sp.note,
+              dataScadenza: sp.data_esigibilita ?? sp.created_at.slice(0, 10),
+              dataEsigibilita: sp.data_esigibilita ?? sp.created_at.slice(0, 10),
+              importoDovutoCent: dovutoCent,
+              importoPagatoCent: pagatoCent,
+            });
+          }
+        }
+
+        for (const rd of rateRows) {
+          const dovutoCent =
+            rd.importo_dovuto_centesimi ?? Math.round(rd.importo_dovuto * 100);
+          const pagatoCent =
+            rd.importo_pagato_centesimi ?? Math.round(rd.importo_pagato * 100);
+          if (dovutoCent > pagatoCent) {
+            debitiInMemoria.push({
+              id: rd.id,
+              tipoDebito: 'RATA',
+              unitaId: rd.unita_id,
+              rataTestataId: rd.rata_testata_id,
+              bollettinoId: rd.bollettino_id ?? null,
+              utenteId: rd.utente_id,
+              soggettoId: rd.soggetto_id ?? null,
+              obbligatoInSolidoUtenteId: rd.obbligato_in_solido_utente_id ?? null,
+              dataScadenza: rd.data_esigibilita ?? rd.created_at.slice(0, 10),
+              dataEsigibilita: rd.data_esigibilita ?? rd.created_at.slice(0, 10),
+              importoDovutoCent: dovutoCent,
+              importoPagatoCent: pagatoCent,
+            });
+          }
+        }
+      }
+
+      const esitoImputazione = imputaIncassoLogic({
+        condominioId: input.condominioId,
+        dataValuta: input.dataValuta,
+        importoIncassoCent: input.importoIncassoCent,
+        contoAccredito: input.contoAccredito,
+        riferimentoCro: input.riferimentoCro,
+        causale: input.causale,
+        metodo: input.metodo,
+        debitoreUtenteId: input.debitoreUtenteId,
+        debitoreSoggettoId: input.debitoreSoggettoId,
+        debitoreNome: input.debitoreNome,
+        pagatoreNome: input.pagatoreNome,
+        pagatoreUtenteId: input.pagatoreUtenteId,
+        pagatoreSoggettoId: input.pagatoreSoggettoId,
+        pagatoreRelazione: input.pagatoreRelazione,
+        isPagamentoDaTerzo: input.isPagamentoDaTerzo,
+        ordineImputazione: ordineConfig,
+        debiti: debitiInMemoria,
+        imputazioniManuali: input.imputazioniManuali,
+        completaEccedenzaManualeConFifo: input.completaEccedenzaManualeConFifo,
+        autoreId: input.autoreId,
+      });
+
+      // 1. Inserisce la transazione bancaria sul conto del condominio (RC-F1)
+      const transazioneBancaria = unwrap(
+        await db
+          .from('transazioni_bancarie')
+          .insert({
+            condominio_id: input.condominioId,
+            data_valuta: esitoImputazione.dataValuta,
+            importo: esitoImputazione.importoIncassoEuro,
+            importo_centesimi: esitoImputazione.importoIncassoCent,
+            causale:
+              esitoImputazione.causale ??
+              `Incasso da ${esitoImputazione.pagatore.nome}${esitoImputazione.pagatore.isPagamentoDaTerzo ? ' (per conto terzi)' : ''}`,
+            origine: 'MANUALE',
+            stato_riconciliazione: esitoImputazione.statoRiconciliazioneTransazione,
+            pagatore_nome: esitoImputazione.pagatore.nome,
+            riferimento_cro: esitoImputazione.riferimentoCro,
+            autore_id: input.autoreId ?? null,
+          })
+          .select('*')
+          .single(),
+      );
+
+      const pagamentiRate: IPagamentoRata[] = [];
+      const riconciliazioniLog: IRiconciliazioneLog[] = [];
+      const rateAggiornate: IRataDettaglio[] = [];
+      const saldiPregressiAggiornati: ISaldoPregresso[] = [];
+
+      // 2. Aggiorna i debiti imputati e registra pagamenti_rate + riconciliazioni_log
+      for (const imp of esitoImputazione.imputazioni) {
+        if (imp.tipoDebito === 'RATA') {
+          const rataAgg = unwrap(
+            await db
+              .from('rate_dettaglio')
+              .update({
+                importo_pagato_centesimi: imp.nuovoImportoPagatoCent,
+                importo_pagato: centsToEuro(imp.nuovoImportoPagatoCent),
+                stato: imp.nuovoStatoRataLegacy,
+                stato_rata_modello: imp.nuovoStatoRataModello,
+                data_pagamento: imp.saldatoIntegralmente ? esitoImputazione.dataValuta : null,
+              })
+              .eq('id', imp.debitoId)
+              .eq('condominio_id', input.condominioId)
+              .select('*')
+              .single(),
+          );
+          rateAggiornate.push(rataAgg);
+
+          const pagRata = unwrap(
+            await db
+              .from('pagamenti_rate')
+              .insert({
+                condominio_id: input.condominioId,
+                rata_dettaglio_id: imp.debitoId,
+                utente_id: esitoImputazione.debitore.utenteId,
+                importo: imp.importoImputatoEuro,
+                importo_centesimi: imp.importoImputatoCent,
+                metodo: esitoImputazione.metodo,
+                provider: 'MANUALE',
+                provider_ref: esitoImputazione.riferimentoCro,
+                stato: 'COMPLETATO',
+                completed_at: new Date().toISOString(),
+                pagatore_nome: esitoImputazione.pagatore.nome,
+                pagatore_utente_id: esitoImputazione.pagatore.utenteId,
+                riferimento_cro: esitoImputazione.riferimentoCro,
+                data_valuta: esitoImputazione.dataValuta,
+                autore_id: input.autoreId ?? null,
+              })
+              .select('*')
+              .single(),
+          );
+          pagamentiRate.push(pagRata);
+
+          const ricRow = unwrap(
+            await db
+              .from('riconciliazioni_log')
+              .insert({
+                condominio_id: input.condominioId,
+                transazione_id: transazioneBancaria.id,
+                rata_dettaglio_id: imp.debitoId,
+                bollettino_id: imp.bollettinoId,
+                importo_assegnato: imp.importoImputatoEuro,
+                importo_assegnato_centesimi: imp.importoImputatoCent,
+                metodo: imp.metodoMatching,
+                autore_id: input.autoreId ?? null,
+              })
+              .select('*')
+              .single(),
+          );
+          riconciliazioniLog.push(ricRow);
+        } else if (imp.tipoDebito === 'SALDO_PREGRESSO') {
+          const saldoAgg = unwrap(
+            await db
+              .from('saldi_pregressi')
+              .update({
+                importo_pagato_centesimi: imp.nuovoImportoPagatoCent,
+              })
+              .eq('id', imp.debitoId)
+              .eq('condominio_id', input.condominioId)
+              .select('*')
+              .single(),
+          );
+          saldiPregressiAggiornati.push(saldoAgg);
+        }
+      }
+
+      const auditLog = await registraEventoAudit({
+        ...esitoImputazione.eventoAudit,
+        recordId: transazioneBancaria.id,
+      });
+
+      return {
+        transazioneBancaria,
+        pagamentiRate,
+        riconciliazioniLog,
+        rateAggiornate,
+        saldiPregressiAggiornati,
+        esitoImputazione,
+        auditLog,
+      };
+    },
+
+    /**
+     * Storna un incasso per assegno scoperto o bonifico respinto (RC-F4):
+     * crea la scrittura contraria collegata (`storno_di_id`), aggiorna i pagamenti a `RIMBORSATO`,
+     * riapre il debito sulle rate / saldi pregressi e registra l'evento in `audit_logs`.
+     */
+    async stornaIncassoRespinto(
+      input: StornaIncassoRespintoServiceInput,
+    ): Promise<StornaIncassoRespintoServiceOutput> {
+      let importoOriginaleCent = input.importoOriginaleCent;
+      let dataValutaOriginale = input.dataValutaOriginale;
+      let pagatoreNome = input.pagatoreNome;
+      let riferimentoCroOriginale = input.riferimentoCroOriginale;
+
+      if (importoOriginaleCent === undefined || !dataValutaOriginale) {
+        const txOrig = unwrap(
+          await db
+            .from('transazioni_bancarie')
+            .select('*')
+            .eq('id', input.incassoOriginaleId)
+            .eq('condominio_id', input.condominioId)
+            .single(),
+        );
+        importoOriginaleCent =
+          importoOriginaleCent ??
+          txOrig.importo_centesimi ??
+          Math.round(txOrig.importo * 100);
+        dataValutaOriginale = dataValutaOriginale ?? txOrig.data_valuta;
+        pagatoreNome = pagatoreNome ?? txOrig.pagatore_nome;
+        riferimentoCroOriginale = riferimentoCroOriginale ?? txOrig.riferimento_cro;
+      }
+
+      const esitoStorno = stornaIncassoRespintoLogic({
+        incassoOriginaleId: input.incassoOriginaleId,
+        condominioId: input.condominioId,
+        importoOriginaleCent: importoOriginaleCent!,
+        dataValutaOriginale: dataValutaOriginale!,
+        dataStorno: input.dataStorno ?? dataOggiIso(),
+        motivoStorno: input.motivoStorno,
+        pagatoreNome,
+        riferimentoCroOriginale,
+        giustificazioniImputazione: input.giustificazioniImputazione ?? [],
+        autoreId: input.autoreId,
+      });
+
+      const transazioneStorno = unwrap(
+        await db
+          .from('transazioni_bancarie')
+          .insert(esitoStorno.scritturaStornoTransazione)
+          .select('*')
+          .single(),
+      );
+
+      const rateRiaperte: IRataDettaglio[] = [];
+      const saldiPregressiRiaperti: ISaldoPregresso[] = [];
+
+      for (const deb of esitoStorno.debitiRiaperti) {
+        if (deb.tipoDebito === 'RATA') {
+          const rataRiaperta = unwrap(
+            await db
+              .from('rate_dettaglio')
+              .update({
+                importo_pagato_centesimi: deb.nuovoImportoPagatoCent,
+                importo_pagato: centsToEuro(deb.nuovoImportoPagatoCent),
+                stato: deb.nuovoStatoRataLegacy,
+                stato_rata_modello: deb.nuovoStatoRataModello,
+                data_pagamento: null,
+              })
+              .eq('id', deb.debitoId)
+              .eq('condominio_id', input.condominioId)
+              .select('*')
+              .single(),
+          );
+          rateRiaperte.push(rataRiaperta);
+        } else if (deb.tipoDebito === 'SALDO_PREGRESSO') {
+          const saldoRiaperto = unwrap(
+            await db
+              .from('saldi_pregressi')
+              .update({
+                importo_pagato_centesimi: deb.nuovoImportoPagatoCent,
+              })
+              .eq('id', deb.debitoId)
+              .eq('condominio_id', input.condominioId)
+              .select('*')
+              .single(),
+          );
+          saldiPregressiRiaperti.push(saldoRiaperto);
+        }
+      }
+
+      const auditLog = await registraEventoAudit({
+        ...esitoStorno.eventoAudit,
+        recordId: transazioneStorno.id,
+      });
+
+      return {
+        transazioneStorno,
+        rateRiaperte,
+        saldiPregressiRiaperti,
+        esitoStorno,
+        auditLog,
+      };
+    },
+
+    // =========================================================================
+    // 10. MOROSITA', SCADENZIARIO RECUPERO CREDITI 6 MESI E ART. 63 (RC-G1..G5, T12)
+    // =========================================================================
+
+    /**
+     * Analizza la posizione di morosità e l'anzianità dei crediti esigibili del condominio
+     * per soggetto, unità immobiliare e anno/esercizio (RC-G1, RC-G2).
+     */
+    async analizzaMorositaCondominio(
+      input: AnalizzaMorositaServiceInput,
+    ): Promise<AnalisiMorositaCondominioOutput> {
+      let criterioRate = input.criterioEsigibilitaRatePreventivo;
+      if (!criterioRate) {
+        const { data: cfg } = await db
+          .from('configurazioni_condominio')
+          .select('esigibilita_rate_preventivo')
+          .eq('condominio_id', input.condominioId)
+          .maybeSingle();
+        if (cfg?.esigibilita_rate_preventivo) {
+          criterioRate = cfg.esigibilita_rate_preventivo;
+        }
+      }
+
+      let crediti: CreditoMorositaInput[] = input.crediti ? [...input.crediti] : [];
+      if (!input.crediti) {
+        let saldiQuery = db
+          .from('saldi_pregressi')
+          .select('*')
+          .eq('condominio_id', input.condominioId);
+        if (input.esercizioId) saldiQuery = saldiQuery.eq('esercizio_id', input.esercizioId);
+        const saldiRows = unwrap(await saldiQuery);
+
+        const rateRows = unwrap(
+          await db
+            .from('rate_dettaglio')
+            .select('*')
+            .eq('condominio_id', input.condominioId),
+        );
+
+        const annoFallback = Number((input.dataRiferimento ?? dataOggiIso()).slice(0, 4));
+
+        for (const sp of saldiRows) {
+          crediti.push({
+            id: sp.id,
+            tipoCredito: 'SALDO_PREGRESSO',
+            unitaId: sp.unita_id,
+            esercizioId: sp.esercizio_id,
+            annoCompetenza: sp.anno_competenza ?? annoFallback,
+            gestioneId: sp.gestione_id ?? null,
+            utenteId: sp.utente_id,
+            soggettoId: sp.soggetto_id ?? null,
+            obbligatoInSolidoUtenteId: sp.obbligato_in_solido_utente_id ?? null,
+            importoDovutoCent: sp.importo_centesimi ?? Math.round(sp.importo * 100),
+            importoPagatoCent: sp.importo_pagato_centesimi ?? 0,
+            dataEsigibilita: sp.data_esigibilita ?? sp.created_at.slice(0, 10),
+            descrizione: sp.note,
+          });
+        }
+
+        for (const rd of rateRows) {
+          crediti.push({
+            id: rd.id,
+            tipoCredito: 'RATA',
+            unitaId: rd.unita_id,
+            esercizioId: input.esercizioId ?? 'esercizio-default',
+            annoCompetenza: rd.data_esigibilita
+              ? Number(rd.data_esigibilita.slice(0, 4))
+              : annoFallback,
+            utenteId: rd.utente_id,
+            soggettoId: rd.soggetto_id ?? null,
+            obbligatoInSolidoUtenteId: rd.obbligato_in_solido_utente_id ?? null,
+            importoDovutoCent:
+              rd.importo_dovuto_centesimi ?? Math.round(rd.importo_dovuto * 100),
+            importoPagatoCent:
+              rd.importo_pagato_centesimi ?? Math.round(rd.importo_pagato * 100),
+            dataScadenza: rd.data_esigibilita ?? rd.created_at.slice(0, 10),
+            dataEsigibilita: rd.data_esigibilita,
+          });
+        }
+      }
+
+      return analizzaMorositaCondominioLogic({
+        crediti,
+        dataRiferimento: input.dataRiferimento ?? dataOggiIso(),
+        criterioEsigibilitaRatePreventivo: criterioRate,
+      });
+    },
+
+    /**
+     * Elenca le voci dello scadenziario di recupero crediti ex art. 1129 c. 9 c.c. (RC-G3, T12)
+     * con la valutazione degli alert a 90, 30 e 7 giorni.
+     */
+    async listScadenziarioRecuperoCrediti(
+      condominioId: string,
+      filtri: {
+        esercizioId?: string;
+        unitaId?: string;
+        stato?: StatoRecuperoCreditoInput;
+        dataValutazione?: string;
+      } = {},
+    ): Promise<Array<{ record: IScadenziarioRecuperoCredito; valutazione: VoceScadenziarioRecuperoValutata }>> {
+      let query = db
+        .from('scadenziario_recupero_crediti')
+        .select('*')
+        .eq('condominio_id', condominioId);
+
+      if (filtri.esercizioId) query = query.eq('esercizio_id', filtri.esercizioId);
+      if (filtri.unitaId) query = query.eq('unita_id', filtri.unitaId);
+
+      const rows = unwrap(await query.order('data_limite_azione', { ascending: true }));
+      const dataVal = filtri.dataValutazione ?? dataOggiIso();
+
+      return rows.map((row) => ({
+        record: row,
+        valutazione: creaVoceScadenziarioRecuperoLogic(
+          {
+            id: row.id,
+            condominioId: row.condominio_id,
+            esercizioId: row.esercizio_id,
+            unitaId: row.unita_id,
+            utenteId: row.utente_id,
+            soggettoId: row.soggetto_id,
+            rataDettaglioId: row.rata_dettaglio_id,
+            saldoPregressoId: row.saldo_pregresso_id,
+            importoEsigibileCent: row.importo_esigibile_centesimi,
+            dataEsigibilita: row.data_esigibilita,
+            dataChiusuraEsercizio: row.data_decorrenza_semestre,
+            statoIniziale: row.stato,
+            dataAvvioAzione: row.data_avvio_azione,
+            dataDispensa: row.data_dispensa,
+            deliberaDispensa: row.delibera_dispensa,
+            dataChiusura: row.data_chiusura,
+            note: row.note,
+            autoreId: row.autore_id,
+          },
+          dataVal,
+        ),
+      }));
+    },
+
+    /**
+     * Crea una nuova posizione nello scadenziario di recupero crediti ex art. 1129 c. 9 c.c. (RC-G3, T12),
+     * calcolando il termine perentorio di 6 mesi e le date di alert a 90, 30 e 7 giorni.
+     */
+    async creaVoceScadenziarioRecuperoCredito(
+      input: CreaVoceScadenziarioRecuperoServiceInput,
+    ): Promise<CreaVoceScadenziarioRecuperoServiceOutput> {
+      const valutazione = creaVoceScadenziarioRecuperoLogic(
+        input,
+        input.dataValutazione ?? dataOggiIso(),
+      );
+
+      const record = unwrap(
+        await db
+          .from('scadenziario_recupero_crediti')
+          .insert({
+            condominio_id: valutazione.condominio_id,
+            esercizio_id: valutazione.esercizio_id,
+            unita_id: valutazione.unita_id,
+            utente_id: valutazione.utente_id,
+            soggetto_id: valutazione.soggetto_id,
+            rata_dettaglio_id: valutazione.rata_dettaglio_id,
+            saldo_pregresso_id: valutazione.saldo_pregresso_id,
+            importo_esigibile_centesimi: valutazione.importo_esigibile_centesimi,
+            data_esigibilita: valutazione.data_esigibilita,
+            data_decorrenza_semestre: valutazione.data_decorrenza_semestre,
+            data_limite_azione: valutazione.data_limite_azione,
+            alert_90gg_at: valutazione.alert_90gg_at,
+            alert_30gg_at: valutazione.alert_30gg_at,
+            alert_7gg_at: valutazione.alert_7gg_at,
+            stato: valutazione.stato,
+            data_avvio_azione: valutazione.data_avvio_azione,
+            data_dispensa: valutazione.data_dispensa,
+            delibera_dispensa: valutazione.delibera_dispensa,
+            data_chiusura: valutazione.data_chiusura,
+            note: valutazione.note,
+            autore_id: valutazione.autore_id,
+          })
+          .select('*')
+          .single(),
+      );
+
+      return {
+        record,
+        valutazione: {
+          ...valutazione,
+          id: record.id,
+        },
+      };
+    },
+
+    /**
+     * Aggiorna lo stato di una pratica nello scadenziario di recupero crediti (`da avviare -> avviata`,
+     * `da avviare -> dispensata` con delibera e data e azzeramento alert, `avviata -> chiusa`, RC-G3, T12).
+     */
+    async aggiornaStatoScadenziarioRecuperoCredito(
+      input: AggiornaStatoScadenziarioRecuperoServiceInput,
+    ): Promise<AggiornaStatoScadenziarioRecuperoServiceOutput> {
+      const esistente = unwrap(
+        await db
+          .from('scadenziario_recupero_crediti')
+          .select('*')
+          .eq('id', input.scadenziarioId)
+          .eq('condominio_id', input.condominioId)
+          .single(),
+      );
+
+      const voceCorrente = creaVoceScadenziarioRecuperoLogic(
+        {
+          id: esistente.id,
+          condominioId: esistente.condominio_id,
+          esercizioId: esistente.esercizio_id,
+          unitaId: esistente.unita_id,
+          utenteId: esistente.utente_id,
+          soggettoId: esistente.soggetto_id,
+          rataDettaglioId: esistente.rata_dettaglio_id,
+          saldoPregressoId: esistente.saldo_pregresso_id,
+          importoEsigibileCent: esistente.importo_esigibile_centesimi,
+          dataEsigibilita: esistente.data_esigibilita,
+          dataChiusuraEsercizio: esistente.data_decorrenza_semestre,
+          statoIniziale: esistente.stato,
+          dataAvvioAzione: esistente.data_avvio_azione,
+          dataDispensa: esistente.data_dispensa,
+          deliberaDispensa: esistente.delibera_dispensa,
+          dataChiusura: esistente.data_chiusura,
+          note: esistente.note,
+          autoreId: esistente.autore_id,
+        },
+        input.dataValutazione ?? dataOggiIso(),
+      );
+
+      const esito = transitaStatoRecuperoCreditoLogic({
+        voceCorrente,
+        nuovoStato: input.nuovoStato,
+        dataAvvioAzione: input.dataAvvioAzione,
+        dataDispensa: input.dataDispensa,
+        deliberaDispensa: input.deliberaDispensa,
+        dataChiusura: input.dataChiusura,
+        note: input.note,
+        dataValutazione: input.dataValutazione,
+        autoreId: input.autoreId,
+      });
+
+      const record = unwrap(
+        await db
+          .from('scadenziario_recupero_crediti')
+          .update({
+            stato: esito.voceAggiornata.stato,
+            data_avvio_azione: esito.voceAggiornata.data_avvio_azione,
+            data_dispensa: esito.voceAggiornata.data_dispensa,
+            delibera_dispensa: esito.voceAggiornata.delibera_dispensa,
+            data_chiusura: esito.voceAggiornata.data_chiusura,
+            note: esito.voceAggiornata.note,
+            autore_id: esito.voceAggiornata.autore_id,
+          })
+          .eq('id', input.scadenziarioId)
+          .eq('condominio_id', input.condominioId)
+          .select('*')
+          .single(),
+      );
+
+      const auditLog = await registraEventoAudit(esito.eventoAudit);
+
+      return {
+        record,
+        valutazione: esito.voceAggiornata,
+        auditLog,
+      };
+    },
+
+    /**
+     * Genera l'elenco nominativo dei condòmini morosi per i creditori non soddisfatti che lo richiedano
+     * ai sensi dell'art. 63, c. 1, disp. att. c.c. (RC-G4), registrando richiesta e risposta in `audit_logs`.
+     */
+    async generaElencoMorosiArt63(
+      input: GeneraElencoMorosiArt63ServiceInput,
+    ): Promise<GeneraElencoMorosiArt63ServiceOutput> {
+      let anagrafiche = input.anagraficheSoggetti ? [...input.anagraficheSoggetti] : [];
+      if (!input.anagraficheSoggetti) {
+        const soggettiRows: ISoggettoContabile[] = unwrap(
+          await db
+            .from('soggetti_contabili')
+            .select('*')
+            .eq('condominio_id', input.condominioId),
+        );
+        anagrafiche = soggettiRows.map((s) => ({
+          soggettoId: s.id,
+          utenteId: s.utente_id,
+          nomeDenominazione: s.nome_denominazione,
+          codiceFiscale: s.codice_fiscale,
+          indirizzoAnagrafe: s.indirizzo,
+          citta: s.citta,
+          cap: s.cap,
+          provincia: s.provincia,
+          pec: s.pec,
+          email: s.email,
+        }));
+      }
+
+      let crediti = input.crediti ? [...input.crediti] : undefined;
+      if (!crediti) {
+        const analisi = await this.analizzaMorositaCondominio({
+          condominioId: input.condominioId,
+          dataRiferimento: input.dataRiferimento ?? dataOggiIso(),
+          criterioEsigibilitaRatePreventivo: input.criterioEsigibilitaRatePreventivo,
+        });
+        crediti = analisi.posizioniDettaglio.map((p) => ({
+          id: p.id,
+          tipoCredito: p.tipoCredito,
+          unitaId: p.unitaId,
+          unitaInterno: p.unitaInterno,
+          esercizioId: p.esercizioId,
+          annoCompetenza: p.annoCompetenza,
+          gestioneId: p.gestioneId,
+          utenteId: p.utenteId,
+          soggettoId: p.soggettoId,
+          nomeSoggetto: p.nomeSoggetto,
+          obbligatoInSolidoUtenteId: p.obbligatoInSolidoUtenteId,
+          importoDovutoCent: p.importoDovutoCent,
+          importoPagatoCent: p.importoPagatoCent,
+          dataEsigibilita: p.dataEsigibilita,
+        }));
+      }
+
+      const elenco = generaElencoMorosiPerCreditoriLogic({
+        condominioId: input.condominioId,
+        dataRiferimento: input.dataRiferimento ?? dataOggiIso(),
+        crediti,
+        anagraficheSoggetti: anagrafiche,
+        creditoreRichiedente: input.creditoreRichiedente,
+        criterioEsigibilitaRatePreventivo: input.criterioEsigibilitaRatePreventivo,
+        autoreId: input.autoreId,
+      });
+
+      const auditLog = await registraEventoAudit(elenco.eventoAudit);
+
+      return {
+        elenco,
+        auditLog,
+      };
+    },
+
+    /**
+     * Calcola i conguagli garantendo che i condòmini in regola non coprano i morosi (RC-G5, RC-L4)
+     * e proponendo l'eventuale copertura di liquidità dal Fondo Cassa disponibile.
+     */
+    calcolaConguagliSenzaRedistribuzioneMorosi(input: {
+      unita: readonly PosizioneUnitaPerConguaglioNoMorositaInput[];
+      gestioneId?: string;
+      saldoFondoCassaDisponibileCent?: CentesimiInput;
+      tentativoSpalmaturaMorosiCent?: CentesimiInput;
+    }): RisultatoConguaglioSenzaRedistribuzioneMorosi {
+      return calcolaConguagliSenzaRedistribuzioneMorosiLogic(input);
+    },
+
+    // =========================================================================
+    // 11. SUBENTRI PER COMPRAVENDITA E VINCOLO DI SOLIDARIETA' BIENNALE (RC-H1..H4, T6)
+    // =========================================================================
+
+    /**
+     * Registra un subentro per compravendita (RC-H1, RC-H2, RC-H3, RC-H4, T6):
+     * 1. Chiude la titolarità del venditore e apre quella dell'acquirente in `anagrafiche_unita`;
+     * 2. Applica il vincolo di solidarietà biennale ex art. 63 c. 4 disp. att. c.c. sui saldi pregressi
+     *    dell'anno in corso e di quello precedente, lasciando al solo venditore i debiti oltre il biennio;
+     * 3. Mantiene al venditore le rate già emesse senza riemetterle e instrada all'acquirente le rate successive;
+     * 4. Registra l'operazione in `audit_logs`.
+     */
+    async registraSubentroCompravendita(
+      input: RegistraSubentroCompravenditaServiceInput,
+    ): Promise<RegistraSubentroCompravenditaServiceOutput> {
+      let debitiPregressi: DebitoSubentroInput[] = input.debitiPregressi
+        ? [...input.debitiPregressi]
+        : [];
+      let rateUnita: RataSubentroInput[] = input.rateUnita ? [...input.rateUnita] : [];
+
+      if (!input.debitiPregressi) {
+        const saldiRows = unwrap(
+          await db
+            .from('saldi_pregressi')
+            .select('*')
+            .eq('condominio_id', input.condominioId)
+            .eq('unita_id', input.unitaId),
+        );
+        debitiPregressi = saldiRows.map((sp) => ({
+          id: sp.id,
+          tipoDebito: 'SALDO_PREGRESSO',
+          unitaId: sp.unita_id,
+          esercizioId: sp.esercizio_id,
+          annoCompetenza: sp.anno_competenza ?? Number(input.dataAtto.slice(0, 4)),
+          descrizione: sp.note,
+          dataEsigibilita: sp.data_esigibilita,
+          importoDovutoCent: sp.importo_centesimi ?? Math.round(sp.importo * 100),
+          importoPagatoCent: sp.importo_pagato_centesimi ?? 0,
+          debitoreOriginarioUtenteId: sp.utente_id,
+          debitoreOriginarioSoggettoId: sp.soggetto_id,
+        }));
+      }
+
+      if (!input.rateUnita) {
+        const rateRows = unwrap(
+          await db
+            .from('rate_dettaglio')
+            .select('*')
+            .eq('condominio_id', input.condominioId)
+            .eq('unita_id', input.unitaId),
+        );
+        rateUnita = rateRows.map((rd) => ({
+          id: rd.id,
+          rataTestataId: rd.rata_testata_id,
+          unitaId: rd.unita_id,
+          annoCompetenza: rd.data_esigibilita
+            ? Number(rd.data_esigibilita.slice(0, 4))
+            : Number(input.dataAtto.slice(0, 4)),
+          dataScadenza: rd.data_esigibilita ?? rd.created_at.slice(0, 10),
+          bollettinoId: rd.bollettino_id,
+          statoRataModello: rd.stato_rata_modello ?? 'EMESSA',
+          importoDovutoCent:
+            rd.importo_dovuto_centesimi ?? Math.round(rd.importo_dovuto * 100),
+          importoPagatoCent:
+            rd.importo_pagato_centesimi ?? Math.round(rd.importo_pagato * 100),
+          utenteId: rd.utente_id,
+          soggettoId: rd.soggetto_id,
+        }));
+      }
+
+      const esitoSubentro = registraSubentroCompravenditaLogic({
+        ...input,
+        debitiPregressi,
+        rateUnita,
+      });
+
+      // 1. Chiude la titolarità del venditore in anagrafiche_unita (RC-H1)
+      let anagraficaVenditoreChiusa: IAnagraficaUnita | null = null;
+      if (esitoSubentro.titolaritaVenditoreChiusa.id) {
+        anagraficaVenditoreChiusa = unwrap(
+          await db
+            .from('anagrafiche_unita')
+            .update({
+              data_fine: esitoSubentro.titolaritaVenditoreChiusa.data_fine,
+            })
+            .eq('id', esitoSubentro.titolaritaVenditoreChiusa.id)
+            .select('*')
+            .single(),
+        );
+      }
+
+      // 2. Apre la titolarità dell'acquirente in anagrafiche_unita (RC-H1, RC-H3)
+      const anagraficaAcquirenteAperta = unwrap(
+        await db
+          .from('anagrafiche_unita')
+          .insert({
+            condominio_id: esitoSubentro.titolaritaAcquirenteAperta.condominio_id,
+            unita_id: esitoSubentro.titolaritaAcquirenteAperta.unita_id,
+            utente_id:
+              esitoSubentro.titolaritaAcquirenteAperta.utente_id ??
+              esitoSubentro.titolaritaVenditoreChiusa.utente_id ??
+              '00000000-0000-0000-0000-000000000000',
+            soggetto_id: esitoSubentro.titolaritaAcquirenteAperta.soggetto_id,
+            data_inizio: esitoSubentro.titolaritaAcquirenteAperta.data_inizio,
+            data_fine: null,
+            tipo_possesso: 'PROPRIETARIO',
+            ruolo_titolarita: esitoSubentro.titolaritaAcquirenteAperta.ruolo_titolarita,
+            quota_possesso: esitoSubentro.titolaritaAcquirenteAperta.quota_possesso,
+            is_referente_bollettino:
+              esitoSubentro.titolaritaAcquirenteAperta.is_referente_bollettino,
+            data_atto_subentro: esitoSubentro.titolaritaAcquirenteAperta.data_atto_subentro,
+            dante_causa_utente_id:
+              esitoSubentro.titolaritaAcquirenteAperta.dante_causa_utente_id,
+            note_patto_straordinarie:
+              esitoSubentro.titolaritaAcquirenteAperta.note_patto_straordinarie,
+            autore_id: esitoSubentro.titolaritaAcquirenteAperta.autore_id,
+          })
+          .select('*')
+          .single(),
+      );
+
+      // 3. Aggiorna i saldi pregressi secondo il vincolo di solidarietà biennale ex art. 63 c. 4 (RC-H2, T6)
+      const saldiPregressiAggiornati: ISaldoPregresso[] = [];
+      for (const debVal of esitoSubentro.solidarietaBiennale.debitiValutati) {
+        if (debVal.tipoDebito === 'SALDO_PREGRESSO') {
+          const spAgg = unwrap(
+            await db
+              .from('saldi_pregressi')
+              .update({
+                obbligato_in_solido_utente_id: debVal.obbligato_in_solido_utente_id,
+              })
+              .eq('id', debVal.id)
+              .eq('condominio_id', input.condominioId)
+              .select('*')
+              .single(),
+          );
+          saldiPregressiAggiornati.push(spAgg);
+        }
+      }
+
+      // 4. Aggiorna le rate: mantiene al venditore le rate già emesse e instrada all'acquirente quelle future (RC-H4)
+      const rateDettaglioAggiornate: IRataDettaglio[] = [];
+      for (const rElab of esitoSubentro.instradamentoRate.rateElaborate) {
+        const rdAgg = unwrap(
+          await db
+            .from('rate_dettaglio')
+            .update({
+              utente_id: rElab.intestatarioUtenteId,
+              soggetto_id: rElab.intestatarioSoggettoId,
+              obbligato_in_solido_utente_id: rElab.obbligatoInSolidoUtenteId,
+            })
+            .eq('id', rElab.id)
+            .eq('condominio_id', input.condominioId)
+            .select('*')
+            .single(),
+        );
+        rateDettaglioAggiornate.push(rdAgg);
+      }
+
+      const auditLog = await registraEventoAudit(esitoSubentro.eventoAudit);
+
+      return {
+        esitoSubentro,
+        anagraficaVenditoreChiusa,
+        anagraficaAcquirenteAperta,
+        saldiPregressiAggiornati,
+        rateDettaglioAggiornate,
+        auditLog,
+      };
     },
   };
 }

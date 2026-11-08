@@ -32,6 +32,8 @@ export * from './admin/assembleeAdminService';
 export * from './contabilita/contabilitaLogic';
 export * from './contabilita/registroContabileLogic';
 export * from './contabilita/bollettiniLogic';
+export * from './contabilita/morositaLogic';
+export * from './contabilita/subentriLogic';
 export * from './contabilita/contabilitaService';
 
 // Risoluzione ambiguità esportazioni duplicate
