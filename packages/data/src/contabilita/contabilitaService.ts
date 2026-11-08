@@ -1,10 +1,18 @@
 import type { TypedSupabaseClient } from '@iocondo/supabase-client';
 import type {
+  IAuditLog,
+  IBollettino,
+  IBollettinoRiga,
   IMovimentoContabile,
+  IPreventivo,
+  IPreventivoVoce,
   IQuotaMillesimale,
+  IRataDettaglio,
+  IRataTestata,
   IRipartoSpesa,
   ITabellaMillesimale,
   IVoceSpesaCatalogo,
+  Json,
   TablesInsert,
   TablesUpdate,
 } from '@iocondo/shared-types';
@@ -70,6 +78,32 @@ import {
   type TipoTabellaMillesimale,
   type UnitaCondominioRiparto,
 } from './registroContabileLogic.ts';
+import {
+  approvaPreventivo as approvaPreventivoLogic,
+  assertEmissioneRateConsentita,
+  assertModificaBollettinoConsentita,
+  assertPreventivoModificabile,
+  calcolaTotalePreventivoDaVoci,
+  creaNuovaVersionePreventivo as creaNuovaVersionePreventivoLogic,
+  emettiBollettino as emettiBollettinoLogic,
+  generaPianoRate,
+  rettificaBollettinoEmesso as rettificaBollettinoEmessoLogic,
+  verificaBollettino as verificaBollettinoLogic,
+  type ControlliPreEmissioneInput,
+  type EventoAuditContabile,
+  type GeneraPianoRateOutput,
+  type IncassoBollettinoInput,
+  type OverridePreventivoNonApprovatoInput,
+  type RettificaBollettinoEmessoOutput,
+  type RigaControlloBollettinoInput,
+  type RisultatoControlliPreEmissione,
+  type ScadenzaRataInput,
+  type StatoBollettino,
+  type StatoPreventivo,
+  type TipoGestioneEsercizio,
+  type UnitaPianoRateInput,
+  type VocePreventivoInput,
+} from './bollettiniLogic.ts';
 
 export interface FiltriRegistroContabile {
   esercizioId?: string;
@@ -264,14 +298,230 @@ export interface CreaRevisioneTabellaInput {
   autoreId?: string | null;
 }
 
+// ============================================================================
+// INTERFACCE SEZIONE 6: PREVENTIVI, PIANO RATE, BOLLETTINI E AUDIT LOG
+// ============================================================================
+
+export interface CreaPreventivoServiceInput {
+  condominioId: string;
+  esercizioId: string;
+  gestioneId?: string | null;
+  versione?: number;
+  precedenteId?: string | null;
+  note?: string | null;
+  voci: readonly VocePreventivoInput[];
+  totalePrevistoCent?: CentesimiInput;
+  autoreId?: string | null;
+}
+
+export interface CreaPreventivoServiceOutput {
+  preventivo: IPreventivo;
+  voci: IPreventivoVoce[];
+}
+
+export interface ApprovaPreventivoServiceInput {
+  preventivoId: string;
+  condominioId: string;
+  /** Data dell'assemblea che approva il preventivo (`YYYY-MM-DD`, obbligatoria per RC-D2). */
+  dataAssemblea: string;
+  /** Riferimento testuale alla delibera assembleare (obbligatorio per RC-D2). */
+  deliberaRiferimento: string;
+  autoreId?: string | null;
+}
+
+export interface ApprovaPreventivoServiceOutput {
+  preventivoApprovato: IPreventivo;
+  preventivoSuperato: IPreventivo | null;
+  auditLog: IAuditLog;
+}
+
+export interface CreaNuovaVersionePreventivoServiceInput {
+  preventivoPrecedenteId: string;
+  condominioId: string;
+  voci?: readonly VocePreventivoInput[];
+  nuovoTotalePrevistoCent?: CentesimiInput;
+  note?: string | null;
+  approvaSubito?: boolean;
+  dataAssemblea?: string | null;
+  deliberaRiferimento?: string | null;
+  autoreId?: string | null;
+}
+
+export interface CreaNuovaVersionePreventivoServiceOutput {
+  nuovoPreventivo: IPreventivo;
+  voci: IPreventivoVoce[];
+  preventivoPrecedente: IPreventivo;
+  auditLog: IAuditLog;
+}
+
+export interface GeneraPianoRateServiceInput {
+  condominioId: string;
+  esercizioId: string;
+  preventivoId: string;
+  gestioneId?: string | null;
+  gestioneNome?: string | null;
+  tipoGestione?: TipoGestioneEsercizio;
+  annoBollettini?: number;
+  primoProgressivoBollettino?: number;
+  tabellaMillesimaleId?: string | null;
+  /** Scadenze e percentuali/importi delle rate (default: 4 rate trimestrali al 25%). */
+  scadenzeRate: readonly ScadenzaRataInput[];
+  /** Override esplicito per emettere rate da preventivo non ancora approvato (RC-D4, T16). */
+  overridePreventivoNonApprovato?: OverridePreventivoNonApprovatoInput | null;
+  emessaConOverride?: boolean;
+  motivoOverride?: string | null;
+  deliberaOverride?: string | null;
+  /** Verifica fondo speciale obbligatorio per lavori straordinari (RC-J2, T7). */
+  importoLavoriStraordinariCent?: CentesimiInput | null;
+  fondoSpecialeCostituito?: boolean;
+  importoFondoSpecialeCent?: CentesimiInput | null;
+  /** Se fornite in memoria, evita una query alle tabelle anagrafiche/millesimali. */
+  unita?: readonly UnitaPianoRateInput[];
+  vociPreventivo?: readonly VocePreventivoInput[];
+  ibanAccredito?: string | null;
+  pubblicaSubitoRate?: boolean;
+  autoreId?: string | null;
+}
+
+export interface GeneraPianoRateServiceOutput {
+  pianoCalcolato: GeneraPianoRateOutput;
+  rateTestata: IRataTestata[];
+  rateDettaglio: IRataDettaglio[];
+  bollettiniBozza: Array<{
+    bollettino: IBollettino;
+    righe: IBollettinoRiga[];
+  }>;
+  auditLogOverride: IAuditLog | null;
+  avvisi: string[];
+}
+
+export interface CreaBollettinoBozzaServiceInput {
+  condominioId: string;
+  esercizioId: string;
+  anno: number;
+  numeroProgressivo?: number;
+  destinatarioUtenteId?: string | null;
+  destinatarioSoggettoId?: string | null;
+  intestazioneDestinatario: string;
+  dataScadenza: string;
+  ibanAccredito?: string | null;
+  causaleVersamento?: string | null;
+  righe: ReadonlyArray<{
+    rataDettaglioId?: string | null;
+    unitaId: string;
+    gestioneId?: string | null;
+    descrizione: string;
+    importoCent: CentesimiInput;
+    dataScadenza?: string;
+  }>;
+  autoreId?: string | null;
+}
+
+export interface VerificaBollettinoServiceInput {
+  bollettinoId: string;
+  condominioId: string;
+  contestoControlli?: Omit<ControlliPreEmissioneInput, 'bollettino'>;
+}
+
+export interface VerificaBollettinoServiceOutput {
+  bollettino: IBollettino;
+  righe: IBollettinoRiga[];
+  esitoControlli: RisultatoControlliPreEmissione;
+}
+
+export interface EmettiBollettinoServiceInput {
+  bollettinoId: string;
+  condominioId: string;
+  confermaEsplicitaAdmin: boolean;
+  confermatoDa: string;
+  dataEmissione?: string;
+}
+
+export interface EmettiBollettinoServiceOutput {
+  bollettino: IBollettino;
+  auditLog: IAuditLog;
+}
+
+export interface RettificaBollettinoEmessoServiceInput {
+  bollettinoOriginaleId: string;
+  condominioId: string;
+  nuovoNumeroProgressivo?: number;
+  nuovoTotaleCent?: CentesimiInput;
+  nuoveRighe?: ReadonlyArray<{
+    rataDettaglioId?: string | null;
+    unitaId: string;
+    gestioneId?: string | null;
+    descrizione: string;
+    importoCent: CentesimiInput;
+    dataScadenza?: string;
+  }>;
+  motivoRettifica: string;
+  incassiGiaRegistrati?: readonly IncassoBollettinoInput[];
+  importoGiaIncassatoCent?: CentesimiInput;
+  statoOriginalePostRettifica?: 'ANNULLATO' | 'RETTIFICATO';
+  nuovaDataScadenza?: string;
+  dataEmissioneNuovo?: string;
+  autoreId?: string | null;
+}
+
+export interface RettificaBollettinoEmessoServiceOutput {
+  bollettinoOriginaleAnnullato: IBollettino;
+  nuovoBollettino: IBollettino;
+  nuoveRighe: IBollettinoRiga[];
+  esitoRettifica: RettificaBollettinoEmessoOutput;
+  auditLog: IAuditLog;
+}
+
 const dataOggiIso = (): string => new Date().toISOString().slice(0, 10);
 
 /**
- * Servizio per il Registro Cronologico di Contabilità, il Catalogo Voci e la Gestione Spese
- * (Sezioni 4 e 5 dei requisiti contabili: RC-A1..A5, RC-B1..B5, RC-C1..C8).
+ * Servizio per il Registro Cronologico di Contabilità, il Catalogo Voci, la Gestione Spese,
+ * il Ciclo di Vita del Preventivo, il Piano Rate e i Bollettini
+ * (Sezioni 4, 5 e 6 dei requisiti contabili: RC-A1..A5, RC-B1..B5, RC-C1..C8, RC-D1..D5, RC-E1..E6).
  * Riceve `TypedSupabaseClient` tramite dependency injection (nessuna istanza singleton).
  */
 export function createContabilitaService(db: TypedSupabaseClient) {
+  /**
+   * Registra un evento di audit su `audit_logs` per le operazioni contabili critiche
+   * (approvazione preventivo, override emissione rate da bozza, emissione/rettifica bollettino, RC-M1).
+   */
+  async function registraEventoAudit(evento: EventoAuditContabile): Promise<IAuditLog> {
+    const payload: TablesInsert<'audit_logs'> = {
+      utente_id: evento.autoreId,
+      condominio_id: evento.condominioId,
+      azione: evento.azione,
+      tabella: evento.tabella,
+      record_id: evento.recordId,
+      motivo: evento.motivo,
+      valore_prima: (evento.valorePrima ?? null) as Json | null,
+      valore_dopo: (evento.valoreDopo ?? null) as Json | null,
+      timestamp: evento.timestampIso,
+    };
+    return unwrap(await db.from('audit_logs').insert(payload).select('*').single());
+  }
+
+  /**
+   * Calcola il prossimo numero progressivo del bollettino per condominio e anno (RC-E1).
+   */
+  async function prossimoProgressivoBollettino(
+    condominioId: string,
+    anno: number,
+  ): Promise<number> {
+    const righe = unwrap(
+      await db
+        .from('bollettini')
+        .select('numero_progressivo')
+        .eq('condominio_id', condominioId)
+        .eq('anno', anno),
+    );
+    let maxProg = 0;
+    for (const r of righe) {
+      if (typeof r.numero_progressivo === 'number' && r.numero_progressivo > maxProg) {
+        maxProg = r.numero_progressivo;
+      }
+    }
+    return maxProg + 1;
+  }
   /**
    * Calcola il prossimo numero progressivo del movimento per il condominio e l'esercizio.
    */
@@ -1373,6 +1623,1066 @@ export function createContabilitaService(db: TypedSupabaseClient) {
       input: RegistraSpesaConRipartoInput,
     ): Promise<RegistraSpesaConRipartoOutput> {
       return this.registraSpesaConRiparto(input);
+    },
+
+    // =========================================================================
+    // 5. CICLO DI VITA DEL PREVENTIVO (RC-D1, RC-D2, RC-D5)
+    // =========================================================================
+
+    /**
+     * Elenca i preventivi del condominio per esercizio e/o gestione, ordinati per versione decrescente.
+     */
+    async listPreventivi(
+      condominioId: string,
+      filtri: {
+        esercizioId?: string;
+        gestioneId?: string;
+        stato?: StatoPreventivo;
+      } = {},
+    ): Promise<IPreventivo[]> {
+      let query = db
+        .from('preventivi')
+        .select('*')
+        .eq('condominio_id', condominioId);
+
+      if (filtri.esercizioId) query = query.eq('esercizio_id', filtri.esercizioId);
+      if (filtri.gestioneId) query = query.eq('gestione_id', filtri.gestioneId);
+      if (filtri.stato) query = query.eq('stato', filtri.stato);
+
+      return unwrap(await query.order('versione', { ascending: false }));
+    },
+
+    /**
+     * Carica un preventivo con tutte le sue voci previsionali (`preventivi_voci`).
+     */
+    async getPreventivoConVoci(
+      preventivoId: string,
+      condominioId: string,
+    ): Promise<{ preventivo: IPreventivo; voci: IPreventivoVoce[] } | null> {
+      const { data: preventivo, error } = await db
+        .from('preventivi')
+        .select('*')
+        .eq('id', preventivoId)
+        .eq('condominio_id', condominioId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!preventivo) return null;
+
+      const voci = unwrap(
+        await db
+          .from('preventivi_voci')
+          .select('*')
+          .eq('preventivo_id', preventivoId)
+          .eq('condominio_id', condominioId),
+      );
+
+      return { preventivo, voci };
+    },
+
+    /**
+     * Crea un nuovo preventivo in stato `BOZZA` e le relative righe in `preventivi_voci` (RC-D2).
+     */
+    async creaPreventivo(
+      input: CreaPreventivoServiceInput,
+    ): Promise<CreaPreventivoServiceOutput> {
+      const totaleDaVoci = calcolaTotalePreventivoDaVoci(input.voci);
+      const totalePrevistoCent =
+        input.totalePrevistoCent !== undefined
+          ? normalizzaCentesimi(input.totalePrevistoCent)
+          : totaleDaVoci;
+
+      if (input.voci.length > 0 && totalePrevistoCent !== totaleDaVoci) {
+        throw new Error(
+          `Il totale del preventivo (${totalePrevistoCent} cent) non coincide con la somma delle voci (${totaleDaVoci} cent).`,
+        );
+      }
+
+      const prevPayload: TablesInsert<'preventivi'> = {
+        condominio_id: input.condominioId,
+        esercizio_id: input.esercizioId,
+        gestione_id: input.gestioneId ?? null,
+        versione: input.versione ?? 1,
+        stato: 'BOZZA',
+        totale_previsto_centesimi: totalePrevistoCent,
+        data_approvazione: null,
+        delibera_approvazione: null,
+        precedente_id: input.precedenteId ?? null,
+        note: input.note ?? null,
+        autore_id: input.autoreId ?? null,
+      };
+
+      const preventivo = unwrap(
+        await db.from('preventivi').insert(prevPayload).select('*').single(),
+      );
+
+      let voci: IPreventivoVoce[] = [];
+      if (input.voci.length > 0) {
+        const vociPayload: TablesInsert<'preventivi_voci'>[] = input.voci.map((v) => ({
+          condominio_id: input.condominioId,
+          preventivo_id: preventivo.id,
+          voce_spesa_id: v.voceSpesaId ?? null,
+          sottoconto_id: v.sottocontoId ?? null,
+          tabella_millesimale_id: v.tabellaMillesimaleId ?? null,
+          versione_tabella: v.versioneTabella ?? 1,
+          criterio_ripartizione: v.criterioRipartizione ?? 'TUTTI',
+          descrizione: v.descrizione.trim(),
+          importo_previsto_centesimi: normalizzaCentesimi(v.importoPrevistoCent),
+        }));
+        voci = unwrap(
+          await db.from('preventivi_voci').insert(vociPayload).select('*'),
+        );
+      }
+
+      return { preventivo, voci };
+    },
+
+    /**
+     * Approva formalmente un preventivo in stato `BOZZA` registrando data assemblea e delibera (RC-D2).
+     * Se esiste una versione precedente in stato `APPROVATO` per la stessa gestione/esercizio,
+     * la transita automaticamente nello stato `SUPERATO` senza alterarne i dati storici (RC-D5)
+     * e traccia l'operazione in `audit_logs` (RC-M1).
+     */
+    async approvaPreventivo(
+      input: ApprovaPreventivoServiceInput,
+    ): Promise<ApprovaPreventivoServiceOutput> {
+      const bozza = unwrap(
+        await db
+          .from('preventivi')
+          .select('*')
+          .eq('id', input.preventivoId)
+          .eq('condominio_id', input.condominioId)
+          .single(),
+      );
+
+      // Cerca eventuale versione precedente attualmente APPROVATO per lo stesso esercizio e gestione
+      let precedenteApprovato: IPreventivo | null = null;
+      if (bozza.precedente_id) {
+        const { data: prevById, error: errPrev } = await db
+          .from('preventivi')
+          .select('*')
+          .eq('id', bozza.precedente_id)
+          .eq('condominio_id', input.condominioId)
+          .maybeSingle();
+        if (errPrev) throw errPrev;
+        if (prevById && prevById.stato === 'APPROVATO') {
+          precedenteApprovato = prevById;
+        }
+      } else {
+        let queryPrev = db
+          .from('preventivi')
+          .select('*')
+          .eq('condominio_id', input.condominioId)
+          .eq('esercizio_id', bozza.esercizio_id)
+          .eq('stato', 'APPROVATO');
+        if (bozza.gestione_id) {
+          queryPrev = queryPrev.eq('gestione_id', bozza.gestione_id);
+        } else {
+          queryPrev = queryPrev.is('gestione_id', null);
+        }
+        const candidati = unwrap(await queryPrev);
+        precedenteApprovato = candidati.find((c) => c.id !== bozza.id) ?? null;
+      }
+
+      const esito = approvaPreventivoLogic({
+        preventivo: bozza,
+        dataAssemblea: input.dataAssemblea,
+        deliberaRiferimento: input.deliberaRiferimento,
+        preventivoPrecedenteApprovato: precedenteApprovato,
+        autoreId: input.autoreId ?? bozza.autore_id,
+      });
+
+      let preventivoSuperato: IPreventivo | null = null;
+      if (esito.preventivoSuperato) {
+        preventivoSuperato = unwrap(
+          await db
+            .from('preventivi')
+            .update({ stato: 'SUPERATO' })
+            .eq('id', esito.preventivoSuperato.id)
+            .eq('condominio_id', input.condominioId)
+            .select('*')
+            .single(),
+        );
+      }
+
+      const preventivoApprovato = unwrap(
+        await db
+          .from('preventivi')
+          .update({
+            stato: 'APPROVATO',
+            versione: esito.preventivoApprovato.versione,
+            data_approvazione: esito.preventivoApprovato.data_approvazione,
+            delibera_approvazione: esito.preventivoApprovato.delibera_approvazione,
+            precedente_id: esito.preventivoApprovato.precedente_id,
+            autore_id: esito.preventivoApprovato.autore_id,
+          })
+          .eq('id', bozza.id)
+          .eq('condominio_id', input.condominioId)
+          .select('*')
+          .single(),
+      );
+
+      const auditLog = await registraEventoAudit(esito.eventoAudit);
+
+      return {
+        preventivoApprovato,
+        preventivoSuperato,
+        auditLog,
+      };
+    },
+
+    /**
+     * Crea una nuova versione di un preventivo esistente per una variazione in corso d'esercizio (RC-D5),
+     * lasciando intatti gli importi della versione precedente e registrando l'evento in `audit_logs`.
+     */
+    async creaNuovaVersionePreventivo(
+      input: CreaNuovaVersionePreventivoServiceInput,
+    ): Promise<CreaNuovaVersionePreventivoServiceOutput> {
+      const precedente = unwrap(
+        await db
+          .from('preventivi')
+          .select('*')
+          .eq('id', input.preventivoPrecedenteId)
+          .eq('condominio_id', input.condominioId)
+          .single(),
+      );
+
+      const esito = creaNuovaVersionePreventivoLogic({
+        preventivoPrecedente: precedente,
+        nuovoId: `${precedente.id}-v${(precedente.versione ?? 1) + 1}`,
+        voci: input.voci,
+        nuovoTotalePrevistoCent: input.nuovoTotalePrevistoCent,
+        note: input.note,
+        approvaSubito: input.approvaSubito,
+        dataAssemblea: input.dataAssemblea,
+        deliberaRiferimento: input.deliberaRiferimento,
+        autoreId: input.autoreId,
+      });
+
+      let preventivoPrecedente = precedente;
+      if (esito.preventivoPrecedenteAggiornato.stato === 'SUPERATO' && precedente.stato !== 'SUPERATO') {
+        preventivoPrecedente = unwrap(
+          await db
+            .from('preventivi')
+            .update({ stato: 'SUPERATO' })
+            .eq('id', precedente.id)
+            .eq('condominio_id', input.condominioId)
+            .select('*')
+            .single(),
+        );
+      }
+
+      const nuovoPreventivo = unwrap(
+        await db
+          .from('preventivi')
+          .insert({
+            condominio_id: esito.nuovoPreventivo.condominio_id,
+            esercizio_id: esito.nuovoPreventivo.esercizio_id,
+            gestione_id: esito.nuovoPreventivo.gestione_id,
+            versione: esito.nuovoPreventivo.versione,
+            stato: esito.nuovoPreventivo.stato,
+            totale_previsto_centesimi: esito.nuovoPreventivo.totale_previsto_centesimi,
+            data_approvazione: esito.nuovoPreventivo.data_approvazione,
+            delibera_approvazione: esito.nuovoPreventivo.delibera_approvazione,
+            precedente_id: precedente.id,
+            note: esito.nuovoPreventivo.note,
+            autore_id: esito.nuovoPreventivo.autore_id,
+          })
+          .select('*')
+          .single(),
+      );
+
+      let voci: IPreventivoVoce[] = [];
+      if (input.voci && input.voci.length > 0) {
+        const vociPayload: TablesInsert<'preventivi_voci'>[] = input.voci.map((v) => ({
+          condominio_id: input.condominioId,
+          preventivo_id: nuovoPreventivo.id,
+          voce_spesa_id: v.voceSpesaId ?? null,
+          sottoconto_id: v.sottocontoId ?? null,
+          tabella_millesimale_id: v.tabellaMillesimaleId ?? null,
+          versione_tabella: v.versioneTabella ?? 1,
+          criterio_ripartizione: v.criterioRipartizione ?? 'TUTTI',
+          descrizione: v.descrizione.trim(),
+          importo_previsto_centesimi: normalizzaCentesimi(v.importoPrevistoCent),
+        }));
+        voci = unwrap(
+          await db.from('preventivi_voci').insert(vociPayload).select('*'),
+        );
+      }
+
+      const auditLog = await registraEventoAudit({
+        ...esito.eventoAudit,
+        recordId: nuovoPreventivo.id,
+      });
+
+      return {
+        nuovoPreventivo,
+        voci,
+        preventivoPrecedente,
+        auditLog,
+      };
+    },
+
+    /**
+     * Aggiorna le note di un preventivo solo se ancora in stato `BOZZA`;
+     * se è `APPROVATO` o `SUPERATO` solleva `ErrorePreventivoImmutabile` (RC-D5).
+     */
+    async aggiornaPreventivoBozza(
+      preventivoId: string,
+      condominioId: string,
+      patch: { note?: string | null; totalePrevistoCent?: CentesimiInput },
+    ): Promise<IPreventivo> {
+      const esistente = unwrap(
+        await db
+          .from('preventivi')
+          .select('*')
+          .eq('id', preventivoId)
+          .eq('condominio_id', condominioId)
+          .single(),
+      );
+
+      assertPreventivoModificabile(esistente);
+
+      const updatePayload: TablesUpdate<'preventivi'> = {};
+      if (patch.note !== undefined) updatePayload.note = patch.note;
+      if (patch.totalePrevistoCent !== undefined) {
+        updatePayload.totale_previsto_centesimi = normalizzaCentesimi(patch.totalePrevistoCent);
+      }
+
+      return unwrap(
+        await db
+          .from('preventivi')
+          .update(updatePayload)
+          .eq('id', preventivoId)
+          .eq('condominio_id', condominioId)
+          .select('*')
+          .single(),
+      );
+    },
+
+    // =========================================================================
+    // 6. CALCOLO QUOTE RATEALI E GENERAZIONE PIANO RATE + BOLLETTINI BOZZA (RC-D3, RC-D4, T13, T16)
+    // =========================================================================
+
+    /**
+     * Calcola in pura logica le quote rateali per unità e soggetto pagante e i bollettini multi-riga
+     * senza scrivere nel database (utile per l'anteprima prima della conferma dell'amministratore, RC-D3, RC-E3, T13).
+     */
+    async calcolaQuoteRateali(
+      input: GeneraPianoRateServiceInput,
+    ): Promise<GeneraPianoRateOutput> {
+      const preventivo = unwrap(
+        await db
+          .from('preventivi')
+          .select('*')
+          .eq('id', input.preventivoId)
+          .eq('condominio_id', input.condominioId)
+          .single(),
+      );
+
+      let unita = input.unita ? [...input.unita] : undefined;
+      if (!unita) {
+        const unitaRiparto = await caricaUnitaCondominioPerRiparto(input.condominioId);
+        const tab = await caricaTabellaMillesimalePerRiparto(
+          input.condominioId,
+          input.tabellaMillesimaleId,
+        );
+        const millesimiMap = new Map(tab.quote.map((q) => [q.unitaId, q.millesimi]));
+
+        unita = unitaRiparto.map((u) => ({
+          unitaId: u.id,
+          unitaInterno: u.interno,
+          millesimi: millesimiMap.get(u.id) ?? 0,
+          utenteId: u.utenteId,
+          soggettoId: u.soggettoId,
+        }));
+      }
+
+      const annoBollettini =
+        input.annoBollettini ?? Number(new Date().toISOString().slice(0, 4));
+      const primoProgressivo =
+        input.primoProgressivoBollettino ??
+        (await prossimoProgressivoBollettino(input.condominioId, annoBollettini));
+
+      return generaPianoRate({
+        condominioId: input.condominioId,
+        esercizioId: input.esercizioId,
+        preventivoId: preventivo.id,
+        versionePreventivo: preventivo.versione ?? 1,
+        statoPreventivo: preventivo.stato,
+        gestioneId: input.gestioneId ?? preventivo.gestione_id,
+        tipoGestione: input.tipoGestione ?? 'ORDINARIA',
+        importoPreventivoCent: preventivo.totale_previsto_centesimi,
+        vociPreventivo: input.vociPreventivo,
+        unita,
+        scadenze: input.scadenzeRate,
+        override: input.overridePreventivoNonApprovato,
+        emessaConOverride: input.emessaConOverride,
+        motivoOverride: input.motivoOverride,
+        deliberaOverride: input.deliberaOverride,
+        importoLavoriStraordinariCent: input.importoLavoriStraordinariCent,
+        fondoSpecialeCostituito: input.fondoSpecialeCostituito,
+        importoFondoSpecialeCent: input.importoFondoSpecialeCent,
+        annoBollettini,
+        numeroProgressivoInizialeBollettini: primoProgressivo,
+        autoreId: input.autoreId ?? preventivo.autore_id,
+      });
+    },
+
+    /**
+     * Genera il piano rate (`rate_testata` e `rate_dettaglio`) e i relativi bollettini in stato `BOZZA`
+     * (`bollettini` e `bollettini_righe`), raggruppando più unità dello stesso proprietario in un unico
+     * bollettino multi-riga per scadenza (RC-D3, RC-E1, T13).
+     * Blocca l'emissione se il preventivo non è approvato salvo override motivato e tracciato in `audit_logs` (RC-D4, T16).
+     */
+    async generaPianoRateEBozzeBollettini(
+      input: GeneraPianoRateServiceInput,
+    ): Promise<GeneraPianoRateServiceOutput> {
+      const preventivo = unwrap(
+        await db
+          .from('preventivi')
+          .select('*')
+          .eq('id', input.preventivoId)
+          .eq('condominio_id', input.condominioId)
+          .single(),
+      );
+
+      const pianoCalcolato = await this.calcolaQuoteRateali(input);
+
+      // Se le rate sono state generate da un preventivo BOZZA con override, registra subito l'evento in audit_logs (RC-D4, T16)
+      let auditLogOverride: IAuditLog | null = null;
+      if (pianoCalcolato.validazionePreventivo.eventoAudit) {
+        auditLogOverride = await registraEventoAudit(
+          pianoCalcolato.validazionePreventivo.eventoAudit,
+        );
+      }
+
+      const rateTestataInserite: IRataTestata[] = [];
+      const rateDettaglioInserite: IRataDettaglio[] = [];
+      // Mappa `(numeroRata, unitaId)` -> `rata_dettaglio.id` per collegare le righe dei bollettini
+      const mappaRataDettaglioId = new Map<string, string>();
+
+      for (const rataGen of pianoCalcolato.rateTestata) {
+        const testataPayload: TablesInsert<'rate_testata'> = {
+          condominio_id: input.condominioId,
+          esercizio_id: input.esercizioId,
+          gestione_id: input.gestioneId ?? preventivo.gestione_id,
+          preventivo_id: preventivo.id,
+          versione_preventivo: preventivo.versione ?? 1,
+          stato_preventivo: pianoCalcolato.statoPreventivo,
+          data_approvazione_preventivo: preventivo.data_approvazione,
+          delibera_approvazione: preventivo.delibera_approvazione,
+          emessa_con_override: rataGen.emessaConOverride,
+          motivo_override: rataGen.motivoOverride,
+          delibera_override: rataGen.deliberaOverride,
+          numero_rata: rataGen.numeroRata,
+          percentuale_preventivo: rataGen.percentualePreventivo,
+          tabella_millesimale_id: input.tabellaMillesimaleId ?? null,
+          data_scadenza: rataGen.dataScadenza,
+          descrizione: rataGen.descrizione,
+          pubblicata: Boolean(input.pubblicaSubitoRate),
+          autore_id: input.autoreId ?? null,
+        };
+
+        const testataRow = unwrap(
+          await db.from('rate_testata').insert(testataPayload).select('*').single(),
+        );
+        rateTestataInserite.push(testataRow);
+
+        const dettagliPayload: TablesInsert<'rate_dettaglio'>[] = rataGen.dettagli.map(
+          (d) => ({
+            condominio_id: input.condominioId,
+            rata_testata_id: testataRow.id,
+            unita_id: d.unitaId,
+            utente_id: d.utenteId,
+            soggetto_id: d.soggettoId,
+            obbligato_in_solido_utente_id: null,
+            importo_dovuto: d.importoDovutoEuro,
+            importo_pagato: 0,
+            importo_dovuto_centesimi: d.importoDovutoCent,
+            importo_pagato_centesimi: 0,
+            stato: 'DA_PAGARE',
+            stato_rata_modello: d.statoRataModello,
+            data_esigibilita: d.dataEsigibilita,
+            versione_motore_calcolo: d.versioneMotoreCalcolo,
+            autore_id: input.autoreId ?? null,
+          }),
+        );
+
+        const dettagliRows = unwrap(
+          await db.from('rate_dettaglio').insert(dettagliPayload).select('*'),
+        );
+        rateDettaglioInserite.push(...dettagliRows);
+
+        for (const dRow of dettagliRows) {
+          mappaRataDettaglioId.set(`${rataGen.numeroRata}::${dRow.unita_id}`, dRow.id);
+        }
+      }
+
+      // Inserimento bollettini in stato BOZZA e relative righe (raggruppate per proprietario con più unità, T13)
+      const bollettiniBozza: Array<{ bollettino: IBollettino; righe: IBollettinoRiga[] }> = [];
+
+      for (const bollGen of pianoCalcolato.bollettiniProposti) {
+        const bollPayload: TablesInsert<'bollettini'> = {
+          condominio_id: input.condominioId,
+          esercizio_id: input.esercizioId,
+          anno: bollGen.anno,
+          numero_progressivo: bollGen.numeroProgressivo,
+          destinatario_utente_id: bollGen.destinatarioUtenteId,
+          destinatario_soggetto_id: bollGen.destinatarioSoggettoId,
+          intestazione_destinatario: bollGen.intestazioneDestinatario,
+          totale_centesimi: bollGen.totaleCent,
+          importo_pagato_centesimi: 0,
+          data_emissione: null,
+          data_scadenza: bollGen.dataScadenza,
+          stato: 'BOZZA',
+          iban_accredito: input.ibanAccredito ?? null,
+          causale_versamento: `Bollettino n. ${bollGen.numeroProgressivo}/${bollGen.anno} — ${bollGen.intestazioneDestinatario}`,
+          versione: 1,
+          versione_lock: 1,
+          versione_motore_calcolo: bollGen.versioneMotoreCalcolo,
+          autore_id: input.autoreId ?? null,
+        };
+
+        const bollettinoRow = unwrap(
+          await db.from('bollettini').insert(bollPayload).select('*').single(),
+        );
+
+        const righePayload: TablesInsert<'bollettini_righe'>[] = bollGen.righe.map((r) => {
+          const rataDettId =
+            mappaRataDettaglioId.get(`${r.numeroRata}::${r.unitaId}`) ?? null;
+          return {
+            condominio_id: input.condominioId,
+            bollettino_id: bollettinoRow.id,
+            rata_dettaglio_id: rataDettId,
+            unita_id: r.unitaId,
+            gestione_id: r.gestioneId,
+            descrizione: r.descrizione,
+            importo_centesimi: r.importoCent,
+            data_scadenza: r.dataScadenza,
+          };
+        });
+
+        const righeRows = unwrap(
+          await db.from('bollettini_righe').insert(righePayload).select('*'),
+        );
+
+        bollettiniBozza.push({
+          bollettino: bollettinoRow,
+          righe: righeRows,
+        });
+      }
+
+      return {
+        pianoCalcolato,
+        rateTestata: rateTestataInserite,
+        rateDettaglio: rateDettaglioInserite,
+        bollettiniBozza,
+        auditLogOverride,
+        avvisi: pianoCalcolato.avvisi,
+      };
+    },
+
+    /** Alias di `generaPianoRateEBozzeBollettini`. */
+    async calcolaECreaPianoRate(
+      input: GeneraPianoRateServiceInput,
+    ): Promise<GeneraPianoRateServiceOutput> {
+      return this.generaPianoRateEBozzeBollettini(input);
+    },
+
+    // =========================================================================
+    // 7. CICLO DI VITA DEI BOLLETTINI E RETTIFICA (RC-E1..E6, T11, T14)
+    // =========================================================================
+
+    /**
+     * Elenca i bollettini del condominio filtrabili per esercizio, stato o destinatario.
+     */
+    async listBollettini(
+      condominioId: string,
+      filtri: {
+        esercizioId?: string;
+        stato?: StatoBollettino;
+        destinatarioUtenteId?: string;
+        destinatarioSoggettoId?: string;
+        anno?: number;
+      } = {},
+    ): Promise<IBollettino[]> {
+      let query = db
+        .from('bollettini')
+        .select('*')
+        .eq('condominio_id', condominioId);
+
+      if (filtri.esercizioId) query = query.eq('esercizio_id', filtri.esercizioId);
+      if (filtri.stato) query = query.eq('stato', filtri.stato);
+      if (filtri.destinatarioUtenteId) {
+        query = query.eq('destinatario_utente_id', filtri.destinatarioUtenteId);
+      }
+      if (filtri.destinatarioSoggettoId) {
+        query = query.eq('destinatario_soggetto_id', filtri.destinatarioSoggettoId);
+      }
+      if (filtri.anno !== undefined) query = query.eq('anno', filtri.anno);
+
+      return unwrap(await query.order('numero_progressivo', { ascending: true }));
+    },
+
+    /**
+     * Carica un bollettino con le relative righe analitiche (`bollettini_righe`).
+     */
+    async getBollettinoConRighe(
+      bollettinoId: string,
+      condominioId: string,
+    ): Promise<{ bollettino: IBollettino; righe: IBollettinoRiga[] } | null> {
+      const { data: bollettino, error } = await db
+        .from('bollettini')
+        .select('*')
+        .eq('id', bollettinoId)
+        .eq('condominio_id', condominioId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!bollettino) return null;
+
+      const righe = unwrap(
+        await db
+          .from('bollettini_righe')
+          .select('*')
+          .eq('bollettino_id', bollettinoId)
+          .eq('condominio_id', condominioId),
+      );
+
+      return { bollettino, righe };
+    },
+
+    /**
+     * Crea un singolo bollettino in stato `BOZZA` con le sue righe analitiche (RC-E1, RC-E2).
+     */
+    async creaBollettinoBozza(
+      input: CreaBollettinoBozzaServiceInput,
+    ): Promise<{ bollettino: IBollettino; righe: IBollettinoRiga[] }> {
+      if (input.righe.length === 0) {
+        throw new Error('Un bollettino deve contenere almeno una riga di addebito.');
+      }
+
+      const numeroProgressivo =
+        input.numeroProgressivo ??
+        (await prossimoProgressivoBollettino(input.condominioId, input.anno));
+
+      let totaleCent = 0;
+      for (const r of input.righe) {
+        const imp = normalizzaCentesimi(r.importoCent);
+        if (imp < 0) {
+          throw new RangeError(`L'importo della riga "${r.descrizione}" non può essere negativo: ${imp}`);
+        }
+        totaleCent = normalizzaCentesimi(totaleCent + imp);
+      }
+
+      const bollettino = unwrap(
+        await db
+          .from('bollettini')
+          .insert({
+            condominio_id: input.condominioId,
+            esercizio_id: input.esercizioId,
+            anno: input.anno,
+            numero_progressivo: numeroProgressivo,
+            destinatario_utente_id: input.destinatarioUtenteId ?? null,
+            destinatario_soggetto_id: input.destinatarioSoggettoId ?? null,
+            intestazione_destinatario: input.intestazioneDestinatario.trim(),
+            totale_centesimi: totaleCent,
+            importo_pagato_centesimi: 0,
+            data_emissione: null,
+            data_scadenza: input.dataScadenza,
+            stato: 'BOZZA',
+            iban_accredito: input.ibanAccredito ?? null,
+            causale_versamento:
+              input.causaleVersamento ??
+              `Bollettino n. ${numeroProgressivo}/${input.anno} — ${input.intestazioneDestinatario.trim()}`,
+            versione: 1,
+            versione_lock: 1,
+            versione_motore_calcolo: VERSIONE_MOTORE_CALCOLO,
+            autore_id: input.autoreId ?? null,
+          })
+          .select('*')
+          .single(),
+      );
+
+      const righePayload: TablesInsert<'bollettini_righe'>[] = input.righe.map((r) => ({
+        condominio_id: input.condominioId,
+        bollettino_id: bollettino.id,
+        rata_dettaglio_id: r.rataDettaglioId ?? null,
+        unita_id: r.unitaId,
+        gestione_id: r.gestioneId ?? null,
+        descrizione: r.descrizione.trim(),
+        importo_centesimi: normalizzaCentesimi(r.importoCent),
+        data_scadenza: r.dataScadenza ?? input.dataScadenza,
+      }));
+
+      const righe = unwrap(
+        await db.from('bollettini_righe').insert(righePayload).select('*'),
+      );
+
+      return { bollettino, righe };
+    },
+
+    /**
+     * Esegue i controlli bloccanti pre-emissione (RC-E3, RC-N2, T14) e i warning non bloccanti (RC-N3)
+     * sul bollettino in `BOZZA`, transitandolo nello stato `VERIFICATO` se superati.
+     */
+    async verificaBollettino(
+      input: VerificaBollettinoServiceInput,
+    ): Promise<VerificaBollettinoServiceOutput> {
+      const caricato = await this.getBollettinoConRighe(input.bollettinoId, input.condominioId);
+      if (!caricato) {
+        throw new Error(`Bollettino "${input.bollettinoId}" non trovato.`);
+      }
+
+      const righeControllo: RigaControlloBollettinoInput[] = caricato.righe.map((r) => ({
+        unitaId: r.unita_id,
+        rataDettaglioId: r.rata_dettaglio_id,
+        gestioneId: r.gestione_id,
+        descrizione: r.descrizione,
+        importoCent: r.importo_centesimi,
+        dataScadenza: r.data_scadenza,
+      }));
+
+      const esito = verificaBollettinoLogic({
+        bollettino: caricato.bollettino,
+        righe: righeControllo,
+        contestoControlli: input.contestoControlli,
+      });
+
+      const bollettinoAggiornato = unwrap(
+        await db
+          .from('bollettini')
+          .update({
+            stato: 'VERIFICATO',
+            anomalie_rilevate: esito.bollettinoVerificato.anomalie_rilevate as unknown as Json,
+            versione_lock: esito.bollettinoVerificato.versione_lock,
+          })
+          .eq('id', caricato.bollettino.id)
+          .eq('condominio_id', input.condominioId)
+          .select('*')
+          .single(),
+      );
+
+      return {
+        bollettino: bollettinoAggiornato,
+        righe: caricato.righe,
+        esitoControlli: esito.esitoControlli,
+      };
+    },
+
+    /**
+     * Emette formalmente un bollettino già `VERIFICATO`, richiedendo conferma esplicita dell'amministratore (RC-E2, RC-E3),
+     * aggiornando le rate collegate nello stato `EMESSA` e registrando l'evento in `audit_logs` (RC-M1).
+     */
+    async emettiBollettino(
+      input: EmettiBollettinoServiceInput,
+    ): Promise<EmettiBollettinoServiceOutput> {
+      const caricato = await this.getBollettinoConRighe(input.bollettinoId, input.condominioId);
+      if (!caricato) {
+        throw new Error(`Bollettino "${input.bollettinoId}" non trovato.`);
+      }
+
+      const esito = emettiBollettinoLogic({
+        bollettino: caricato.bollettino,
+        confermaEsplicitaAdmin: input.confermaEsplicitaAdmin,
+        confermatoDa: input.confermatoDa,
+        dataEmissione: input.dataEmissione,
+      });
+
+      const bollettino = unwrap(
+        await db
+          .from('bollettini')
+          .update({
+            stato: 'EMESSO',
+            data_emissione: esito.bollettinoEmesso.data_emissione,
+            confermato_da: esito.bollettinoEmesso.confermato_da,
+            confermato_at: esito.bollettinoEmesso.confermato_at,
+            versione_lock: esito.bollettinoEmesso.versione_lock,
+            versione_motore_calcolo: esito.bollettinoEmesso.versione_motore_calcolo,
+          })
+          .eq('id', caricato.bollettino.id)
+          .eq('condominio_id', input.condominioId)
+          .select('*')
+          .single(),
+      );
+
+      // Aggiorna le rate collegate da PIANIFICATA a EMESSA
+      const rataDettaglioIds = caricato.righe
+        .map((r) => r.rata_dettaglio_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+      if (rataDettaglioIds.length > 0) {
+        assertOk(
+          await db
+            .from('rate_dettaglio')
+            .update({
+              stato_rata_modello: 'EMESSA',
+              bollettino_id: bollettino.id,
+            })
+            .in('id', rataDettaglioIds)
+            .eq('condominio_id', input.condominioId),
+        );
+      }
+
+      const auditLog = await registraEventoAudit(esito.eventoAudit);
+
+      return {
+        bollettino,
+        auditLog,
+      };
+    },
+
+    /**
+     * Aggiorna un bollettino solo se in stato `BOZZA` o `VERIFICATO`.
+     * Se il bollettino è già stato emesso, solleva `ErroreBollettinoEmessoImmutabile` (RC-E2).
+     */
+    async aggiornaBollettino(
+      bollettinoId: string,
+      condominioId: string,
+      patch: TablesUpdate<'bollettini'>,
+    ): Promise<IBollettino> {
+      const originale = unwrap(
+        await db
+          .from('bollettini')
+          .select('*')
+          .eq('id', bollettinoId)
+          .eq('condominio_id', condominioId)
+          .single(),
+      );
+
+      assertModificaBollettinoConsentita(
+        originale as unknown as { id: string; stato: StatoBollettino } & Record<string, unknown>,
+        patch as Record<string, unknown>,
+      );
+
+      return unwrap(
+        await db
+          .from('bollettini')
+          .update(patch)
+          .eq('id', bollettinoId)
+          .eq('condominio_id', condominioId)
+          .select('*')
+          .single(),
+      );
+    },
+
+    /**
+     * Esegue la rettifica per sostituzione di un bollettino già emesso (RC-E4, T11):
+     * 1. Annulla il bollettino originale (es. N. 12 da 250,00 €);
+     * 2. Crea il nuovo bollettino collegato (`sostituisce_id` = ID originale, es. N. 13 da 230,00 €);
+     * 3. Trascina automaticamente gli incassi parziali già registrati (es. 100,00 €) e ricalcola il saldo residuo (es. 130,00 €);
+     * 4. Registra l'operazione in `audit_logs` mantenendo lo storico completo delle versioni.
+     */
+    async rettificaBollettinoEmesso(
+      input: RettificaBollettinoEmessoServiceInput,
+    ): Promise<RettificaBollettinoEmessoServiceOutput> {
+      const caricato = await this.getBollettinoConRighe(
+        input.bollettinoOriginaleId,
+        input.condominioId,
+      );
+      if (!caricato) {
+        throw new Error(`Bollettino originale "${input.bollettinoOriginaleId}" non trovato.`);
+      }
+
+      const nuovoNumeroProgressivo =
+        input.nuovoNumeroProgressivo ??
+        (await prossimoProgressivoBollettino(input.condominioId, caricato.bollettino.anno));
+
+      const nuoveRigheControllo: RigaControlloBollettinoInput[] | undefined = input.nuoveRighe
+        ? input.nuoveRighe.map((r) => ({
+            unitaId: r.unitaId,
+            rataDettaglioId: r.rataDettaglioId ?? null,
+            gestioneId: r.gestioneId ?? null,
+            descrizione: r.descrizione,
+            importoCent: normalizzaCentesimi(r.importoCent),
+            dataScadenza: r.dataScadenza ?? input.nuovaDataScadenza ?? caricato.bollettino.data_scadenza,
+          }))
+        : undefined;
+
+      const esitoRettifica = rettificaBollettinoEmessoLogic({
+        bollettinoOriginale: caricato.bollettino,
+        nuovoNumeroProgressivo,
+        nuovoTotaleCent: input.nuovoTotaleCent,
+        nuoveRighe: nuoveRigheControllo,
+        motivoRettifica: input.motivoRettifica,
+        incassiGiaRegistrati: input.incassiGiaRegistrati,
+        importoGiaIncassatoCent: input.importoGiaIncassatoCent,
+        statoOriginalePostRettifica: input.statoOriginalePostRettifica,
+        nuovaDataScadenza: input.nuovaDataScadenza,
+        dataEmissioneNuovo: input.dataEmissioneNuovo,
+        autoreId: input.autoreId,
+      });
+
+      // 1. Inserisce il nuovo bollettino sostitutivo con sostituisce_id e incassi trascinati
+      const nuovoBollettino = unwrap(
+        await db
+          .from('bollettini')
+          .insert({
+            condominio_id: esitoRettifica.nuovoBollettino.condominio_id,
+            esercizio_id: esitoRettifica.nuovoBollettino.esercizio_id,
+            anno: esitoRettifica.nuovoBollettino.anno,
+            numero_progressivo: esitoRettifica.nuovoBollettino.numero_progressivo,
+            destinatario_utente_id: esitoRettifica.nuovoBollettino.destinatario_utente_id ?? null,
+            destinatario_soggetto_id: esitoRettifica.nuovoBollettino.destinatario_soggetto_id ?? null,
+            intestazione_destinatario: esitoRettifica.nuovoBollettino.intestazione_destinatario,
+            totale_centesimi: esitoRettifica.nuovoBollettino.totale_centesimi,
+            importo_pagato_centesimi: esitoRettifica.nuovoBollettino.importo_pagato_centesimi,
+            data_emissione: esitoRettifica.nuovoBollettino.data_emissione,
+            data_scadenza: esitoRettifica.nuovoBollettino.data_scadenza,
+            stato: esitoRettifica.nuovoBollettino.stato,
+            sostituisce_id: caricato.bollettino.id,
+            sostituito_da_id: null,
+            motivo_rettifica_annullamento: esitoRettifica.nuovoBollettino.motivo_rettifica_annullamento,
+            anomalie_rilevate: [] as unknown as Json,
+            confermato_da: esitoRettifica.nuovoBollettino.confermato_da,
+            confermato_at: esitoRettifica.nuovoBollettino.confermato_at,
+            iban_accredito: esitoRettifica.nuovoBollettino.iban_accredito ?? null,
+            causale_versamento: esitoRettifica.nuovoBollettino.causale_versamento,
+            versione: esitoRettifica.nuovoBollettino.versione,
+            versione_lock: 1,
+            versione_motore_calcolo: esitoRettifica.nuovoBollettino.versione_motore_calcolo,
+            autore_id: esitoRettifica.nuovoBollettino.autore_id,
+          })
+          .select('*')
+          .single(),
+      );
+
+      // 2. Inserisce le righe del nuovo bollettino
+      const righeSorgente: RigaControlloBollettinoInput[] =
+        esitoRettifica.nuoveRighe.length > 0
+          ? esitoRettifica.nuoveRighe
+          : caricato.righe.map((r, idx) => ({
+              unitaId: r.unita_id,
+              rataDettaglioId: r.rata_dettaglio_id,
+              gestioneId: r.gestione_id,
+              descrizione: r.descrizione,
+              importoCent:
+                idx === 0 && caricato.righe.length === 1
+                  ? esitoRettifica.nuovoBollettino.totale_centesimi
+                  : r.importo_centesimi,
+              dataScadenza: esitoRettifica.nuovoBollettino.data_scadenza,
+            }));
+
+      let nuoveRigheInserite: IBollettinoRiga[] = [];
+      if (righeSorgente.length > 0) {
+        const righePayload: TablesInsert<'bollettini_righe'>[] = righeSorgente.map((r) => ({
+          condominio_id: input.condominioId,
+          bollettino_id: nuovoBollettino.id,
+          rata_dettaglio_id: r.rataDettaglioId ?? null,
+          unita_id: r.unitaId,
+          gestione_id: r.gestioneId ?? null,
+          descrizione: r.descrizione ?? 'Quota rata rettificata',
+          importo_centesimi: normalizzaCentesimi(r.importoCent),
+          data_scadenza: r.dataScadenza ?? nuovoBollettino.data_scadenza,
+        }));
+        nuoveRigheInserite = unwrap(
+          await db.from('bollettini_righe').insert(righePayload).select('*'),
+        );
+      }
+
+      // 3. Aggiorna il bollettino originale con stato ANNULLATO/RETTIFICATO e puntatore sostituito_da_id
+      const bollettinoOriginaleAnnullato = unwrap(
+        await db
+          .from('bollettini')
+          .update({
+            stato: esitoRettifica.bollettinoOriginaleAnnullato.stato,
+            sostituito_da_id: nuovoBollettino.id,
+            motivo_rettifica_annullamento:
+              esitoRettifica.bollettinoOriginaleAnnullato.motivo_rettifica_annullamento,
+            importo_pagato_centesimi:
+              esitoRettifica.bollettinoOriginaleAnnullato.importo_pagato_centesimi,
+            versione_lock: esitoRettifica.bollettinoOriginaleAnnullato.versione_lock,
+          })
+          .eq('id', caricato.bollettino.id)
+          .eq('condominio_id', input.condominioId)
+          .select('*')
+          .single(),
+      );
+
+      // 4. Registra l'evento di rettifica in audit_logs
+      const auditLog = await registraEventoAudit({
+        ...esitoRettifica.eventoAudit,
+        recordId: nuovoBollettino.id,
+        valoreDopo: {
+          ...(esitoRettifica.eventoAudit.valoreDopo ?? {}),
+          nuovo_bollettino_id: nuovoBollettino.id,
+        },
+      });
+
+      return {
+        bollettinoOriginaleAnnullato,
+        nuovoBollettino,
+        nuoveRighe: nuoveRigheInserite,
+        esitoRettifica,
+        auditLog,
+      };
+    },
+
+    // =========================================================================
+    // 8. AUDIT LOG DELLE AZIONI CONTABILI CRITICHE (RC-D4, RC-M1)
+    // =========================================================================
+
+    /**
+     * Registra esplicitamente un evento nel registro di audit contabile (`audit_logs`).
+     */
+    async registraAuditLogContabile(evento: EventoAuditContabile): Promise<IAuditLog> {
+      return registraEventoAudit(evento);
+    },
+
+    /**
+     * Restituisce gli eventi di audit registrati per un condominio (filtrabili per tabella o azione).
+     */
+    async listAuditLogsContabilita(
+      condominioId: string,
+      filtri: { tabella?: string; azione?: string; recordId?: string } = {},
+    ): Promise<IAuditLog[]> {
+      let query = db
+        .from('audit_logs')
+        .select('*')
+        .eq('condominio_id', condominioId);
+
+      if (filtri.tabella) query = query.eq('tabella', filtri.tabella);
+      if (filtri.azione) query = query.eq('azione', filtri.azione);
+      if (filtri.recordId) query = query.eq('record_id', filtri.recordId);
+
+      return unwrap(await query.order('timestamp', { ascending: false }));
+    },
+
+    /**
+     * Verifica in pura logica (e registra in `audit_logs` se presente un override)
+     * se l'emissione di rate per un preventivo è consentita (RC-D4, T16).
+     */
+    async verificaEAuditEmissioneRatePreventivo(input: {
+      preventivo: IPreventivo;
+      tipoGestione?: TipoGestioneEsercizio;
+      override?: OverridePreventivoNonApprovatoInput | null;
+      importoLavoriStraordinariCent?: CentesimiInput | null;
+      fondoSpecialeCostituito?: boolean;
+      importoFondoSpecialeCent?: CentesimiInput | null;
+      autoreId?: string | null;
+    }): Promise<{
+      esito: ReturnType<typeof assertEmissioneRateConsentita>;
+      auditLog: IAuditLog | null;
+    }> {
+      const esito = assertEmissioneRateConsentita({
+        statoPreventivo: input.preventivo.stato,
+        preventivoId: input.preventivo.id,
+        condominioId: input.preventivo.condominio_id,
+        esercizioId: input.preventivo.esercizio_id,
+        gestioneId: input.preventivo.gestione_id,
+        tipoGestione: input.tipoGestione,
+        override: input.override,
+        importoLavoriStraordinariCent: input.importoLavoriStraordinariCent,
+        fondoSpecialeCostituito: input.fondoSpecialeCostituito,
+        importoFondoSpecialeCent: input.importoFondoSpecialeCent,
+        autoreId: input.autoreId ?? input.preventivo.autore_id,
+      });
+
+      let auditLog: IAuditLog | null = null;
+      if (esito.eventoAudit) {
+        auditLog = await registraEventoAudit(esito.eventoAudit);
+      }
+
+      return { esito, auditLog };
     },
   };
 }
