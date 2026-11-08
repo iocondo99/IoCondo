@@ -29,6 +29,7 @@ export * from './admin/documentiAdminLogic';
 export * from './admin/documentiAdminService';
 export * from './admin/assembleeAdminLogic';
 export * from './admin/assembleeAdminService';
+export * from './contabilita/contabilitaLogic';
 
 // Risoluzione ambiguità esportazioni duplicate
 export { formattaDataItaliana } from './admin/invitiAdminLogic';
