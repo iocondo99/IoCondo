@@ -99,6 +99,8 @@ export interface PuntoOdgDettaglio {
   /** Voto espresso dal residente per la sua unità (se presente). */
   mioVoto: VotoScelta | null;
   unitaIdVoto: string | null;
+  /** Mappa dei voti espressi per ciascuna unità dell'utente (propria o delegata): unitaId -> VotoScelta. */
+  votiUnita?: Record<string, VotoScelta>;
   /** Risultati aggregati da RPC `risultati_voto` (zero voti nominali). */
   risultati: RisultatiVotoFormattati;
 }
@@ -106,6 +108,9 @@ export interface PuntoOdgDettaglio {
 export interface UnitaVotante {
   id: string;
   interno: string;
+  isDelega?: boolean;
+  deleganteNome?: string | null;
+  valoreMillesimale?: number;
 }
 
 export interface DettaglioAssembleaCondomino {

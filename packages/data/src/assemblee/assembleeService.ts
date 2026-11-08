@@ -107,11 +107,70 @@ export function createAssembleeService(db: TypedSupabaseClient) {
         lista.push({
           id: u.id,
           interno: u.interno ?? '',
+          isDelega: false,
         });
       }
     }
 
     return lista;
+  }
+
+  /**
+   * Ricava le unità per cui l'utente ha ricevuto delega formalizzata per questa specifica assemblea.
+   */
+  async function unitaDelegatePerAssemblea(
+    userId: string,
+    assembleaId: string,
+  ): Promise<UnitaVotante[]> {
+    const delegheRes = await db
+      .from('assemblee_presenze')
+      .select('unita_id')
+      .eq('assemblea_id', assembleaId)
+      .eq('modalita_presenza', 'DELEGA')
+      .eq('delegato_utente_id', userId);
+
+    const righePres = estraiDati(delegheRes);
+    if (!righePres || righePres.length === 0) return [];
+
+    const unitaIds = righePres.map((r: any) => r.unita_id).filter(Boolean);
+    if (unitaIds.length === 0) return [];
+
+    const [unitaRes, anagraficheRes] = await Promise.all([
+      db.from('unita_immobiliari').select('id, interno').in('id', unitaIds),
+      db.from('anagrafiche_unita').select('unita_id, utente_id').in('unita_id', unitaIds),
+    ]);
+
+    const anagrafiche = estraiDati(anagraficheRes);
+    const utenteIds = anagrafiche.map((a: any) => a.utente_id).filter(Boolean);
+    const mappaNominativi = new Map<string, string>();
+
+    if (utenteIds.length > 0) {
+      const profiliRes = await db
+        .from('profili_pubblici')
+        .select('id, nome_cognome')
+        .in('id', utenteIds);
+      const profiliMap = new Map<string, string>();
+      for (const p of estraiDati(profiliRes)) {
+        if (p.id && p.nome_cognome) profiliMap.set(p.id, p.nome_cognome);
+      }
+      for (const an of anagrafiche) {
+        if (an.unita_id && an.utente_id && profiliMap.has(an.utente_id)) {
+          mappaNominativi.set(an.unita_id, profiliMap.get(an.utente_id)!);
+        }
+      }
+    }
+
+    const delegate: UnitaVotante[] = [];
+    for (const u of estraiDati(unitaRes)) {
+      delegate.push({
+        id: u.id,
+        interno: u.interno ?? '',
+        isDelega: true,
+        deleganteNome: mappaNominativi.get(u.id) || 'Condòmino delegante',
+      });
+    }
+
+    return delegate;
   }
 
   /** Verifica se un file esiste nello Storage del bucket `documenti-condominio`. */
@@ -285,34 +344,41 @@ export function createAssembleeService(db: TypedSupabaseClient) {
         return null;
       }
 
-      // 2. Carica punti ODG e unità del residente
-      const [puntiOdgRes, unitaResidente] = await Promise.all([
+      // 2. Carica punti ODG, unità del residente e unità per cui ha ricevuto delega
+      const [puntiOdgRes, unitaResidente, unitaDelegate] = await Promise.all([
         db
           .from('assemblee_punti_odg')
           .select('*')
           .eq('assemblea_id', assembleaId)
           .order('ordine', { ascending: true }),
         unitaDiResidenteNelCondominio(userId, condominioId),
+        unitaDelegatePerAssemblea(userId, assembleaId),
       ]);
 
       const punti = estraiDati(puntiOdgRes);
-      const unitaIds = unitaResidente.map((u) => u.id);
 
-      // 3. Carica i voti espressi dall'utente per questi punti
+      // Unione unità proprie e unità in delega
+      const tutteUnitaVotanti: UnitaVotante[] = [
+        ...unitaResidente.map((u) => ({ ...u, isDelega: false })),
+        ...unitaDelegate,
+      ];
+      const tutteUnitaIds = tutteUnitaVotanti.map((u) => u.id);
+
+      // 3. Carica i voti espressi per queste unità (sia proprie che delegate)
       const puntiIds = punti.map((p) => p.id);
-      let votiUtente: IAssembleaVoto[] = [];
-      if (puntiIds.length > 0) {
+      let votiRegistrati: IAssembleaVoto[] = [];
+      if (puntiIds.length > 0 && tutteUnitaIds.length > 0) {
         const votiRes = await db
           .from('assemblee_voti')
           .select('*')
           .in('punto_odg_id', puntiIds)
-          .eq('utente_id', userId);
-        votiUtente = estraiDati(votiRes);
+          .in('unita_id', tutteUnitaIds);
+        votiRegistrati = estraiDati(votiRes);
       }
 
-      const mappaVoti = new Map<string, IAssembleaVoto>();
-      for (const v of votiUtente) {
-        mappaVoti.set(v.punto_odg_id, v);
+      const mappaVotiPerUnita = new Map<string, IAssembleaVoto>();
+      for (const v of votiRegistrati) {
+        mappaVotiPerUnita.set(`${v.punto_odg_id}_${v.unita_id}`, v);
       }
 
       // 4. Risultati aggregati per ciascun punto ODG tramite la RPC risultati_voto
@@ -333,13 +399,23 @@ export function createAssembleeService(db: TypedSupabaseClient) {
 
       const mappaRisultati = new Map(risultatiPerPunto.map((r) => [r.puntoId, r.risultati]));
 
-      // 5. Costruzione punti ODG dettagliati
+      // 5. Costruzione punti ODG dettagliati con supporto voto per unità proprie e delegate
+      const haUnitaVotanti = tutteUnitaVotanti.length > 0;
+      const unitaDefaultId = tutteUnitaVotanti[0]?.id || null;
+
       const puntiDettagliati: PuntoOdgDettaglio[] = punti.map((p) => {
-        const votoEspresso = mappaVoti.get(p.id);
-        const votabile = isPuntoVotabile(
-          { votazioneAperta: Boolean(p.votazione_aperta) },
-          riga.stato,
-        );
+        const votiUnita: Record<string, VotoScelta> = {};
+        for (const u of tutteUnitaVotanti) {
+          const v = mappaVotiPerUnita.get(`${p.id}_${u.id}`);
+          if (v?.voto) {
+            votiUnita[u.id] = v.voto as VotoScelta;
+          }
+        }
+
+        const votoDefault = unitaDefaultId ? votiUnita[unitaDefaultId] ?? null : null;
+        const votabile =
+          isPuntoVotabile({ votazioneAperta: Boolean(p.votazione_aperta) }, riga.stato) &&
+          haUnitaVotanti;
 
         return {
           id: p.id,
@@ -349,8 +425,9 @@ export function createAssembleeService(db: TypedSupabaseClient) {
           descrizione: p.descrizione,
           votazioneAperta: Boolean(p.votazione_aperta),
           votabile,
-          mioVoto: (votoEspresso?.voto as VotoScelta) ?? null,
-          unitaIdVoto: votoEspresso?.unita_id ?? (unitaIds[0] ?? null),
+          mioVoto: votoDefault,
+          unitaIdVoto: unitaDefaultId,
+          votiUnita,
           risultati: mappaRisultati.get(p.id) ?? formattaRisultatiVoto([]),
         };
       });
@@ -370,33 +447,31 @@ export function createAssembleeService(db: TypedSupabaseClient) {
         }
       }
 
-      const linkMeetValido = validaLinkVideoCall(riga.link_meet);
-
       return {
         id: riga.id,
         condominioId: riga.condominio_id,
         tabellaMillesimaleId: riga.tabella_millesimale_id,
         data: riga.data,
         luogo: riga.luogo,
-        linkMeetValido,
+        linkMeetValido: validaLinkVideoCall(riga.link_meet),
         verbaleUrl: riga.verbale_url,
         percorsoVerbaleStorage,
         verbaleDisponibile,
         verbaleUrlFirmato,
         stato: riga.stato as DettaglioAssembleaCondomino['stato'],
         tipo: riga.tipo as DettaglioAssembleaCondomino['tipo'],
-        modalita: riga.modalita as DettaglioAssembleaCondomino['modalita'],
+        modalita: 'PRESENZA',
         createdAt: riga.created_at,
         updatedAt: riga.updated_at,
         puntiOdg: puntiDettagliati,
-        unitaDisponibili: unitaResidente,
+        unitaDisponibili: tutteUnitaVotanti,
       };
     },
 
     /**
      * Registra o aggiorna il voto del condòmino:
      * - Verifica che il punto abbia `votazione_aperta = true` e che l'assemblea sia `IN_CORSO`;
-     * - Verifica che l'unità indicata appartenga all'utente;
+     * - Verifica che l'unità appartenga all'utente OPPURE che l'utente sia delegato;
      * - Esegue upsert su `assemblee_voti`.
      */
     async esprimiVoto(
@@ -435,10 +510,24 @@ export function createAssembleeService(db: TypedSupabaseClient) {
         throw new Error('La votazione per questo punto non è aperta.');
       }
 
-      // 3. Verifica che l'unità appartenga all'utente nel condominio
+      // 3. Verifica che l'unità appartenga all'utente nel condominio OPPURE che l'utente sia il delegato
       const mieUnita = await unitaDiResidenteNelCondominio(userId, ass.condominio_id);
-      const appartiene = mieUnita.some((u) => u.id === unitaId);
-      if (!appartiene) {
+      let autorizzato = mieUnita.some((u) => u.id === unitaId);
+
+      if (!autorizzato) {
+        const delegaRes = await db
+          .from('assemblee_presenze')
+          .select('unita_id')
+          .eq('assemblea_id', ass.id)
+          .eq('unita_id', unitaId)
+          .eq('modalita_presenza', 'DELEGA')
+          .eq('delegato_utente_id', userId)
+          .limit(1);
+        const delegaRows = estraiDati(delegaRes);
+        autorizzato = delegaRows.length > 0;
+      }
+
+      if (!autorizzato) {
         throw new Error('Non sei autorizzato a votare per questa unità immobiliare.');
       }
 

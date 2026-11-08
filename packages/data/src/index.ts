@@ -27,6 +27,8 @@ export * from './admin/manutenzioneLogic';
 export * from './admin/manutenzioneService';
 export * from './admin/documentiAdminLogic';
 export * from './admin/documentiAdminService';
+export * from './admin/assembleeAdminLogic';
+export * from './admin/assembleeAdminService';
 
 // Risoluzione ambiguità esportazioni duplicate
 export { formattaDataItaliana } from './admin/invitiAdminLogic';

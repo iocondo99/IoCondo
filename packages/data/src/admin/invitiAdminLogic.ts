@@ -137,18 +137,23 @@ export function formattaDataRelativaInvito(
 
   const diffMs = dScad.getTime() - adesso.getTime();
 
-  if (diffMs > 0) {
-    const diffGiorni = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    if (diffGiorni <= 0) return 'Scade oggi';
-    if (diffGiorni === 1) return 'Scade domani';
-    return `Scade tra ${diffGiorni} giorni`;
-  } else {
-    const diffAssolutoMs = Math.abs(diffMs);
-    const diffGiorniPassati = Math.floor(diffAssolutoMs / (1000 * 60 * 60 * 24));
-    if (diffGiorniPassati === 0) return 'Scaduto oggi';
-    if (diffGiorniPassati === 1) return 'Scaduto ieri';
-    return `Scaduto da ${diffGiorniPassati} giorni`;
+  const dScadUtc = Date.UTC(dScad.getUTCFullYear(), dScad.getUTCMonth(), dScad.getUTCDate());
+  const adessoUtc = Date.UTC(adesso.getUTCFullYear(), adesso.getUTCMonth(), adesso.getUTCDate());
+  const diffGiorniCalendario = Math.round((dScadUtc - adessoUtc) / (1000 * 60 * 60 * 24));
+
+  if (diffGiorniCalendario === 0) {
+    return diffMs >= 0 ? 'Scade oggi' : 'Scaduto oggi';
   }
+  if (diffGiorniCalendario === 1) {
+    return 'Scade domani';
+  }
+  if (diffGiorniCalendario > 1) {
+    return `Scade tra ${diffGiorniCalendario} giorni`;
+  }
+  if (diffGiorniCalendario === -1) {
+    return 'Scaduto ieri';
+  }
+  return `Scaduto da ${Math.abs(diffGiorniCalendario)} giorni`;
 }
 
 /**

@@ -1,15 +1,19 @@
 # IoCondo – Piattaforma Condominiale
 
-Monorepo (npm workspaces + Turborepo) con separazione delle responsabilità.
+Monorepo (npm workspaces + Turborepo) per la gestione condominiale.
+
+Per le regole architetturali, lo stack completo e le linee guida vincolanti per agenti e sviluppatori, fare riferimento ad [AGENTS.md](AGENTS.md).
 
 ```
 IoCondo/
 ├── apps/
-│   ├── admin-web/          Next.js 14 – gestionale Amministratore  (deploy: Vercel)
+│   ├── admin-web/          Next.js 15 – gestionale Amministratore (legacy)
 │   └── app/                Expo (web, iOS, Android) – app unica per tutti i ruoli (@iocondo/app)
 ├── packages/
-│   ├── shared-types/       Interfacce TypeScript (generate dallo schema SQL)
-│   └── supabase-client/    UNICO punto in cui si crea il client Supabase tipizzato
+│   ├── data/               Servizi Supabase e logica condivisa (@iocondo/data)
+│   ├── shared-types/       Interfacce TypeScript generate dallo schema SQL (@iocondo/shared-types)
+│   ├── supabase-client/    Factory del client Supabase tipizzato (@iocondo/supabase-client)
+│   └── ui/                 Design system, componenti accessibili e token (@iocondo/ui)
 ├── supabase/
 │   ├── migrations/         Schema, RLS, trigger, mock data (01..04)
 │   └── functions/          Edge Functions (Deno) – logica server-side sicura
@@ -18,25 +22,22 @@ IoCondo/
 └── docs/  prompts/
 ```
 
-## Regole architetturali (SoC)
-| Livello | Responsabilità | Dipende da |
-|---|---|---|
-| UI (pagine/componenti) | Solo rendering e stato UI. **Nessuna query Supabase.** | services |
-| `src/services/` (per app) | Unico livello che parla col DB (CRUD tipizzato) | supabase-client, shared-types |
-| `@iocondo/supabase-client` | Creazione client tipizzato (`createClient` non si usa altrove) | shared-types |
-| `@iocondo/shared-types` | Solo tipi, zero runtime | – |
-| Edge Functions | Segreti, calcoli, webhook (service_role) | – |
-
-## Comandi
+## Comandi principali (root)
+I comandi completi sono definiti in `package.json` (vedi elenco dettagliato in `AGENTS.md`):
 ```bash
 npm install
-npm run gen:types      # rigenera packages/shared-types da supabase/migrations/01_init_schema.sql
-npm run typecheck
-npm run dev:admin      # http://localhost:3000
-npm run dev:mobile     # Expo
+npm run dev:app        # Avvia app Expo su Web (porta 8081)
+npm run dev:admin      # Avvia admin-web Next.js (porta 3000)
+npm run typecheck      # Controllo tipi TypeScript
+npm run test           # Test di logica e token
+npm run lint           # Controllo linter
+npm run gen:types      # Rigenera packages/shared-types da schema SQL
 npm run functions:deploy
 ```
 
-## Deploy
-- **admin-web** → Vercel, *Root Directory* `apps/admin-web` (usa `vercel.json` per installare dalla root).
-- **Edge Functions** → `supabase functions deploy` (segreti con `supabase secrets set`).
+## Documentazione e specifiche
+- **Regole di sviluppo e ambiente aziendale:** [AGENTS.md](AGENTS.md)
+- **Design System ufficiale:** [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
+- **Stato dei lavori e roadmap:** [docs/PIANO_LAVORO.md](docs/PIANO_LAVORO.md)
+- **Requisiti di prodotto:** [docs/PRD.md](docs/PRD.md)
+- **Registro delle decisioni (ADR):** [docs/DECISIONI.md](docs/DECISIONI.md)

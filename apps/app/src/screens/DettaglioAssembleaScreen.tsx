@@ -18,6 +18,7 @@ import {
   type DettaglioAssembleaCondomino,
   type PuntoOdgDettaglio,
   type RisultatoOpzioneVoto,
+  type UnitaVotante,
   type VotoScelta,
 } from '@iocondo/data';
 import {
@@ -272,29 +273,6 @@ function DettaglioAssembleaContenuto({
           ) : null}
         </View>
 
-        {/* Collegamento Video-Call se presente e valido */}
-        {assemblea.linkMeetValido ? (
-          <View style={styles.sezioneMeet}>
-            <View style={styles.infoMeet}>
-              <Icon name="users" size="action" color={colors.action.default} />
-              <View style={styles.testoMeet}>
-                <Text style={[textStyle('body', breakpoint), styles.testoForte]}>
-                  Riunione online disponibile
-                </Text>
-                <Text style={[textStyle('secondary', breakpoint), styles.testoSecondario]}>
-                  L’assemblea si svolge anche tramite collegamento telematico protetto.
-                </Text>
-              </View>
-            </View>
-            <Button
-              label="Partecipa alla riunione online"
-              variant="primary"
-              onPress={() => Linking.openURL(assemblea.linkMeetValido!)}
-              accessibilityHint="Apre il link alla riunione online nel browser o applicazione di videoconferenza"
-            />
-          </View>
-        ) : null}
-
         {/* Sezione Verbale */}
         <View style={styles.sezioneVerbale}>
           <Text style={[textStyle('label', breakpoint), styles.testoForte]}>Verbale dell’assemblea</Text>
@@ -367,7 +345,7 @@ function DettaglioAssembleaContenuto({
 interface CardPuntoOdgProps {
   punto: PuntoOdgDettaglio;
   assembleaStato: string;
-  unitaDisponibili: Array<{ id: string; interno: string }>;
+  unitaDisponibili: UnitaVotante[];
   invioInCorso: boolean;
   onVota: (unitaId: string, scelta: VotoScelta) => void;
 }
@@ -388,6 +366,17 @@ function CardPuntoOdg({
       setUnitaScelta(unitaPredefinita);
     }
   }, [unitaPredefinita, unitaScelta]);
+
+  // Unità attualmente selezionata tra le proprie o delegate
+  const unitaCorrente = useMemo(
+    () => unitaDisponibili.find((u) => u.id === unitaScelta) || unitaDisponibili[0],
+    [unitaDisponibili, unitaScelta],
+  );
+
+  // Voto attualmente espresso per l'unità selezionata
+  const votoUnitaSelezionata = unitaCorrente
+    ? punto.votiUnita?.[unitaCorrente.id] ?? (unitaCorrente.id === punto.unitaIdVoto ? punto.mioVoto : null)
+    : null;
 
   return (
     <Card>
@@ -416,45 +405,57 @@ function CardPuntoOdg({
         </Text>
       ) : null}
 
-      {/* Box votazione residente */}
+      {/* Box votazione residente / delegato */}
       <View style={styles.boxVotazione}>
         <View style={styles.intestazioneVotazione}>
-          <Text style={[textStyle('label', breakpoint), styles.testoForte]}>Il tuo voto</Text>
-          {punto.mioVoto ? (
+          <Text style={[textStyle('label', breakpoint), styles.testoForte]}>
+            {unitaCorrente?.isDelega
+              ? `Voto per delega (${unitaCorrente.deleganteNome || 'Condòmino'})`
+              : 'Il tuo voto'}
+          </Text>
+          {votoUnitaSelezionata ? (
             <Badge
               status={
-                punto.mioVoto === 'FAVOREVOLE'
+                votoUnitaSelezionata === 'FAVOREVOLE'
                   ? 'accettato'
-                  : punto.mioVoto === 'CONTRARIO'
+                  : votoUnitaSelezionata === 'CONTRARIO'
                     ? 'scaduto'
                     : 'in-attesa'
               }
-              label={`Espresso: ${etichettaSceltaVoto(punto.mioVoto)}`}
+              label={`Espresso: ${etichettaSceltaVoto(votoUnitaSelezionata)}`}
             />
           ) : (
-            <Text style={[textStyle('support', breakpoint), styles.testoMuted]}>Nessun voto espresso</Text>
+            <Text style={[textStyle('support', breakpoint), styles.testoMuted]}>
+              Nessun voto espresso per questa unità
+            </Text>
           )}
         </View>
 
-        {/* Pulsanti per esprimere o modificare il proprio voto */}
+        {/* Pulsanti per esprimere o modificare il proprio voto o il voto per delega */}
         {punto.votabile ? (
           <View style={styles.controlliVoto}>
             <Text style={[textStyle('secondary', breakpoint), styles.testoSecondario]}>
-              {punto.mioVoto
-                ? 'Puoi modificare il tuo voto finché la votazione resta aperta:'
+              {votoUnitaSelezionata
+                ? `Puoi modificare la preferenza finché la votazione resta aperta:`
                 : 'Seleziona la tua preferenza di voto per questo punto:'}
             </Text>
 
             {unitaDisponibili.length > 1 ? (
               <View style={styles.selettoreUnita}>
-                <Text style={[textStyle('support', breakpoint), styles.testoMuted]}>Vota per l’unità:</Text>
+                <Text style={[textStyle('support', breakpoint), styles.testoMuted]}>
+                  Seleziona l'unità per cui votare (tua unità o delega):
+                </Text>
                 <View style={styles.unitaPillole}>
                   {unitaDisponibili.map((u) => {
                     const selezionata = unitaScelta === u.id;
+                    const haGiaVotato = Boolean(punto.votiUnita?.[u.id]);
+                    const etichetta = u.isDelega
+                      ? `Int. ${u.interno} (Delega: ${u.deleganteNome || 'Condòmino'})`
+                      : `Int. ${u.interno} (Tua unità)`;
                     return (
                       <Button
                         key={u.id}
-                        label={`Int. ${u.interno}`}
+                        label={haGiaVotato ? `✓ ${etichetta}` : etichetta}
                         variant={selezionata ? 'primary' : 'secondary'}
                         onPress={() => setUnitaScelta(u.id)}
                         disabled={invioInCorso}
@@ -465,13 +466,15 @@ function CardPuntoOdg({
               </View>
             ) : unitaDisponibili.length === 1 ? (
               <Text style={[textStyle('support', breakpoint), styles.testoMuted]}>
-                Unità votante: Interno {unitaDisponibili[0]?.interno}
+                {unitaDisponibili[0]?.isDelega
+                  ? `Voto per delega di ${unitaDisponibili[0].deleganteNome || 'Condòmino'}: Interno ${unitaDisponibili[0]?.interno}`
+                  : `Unità votante: Interno ${unitaDisponibili[0]?.interno}`}
               </Text>
             ) : null}
 
             <View style={styles.pulsantiVoto}>
               {(['FAVOREVOLE', 'CONTRARIO', 'ASTENUTO'] as const).map((scelta) => {
-                const attivo = punto.mioVoto === scelta;
+                const attivo = votoUnitaSelezionata === scelta;
                 return (
                   <View key={scelta} style={styles.pulsanteVotoWrapper}>
                     <Button
@@ -491,7 +494,9 @@ function CardPuntoOdg({
           <Text style={[textStyle('support', breakpoint), styles.testoMuted]}>
             {assembleaStato === 'CONCLUSA'
               ? 'L’assemblea è conclusa e le votazioni sono chiuse.'
-              : 'La votazione per questo punto è attualmente chiusa dall’amministrazione.'}
+              : unitaDisponibili.length === 0
+                ? 'Non possiedi unità immobiliari né hai deleghe in questa assemblea: il voto assembleare è riservato ai condòmini e ai loro delegati.'
+                : 'La votazione per questo punto è attualmente chiusa dall’amministrazione.'}
           </Text>
         )}
       </View>

@@ -1021,4 +1021,105 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 - [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_documenti_extra_pulizia.sql`.
   **Risultato atteso:** i 4 documenti di prova e le 3 cartelle create dal seed vengono rimossi in modo pulito e sicuro dal database senza lasciare residui.
 
+---
+
+## M. Assemblee del Condominio e Conduzione Sedute (Amministratore - /admin/assemblee e /admin/assemblee/[id])
+
+### M1 — Preparazione dati di prova e policy RLS
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/da-applicare/09_assemblee_voti_admin.sql` per abilitare l'inserimento e l'aggiornamento dei voti in sala da parte dell'amministratore su `assemblee_voti`.
+  **Risultato atteso:** le policy `assemblee_voti_admin_select`, `assemblee_voti_admin_insert` e `assemblee_voti_admin_update` vengono create correttamente senza errori.
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_assemblee_extra.sql`.
+  **Risultato atteso:** lo script completa con successo senza duplicati, creando 3 assemblee di prova:
+  1. Un'assemblea futura "Convocata" (18 nov 2026) con 4 punti all'ODG;
+  2. Un'assemblea "In corso" (4 nov 2026) con 3 punti all'ODG, votazioni aperte e presenze;
+  3. Un'assemblea "Conclusa" (6 ago 2026) con verbale PDF e voti storici archiviati.
+
+### M2 — Elenco Assemblee Amministratore (/admin/assemblee)
+
+- [ ] **Cosa fare:** accedere all'app come amministratore e navigare su `/admin/assemblee`:
+  - Verificare il `PageHeader` con titolo "Assemblee del Condominio" e pulsante primario "Convoca nuova assemblea" (icona `calendar-plus`);
+  - Verificare le 3 StatCard ufficiali (Sez. 8 Design System):
+    * "Prossima assemblea" (tessera blu): data convocazione e tipo (Ordinaria/Straordinaria, solo in presenza);
+    * "Assemblee dell'anno" (tessera navy): totale assemblee svolte, concluse e in bozza;
+    * "Votazioni aperte" (tessera teal): conteggio punti ODG in votazione attiva;
+  - Testare la barra di controllo con `SearchBar` e `FilterChips` ("Tutti", "Convocate", "In corso", "Concluse", "Bozze"): il filtraggio deve essere istantaneo e fluido;
+  - Verificare la visualizzazione `ResponsiveDataView` (tabella su desktop/tablet e lista card su mobile): colonne `Data Convocazione` (solo data formattata, senza posizione secondaria), `Tipo`, `Stato` (Badge colorato) e `Punti ODG` (rimosse le colonne Modalità e Verbale PDF dalla vista tabellare);
+  - Cliccare su una riga della tabella: la schermata naviga fluidamente a `/admin/assemblee/[id]`.
+
+### M3 — Modale "Nuova Assemblea"
+
+- [ ] **Cosa fare:** cliccare su "Convoca nuova assemblea" per aprire la modale accessibile:
+  - Verificare i campi del modulo:
+    * Tipologia assemblea (RadioGroup: Ordinaria vs Straordinaria con testi di supporto);
+    * Data e ora 1ª Convocazione e 2ª Convocazione (con orario separato);
+    * Luogo fisico di svolgimento in presenza (rimossa la selezione ibrida/online e il campo Google Meet);
+    * Selettore custom `Select` per la Tabella millesimale di riferimento;
+    * Checkbox "Salva come bozza";
+  - Testare la validazione formale lasciando campi vuoti o invertendo le date di 1ª e 2ª convocazione: compaiono i messaggi di errore dedicati;
+  - Compilare i dati e confermare la convocazione: l'assemblea compare subito in cima all'elenco e viene mostrato il Toast di successo.
+
+### M4 — Dettaglio e Conduzione Seduta (/admin/assemblee/[id])
+
+- [ ] **Cosa fare:** navigare sul dettaglio dell'assemblea in corso (`/admin/assemblee/d0000000-0000-4000-8000-000000000730`):
+  - Verificare i `Breadcrumbs`: `Home / Assemblee / Assemblea del [Data]`;
+  - Verificare la card di Testata: titolo con tipologia, badge di stato ("In corso"), data/ora estesa, luogo fisico (rimossa qualsiasi dicitura o link a Google Meet), pulsante "Condividi convocazione" e pulsante "Concludi assemblea";
+  - Cliccare su "Concludi assemblea": confermare il dialog; l'assemblea passa a stato `CONCLUSA` con Toast di successo ("Assemblea formalmente conclusa") senza alcun errore o popup "Nessun dato restituito".
+
+- [ ] **Cosa fare:** testare la Sezione 1 "Appello, Presenze e Deleghe (Quorum Costitutivo)":
+  - Selettore Convocazione: passare tra "1ª Convocazione" e "2ª Convocazione" e verificare l'aggiornamento dinamico delle soglie legali minime:
+    * 1ª conv: maggioranza teste e 2/3 dei millesimi (≥ 666,67 ‰);
+    * 2ª conv: 1/3 delle teste e 1/3 dei millesimi (≥ 333,33 ‰);
+  - Box Quorum Costitutivo: verificare i contatori grafici (millesimi presenti e teste partecipanti) e i badge dinamici ("Assemblea validamente costituita" verde vs "Seduta deserta" o "Quorum non raggiunto");
+  - Tabella Unità in tendina: verificare che ciascuna unità disponga esclusivamente di 3 opzioni presenza: **Presente**, **Delega**, **Assente** (rimosse le diciture "In sala" e "Online");
+  - Selezionare "Delega": compare il menù a tendina con i residenti presenti per assegnare la delega;
+  - Verifica automatica cumulo deleghe ex art. 67 disp. att. c.c.: se i partecipanti sono > 20 e un delegato supera 1/5 dei partecipanti o 1/5 del valore millesimale, compare il box di allerta rosso;
+  - Cliccare su "Salva appello e presenze": salvataggio su Supabase ed emissione Toast di conferma ("Presenze e deleghe registrate con successo!"), con compressione automatica dell'elenco unità nella tendina richiudibile ("Comprimi appello" / "Espandi e modifica presenze") mentre il box del Quorum Costitutivo rimane sempre visibile in alto.
+
+- [ ] **Cosa fare:** testare la Sezione 2 "Ordine del Giorno e Votazioni in Tempo Reale":
+  - Premere "Aggiungi punto all'ODG": si apre la modale per inserire titolo del punto e testo della proposta di delibera;
+  - Per ciascun punto ODG verificare:
+    * Badge di stato votazione ("Votazione aperta" teal vs "Votazione chiusa" grigio);
+    * Pulsanti "Apri votazione" e "Chiudi votazione" con aggiornamento istantaneo del DB ed emissione Toast di conferma ("Votazione punto n. X chiusa") senza alcun errore o popup "Nessun dato restituito";
+    * Selettore tipo delibera: "Ordinaria (≥ 333,33 ‰ in 2ª conv.)" vs "Straordinaria (≥ 500,00 ‰)";
+    * Rimosso il tabellone con i pulsanti di espressione del voto manuale dell'amministratore: l'amministratore dalla sua console non esprime il voto al posto dei condòmini;
+    * Monitor "Partecipazione al voto delle unità presenti": tracciamento esplicito delle deleghe (`Proprietario (In delega a: [Nome Delegato])`) e badge verde "Votato" o grigio "Non votato";
+    * Box Esito Delibera automatico: calcolo istantaneo delle percentuali teste e millesimi con badge "APPROVATA" verde o "RESPINTA" rosso e motivazione legale in base ai voti reali dei condòmini;
+    * Tabella nominale per redazione verbale (UC-10) in tendina a comparsa: di default compressa ("Mostra tabella"), al click si espande visualizzando la colonna "Voto Espresso" (150px) con badge leggibili e formattati ("Non espresso", "Favorevole", "Contrario", "Astenuto", "Assente") senza alcun testo troncato;
+    * Pulsante "Copia testo per verbale": copia negli appunti il testo legale formattato del punto per l'inserimento nel verbale.
+
+- [ ] **Cosa fare:** verificare la vista dal profilo/dashboard del condòmino (`/assemblee/[id]`):
+  - Rimossa completamente la card informativa / bottone "Partecipa alla riunione online" Google Meet (l'assemblea è solo in presenza);
+  - Se l'utente connesso è un amministratore puro o non possiede unità né deleghe nel condominio (`unitaDisponibili.length === 0`), il diritto di voto è disabilitato (`votabile: false`) e compare il messaggio chiaro di avviso;
+  - Se l'utente ha ricevuto una o più deleghe nell'appello presenze dell'assemblea:
+    * Nel selettore unità per ciascun punto ODG compaiono sia la propria unità che le unità delegate (`Int. X (Delega: [Nome Delegante])`);
+    * Il condòmino delegato può selezionare la propria unità ed esprimere il voto, poi selezionare l'unità delegata ed esprimere il voto specifico per delega;
+    * Ciascun voto viene salvato e tracciato nominalmente con la quota millesimale corrispondente.
+
+- [ ] **Cosa fare:** testare la Sezione 3 "Verbale Ufficiale e Documenti Firmati":
+  - Area drag & drop / selezione file (`FileUpload`) per il verbale PDF firmato;
+  - Selezionare un file PDF e premere "Carica verbale e concludi assemblea":
+    * Il file viene inviato allo Storage privato `documenti-condominio` nel percorso `<condominio_id>/verbali/verbale_assemblea_<id>.pdf`;
+    * Lo stato dell'assemblea passa a `CONCLUSA`;
+    * Compare la card con link firmato temporaneo (600s via `createSignedUrl`) e pulsante "Scarica verbale";
+  - Cliccare su "Notifica chiusura e verbale ai residenti": genera la notifica per tutti i residenti abilitati in `notifiche`;
+  - Verificare la presenza del pulsante "Concludi assemblea" allineato a destra in fondo alla pagina (sotto la Sezione 3) quando l'assemblea è ancora attiva.
+
+### M5 — Responsive Design e Accessibilità WCAG 2.2 AA
+
+- [ ] **Cosa fare:** verificare sia `/admin/assemblee` che `/admin/assemblee/[id]` sui 3 breakpoint obbligatori (Desktop 1440x900, Tablet 820x1180, Mobile 390x844):
+  **Risultato atteso:** `document.documentElement.scrollWidth <= window.innerWidth` su tutte le schermate (zero scroll orizzontale); tabelle e tabellone voti fluidi e senza troncamenti; target touch minimi di 44 px conformi.
+
+- [ ] **Cosa fare:** verificare navigazione con tastiera e contrasti cromatici:
+  - Navigare con Tab e Shift+Tab attraverso le card, pulsanti di voto, tabelle e modali;
+  - Verificare l'anello di focus accessibile `#0284C7` (o bianco su navy) sempre visibile e mai ritagliato;
+  - Prova a zoom reale 200% nel browser verificando la corretta leggibilità e assenza di overflow.
+
+### M6 — Ripristino e Pulizia
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_assemblee_extra_pulizia.sql`.
+  **Risultato atteso:** le assemblee di prova, i punti ODG, i voti nominali e le presenze create dal seed vengono eliminati in modo sicuro e pulito dal database senza lasciare residui.
+
+
 
