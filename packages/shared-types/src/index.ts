@@ -1,7 +1,10 @@
 /* eslint-disable */
 /**
  * FILE GENERATO – NON MODIFICARE A MANO.
- * Sorgente: supabase/migrations/01_init_schema.sql   |   Rigenera con: npm run gen:types
+ * Sorgenti:
+ *   - supabase/migrations/01_init_schema.sql
+ *   - supabase/da-applicare/10_contabilita_schema_modello_obiettivo.sql
+ * Rigenera con: npm run gen:types
  */
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -68,6 +71,10 @@ export interface IAuditLog {
   record_id: string | null;
   timestamp: string;
   ip_address: string | null;
+  condominio_id?: string | null;
+  valore_prima?: Json | null;
+  valore_dopo?: Json | null;
+  motivo?: string | null;
 }
 
 export interface ICondominio {
@@ -106,6 +113,15 @@ export interface IConfigurazioneCondominio {
   abilita_prenotazioni: boolean;
   abilita_pacchi: boolean;
   updated_at: string;
+  abilita_contabilita_nuova?: boolean;
+  quota_fissa_riscaldamento_perc?: number;
+  quota_fissa_acqua_perc?: number;
+  ordine_imputazione_incassi?: 'PIU_VECCHIO' | 'PIU_RECENTE' | 'MANUALE';
+  decorrenza_recupero_mesi?: 'CHIUSURA_ESERCIZIO' | 'APPROVAZIONE_RENDICONTO';
+  esigibilita_rate_preventivo?: 'SCADENZA_RATA' | 'APPROVAZIONE_CONSUNTIVO';
+  interessi_mora_tasso_annuo?: number;
+  interessi_mora_giorni_tolleranza?: number;
+  interessi_mora_fonte?: 'REGOLAMENTO' | 'DELIBERA' | 'LEGGE' | null;
 }
 
 export interface IScalaColonna {
@@ -145,6 +161,19 @@ export interface IAnagraficaUnita {
   quota_possesso: number;
   created_at: string;
   updated_at: string;
+  condominio_id?: string | null;
+  soggetto_id?: string | null;
+  ruolo_titolarita?: 'PROPRIETARIO' | 'COMPROPRIETARIO' | 'USUFRUTTUARIO' | 'NUDO_PROPRIETARIO' | 'CONDUTTORE';
+  is_referente_bollettino?: boolean;
+  contratto_inizio?: string | null;
+  contratto_fine?: string | null;
+  patto_contrario_oneri?: boolean;
+  tabella_oneri_custom?: Json | null;
+  regola_usufrutto_custom?: Json | null;
+  data_atto_subentro?: string | null;
+  dante_causa_utente_id?: string | null;
+  note_patto_straordinarie?: string | null;
+  autore_id?: string | null;
 }
 
 export interface IInvitoPendenti {
@@ -191,6 +220,10 @@ export interface IFornitore {
   categoria: string | null;
   created_at: string;
   updated_at: string;
+  condominio_id?: string | null;
+  codice_fiscale?: string | null;
+  pec?: string | null;
+  indirizzo?: string | null;
 }
 
 export interface ICartellaDocumento {
@@ -243,6 +276,21 @@ export interface IEsercizioContabile {
   stato: 'PREVENTIVO' | 'CONSUNTIVO' | 'CHIUSO';
   created_at: string;
   updated_at: string;
+  stato_modello?: 'APERTO' | 'CHIUSO' | 'RENDICONTO_APPROVATO';
+  data_chiusura_effettiva?: string | null;
+  data_approvazione_rendiconto?: string | null;
+  delibera_approvazione?: string | null;
+  scadenza_approvazione_180gg?: string | null;
+  saldo_iniziale_conto_centesimi?: number;
+  saldo_iniziale_cassa_centesimi?: number;
+  saldo_finale_conto_centesimi?: number;
+  saldo_finale_cassa_centesimi?: number;
+  stato_rendiconto?: 'IN_PREPARAZIONE' | 'COMPLETO' | 'APPROVATO' | 'RETTIFICATO';
+  nota_sintetica_esplicativa?: string | null;
+  riepilogo_finanziario_json?: Json | null;
+  registro_contabilita_completo?: boolean;
+  versione_lock?: number;
+  autore_id?: string | null;
 }
 
 export interface ITabellaMillesimale {
@@ -254,6 +302,18 @@ export interface ITabellaMillesimale {
   totale: number;
   created_at: string;
   updated_at: string;
+  tipo?: 'PROPRIETA' | 'SCALA' | 'ASCENSORE' | 'RISCALDAMENTO' | 'ACQUA' | 'USO' | 'ALTRA';
+  origine?: 'INSERITA' | 'DERIVATA';
+  tabella_sorgente_id?: string | null;
+  da_rigenerare?: boolean;
+  stato_approvazione?: 'BOZZA' | 'APPROVATA';
+  data_approvazione?: string | null;
+  delibera_riferimento?: string | null;
+  valida_da?: string;
+  valida_a?: string | null;
+  versione?: number;
+  precedente_id?: string | null;
+  autore_id?: string | null;
 }
 
 export interface IQuotaMillesimale {
@@ -261,6 +321,11 @@ export interface IQuotaMillesimale {
   tabella_id: string;
   unita_id: string;
   valore_millesimale: number;
+  condominio_id?: string | null;
+  valore_millesimi_int?: number;
+  autore_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface IMovimentoContabile {
@@ -275,6 +340,39 @@ export interface IMovimentoContabile {
   doc_allegato_id: string | null;
   created_at: string;
   updated_at: string;
+  condominio_id?: string | null;
+  gestione_id?: string | null;
+  voce_spesa_id?: string | null;
+  numero_progressivo?: number | null;
+  data_registrazione?: string;
+  importo_centesimi?: number;
+  tag_spesa?: 'ORDINARIA' | 'STRAORDINARIA';
+  competenza_da?: string | null;
+  competenza_a?: string | null;
+  chi_paga?: 'TUTTI' | 'PALAZZO_SCALA' | 'TABELLA_SPECIFICA' | 'PERSONALIZZATO' | 'CONSUMI';
+  tabella_millesimale_id?: string | null;
+  versione_tabella?: number;
+  palazzo_id?: string | null;
+  scala_colonna_id?: string | null;
+  atto_deroga_tipo?: 'REGOLAMENTO_CONTRATTUALE' | 'DELIBERA_UNANIME' | 'DELIBERA_ASSEMBLEA' | null;
+  atto_deroga_data?: string | null;
+  atto_deroga_numero?: string | null;
+  motivazione_deroga?: string | null;
+  delibera_riferimento?: string | null;
+  stato_spesa?: 'BOZZA' | 'REGISTRATA' | 'STORNATA';
+  storno_di_id?: string | null;
+  eccezione_conto_corrente?: boolean;
+  motivo_eccezione_cc?: string | null;
+  impronta_file_giustificativo?: string | null;
+  imponibile_centesimi?: number | null;
+  iva_centesimi?: number | null;
+  ritenuta_acconto_centesimi?: number | null;
+  ritenuta_aliquota_perc?: number | null;
+  numero_fattura?: string | null;
+  data_scadenza_fattura?: string | null;
+  fondo_id?: string | null;
+  versione_motore_calcolo?: string;
+  autore_id?: string | null;
 }
 
 export interface IRataTestata {
@@ -286,6 +384,19 @@ export interface IRataTestata {
   pubblicata: boolean;
   created_at: string;
   updated_at: string;
+  condominio_id?: string | null;
+  gestione_id?: string | null;
+  preventivo_id?: string | null;
+  versione_preventivo?: number;
+  stato_preventivo?: 'BOZZA' | 'APPROVATO' | 'SUPERATO';
+  data_approvazione_preventivo?: string | null;
+  delibera_approvazione?: string | null;
+  emessa_con_override?: boolean;
+  motivo_override?: string | null;
+  delibera_override?: string | null;
+  numero_rata?: number | null;
+  percentuale_preventivo?: number | null;
+  autore_id?: string | null;
 }
 
 export interface IRataDettaglio {
@@ -300,6 +411,16 @@ export interface IRataDettaglio {
   bollettino_url: string | null;
   created_at: string;
   updated_at: string;
+  condominio_id?: string | null;
+  soggetto_id?: string | null;
+  obbligato_in_solido_utente_id?: string | null;
+  importo_dovuto_centesimi?: number;
+  importo_pagato_centesimi?: number;
+  stato_rata_modello?: 'PIANIFICATA' | 'EMESSA' | 'PARZIALMENTE_PAGATA' | 'PAGATA';
+  data_esigibilita?: string | null;
+  bollettino_id?: string | null;
+  versione_motore_calcolo?: string;
+  autore_id?: string | null;
 }
 
 export interface ISaldoPregresso {
@@ -310,6 +431,16 @@ export interface ISaldoPregresso {
   importo: number;
   note: string | null;
   created_at: string;
+  condominio_id?: string | null;
+  gestione_id?: string | null;
+  soggetto_id?: string | null;
+  obbligato_in_solido_utente_id?: string | null;
+  anno_competenza?: number | null;
+  importo_centesimi?: number;
+  importo_pagato_centesimi?: number;
+  data_esigibilita?: string | null;
+  autore_id?: string | null;
+  updated_at?: string;
 }
 
 export interface IPagamentoRata {
@@ -324,6 +455,14 @@ export interface IPagamentoRata {
   created_at: string;
   completed_at: string | null;
   updated_at: string;
+  condominio_id?: string | null;
+  importo_centesimi?: number;
+  pagatore_nome?: string | null;
+  pagatore_utente_id?: string | null;
+  riferimento_cro?: string | null;
+  data_valuta?: string | null;
+  storno_di_id?: string | null;
+  autore_id?: string | null;
 }
 
 export interface ITransazioneBancaria {
@@ -337,6 +476,11 @@ export interface ITransazioneBancaria {
   stato_riconciliazione: 'NON_RICONCILIATA' | 'PARZIALE' | 'RICONCILIATA' | 'IGNORATA';
   created_at: string;
   updated_at: string;
+  importo_centesimi?: number;
+  pagatore_nome?: string | null;
+  riferimento_cro?: string | null;
+  storno_di_id?: string | null;
+  autore_id?: string | null;
 }
 
 export interface IRiconciliazioneLog {
@@ -346,6 +490,11 @@ export interface IRiconciliazioneLog {
   importo_assegnato: number | null;
   metodo: 'AUTO' | 'MANUALE';
   data_matching: string;
+  condominio_id?: string | null;
+  importo_assegnato_centesimi?: number | null;
+  bollettino_id?: string | null;
+  saldo_pregresso_id?: string | null;
+  autore_id?: string | null;
 }
 
 export interface ISollecitoMorosita {
@@ -661,6 +810,295 @@ export interface IImportJob {
   created_at: string;
 }
 
+export interface IMigrazioneContabilitaLog {
+  id: string;
+  codice_migrazione: string;
+  stato: 'AVVIATA' | 'COMPLETATA' | 'FALLITA' | 'ROLLBACK';
+  conteggi_prima: Json;
+  conteggi_dopo: Json;
+  somme_prima: Json;
+  somme_dopo: Json;
+  righe_orfane: number;
+  note: string | null;
+  eseguita_at: string;
+}
+
+export interface ISoggettoContabile {
+  id: string;
+  condominio_id: string;
+  utente_id: string | null;
+  fornitore_id: string | null;
+  tipo_soggetto: 'PERSONA_FISICA' | 'PERSONA_GIURIDICA';
+  nome_denominazione: string;
+  codice_fiscale: string | null;
+  partita_iva: string | null;
+  indirizzo: string | null;
+  citta: string | null;
+  cap: string | null;
+  provincia: string | null;
+  email: string | null;
+  pec: string | null;
+  telefono: string | null;
+  iban: string | null;
+  autore_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IAssegnazioneAmministratore {
+  id: string;
+  condominio_id: string;
+  admin_id: string;
+  ruolo_incarico: 'AMMINISTRATORE' | 'COLLABORATORE' | 'REVISORE' | 'CONSIGLIERE';
+  permessi_collaboratore: Json;
+  data_nomina: string;
+  data_cessazione: string | null;
+  delibera_nomina: string | null;
+  compenso_annuo_centesimi: number;
+  dettaglio_compenso: Json;
+  is_attivo: boolean;
+  autore_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IVoceSpesaCatalogo {
+  id: string;
+  condominio_id: string;
+  sottoconto_id: string | null;
+  codice: string;
+  nome: string;
+  tag_default: 'ORDINARIA' | 'STRAORDINARIA';
+  criterio_default: 'TUTTI' | 'PALAZZO_SCALA' | 'TABELLA_SPECIFICA' | 'PERSONALIZZATO' | 'CONSUMI' | 'PRESET_1124' | 'PRESET_1125' | 'PRESET_1126';
+  tabella_default_id: string | null;
+  quota_inquilino_default_perc: number;
+  is_a_periodo: boolean;
+  is_compenso_admin: boolean;
+  attiva: boolean;
+  autore_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IFondo {
+  id: string;
+  condominio_id: string;
+  esercizio_id: string | null;
+  nome: string;
+  tipo: 'SPECIALE' | 'CASSA' | 'MOROSITA';
+  delibera_costituzione: string | null;
+  data_delibera: string | null;
+  importo_lavori_centesimi: number | null;
+  importo_obiettivo_centesimi: number;
+  saldo_attuale_centesimi: number;
+  is_progressivo_sal: boolean;
+  contratto_appalto_ref: string | null;
+  stato: 'ATTIVO' | 'VINCOLATO' | 'CHIUSO';
+  autore_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IMovimentoFondo {
+  id: string;
+  condominio_id: string;
+  fondo_id: string;
+  movimento_contabile_id: string | null;
+  data: string;
+  importo_centesimi: number;
+  segno: '+' | '-';
+  causale: string;
+  is_override_vincolo: boolean;
+  motivo_override: string | null;
+  delibera_override: string | null;
+  autore_id: string | null;
+  created_at: string;
+}
+
+export interface IGestioneEsercizio {
+  id: string;
+  condominio_id: string;
+  esercizio_id: string;
+  tipo: 'ORDINARIA' | 'STRAORDINARIA' | 'RISCALDAMENTO';
+  nome: string;
+  descrizione: string | null;
+  delibera_riferimento: string | null;
+  data_delibera: string | null;
+  importo_lavori_centesimi: number | null;
+  fondo_speciale_id: string | null;
+  stato: 'ATTIVA' | 'CHIUSA' | 'ANNULLATA';
+  autore_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IPreventivo {
+  id: string;
+  condominio_id: string;
+  esercizio_id: string;
+  gestione_id: string | null;
+  versione: number;
+  stato: 'BOZZA' | 'APPROVATO' | 'SUPERATO';
+  totale_previsto_centesimi: number;
+  data_approvazione: string | null;
+  delibera_approvazione: string | null;
+  precedente_id: string | null;
+  note: string | null;
+  autore_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IPreventivoVoce {
+  id: string;
+  condominio_id: string;
+  preventivo_id: string;
+  voce_spesa_id: string | null;
+  sottoconto_id: string | null;
+  tabella_millesimale_id: string | null;
+  versione_tabella: number;
+  criterio_ripartizione: 'TUTTI' | 'PALAZZO_SCALA' | 'TABELLA_SPECIFICA' | 'PERSONALIZZATO' | 'CONSUMI';
+  descrizione: string;
+  importo_previsto_centesimi: number;
+  created_at: string;
+}
+
+export interface IRipartoSpesa {
+  id: string;
+  condominio_id: string;
+  movimento_id: string;
+  unita_id: string;
+  utente_id: string | null;
+  soggetto_id: string | null;
+  tabella_millesimale_id: string | null;
+  versione_tabella: number;
+  valore_unitario: number;
+  somma_valori_partecipanti: number;
+  giorni_titolarita: number | null;
+  giorni_periodo: number | null;
+  quota_calcolata_centesimi: number;
+  resto_arrotondamento_centesimi: number;
+  importo_quota_centesimi: number;
+  quota_proprietario_centesimi: number;
+  quota_conduttore_centesimi: number;
+  quota_usufruttuario_centesimi: number;
+  da_conguagliare: boolean;
+  versione_motore_calcolo: string;
+  autore_id: string | null;
+  created_at: string;
+}
+
+export interface ILetturaContatore {
+  id: string;
+  condominio_id: string;
+  unita_id: string;
+  esercizio_id: string | null;
+  utente_id: string | null;
+  tipo_contatore: 'ACQUA' | 'RISCALDAMENTO' | 'ACQUA_CALDA';
+  matricola_contatore: string | null;
+  data_lettura: string;
+  valore_lettura: number;
+  consumo_calcolato: number | null;
+  is_stimata: boolean;
+  is_subentro: boolean;
+  da_conguagliare: boolean;
+  note: string | null;
+  autore_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IBollettino {
+  id: string;
+  condominio_id: string;
+  esercizio_id: string;
+  anno: number;
+  numero_progressivo: number;
+  destinatario_utente_id: string | null;
+  destinatario_soggetto_id: string | null;
+  intestazione_destinatario: string;
+  totale_centesimi: number;
+  importo_pagato_centesimi: number;
+  data_emissione: string | null;
+  data_scadenza: string;
+  stato: 'BOZZA' | 'VERIFICATO' | 'EMESSO' | 'PARZIALMENTE_PAGATO' | 'PAGATO' | 'RETTIFICATO' | 'ANNULLATO';
+  sostituisce_id: string | null;
+  sostituito_da_id: string | null;
+  motivo_rettifica_annullamento: string | null;
+  anomalie_rilevate: Json;
+  confermato_da: string | null;
+  confermato_at: string | null;
+  url_pdf: string | null;
+  iban_accredito: string | null;
+  causale_versamento: string | null;
+  versione: number;
+  versione_lock: number;
+  versione_motore_calcolo: string;
+  autore_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IBollettinoRiga {
+  id: string;
+  condominio_id: string;
+  bollettino_id: string;
+  rata_dettaglio_id: string | null;
+  unita_id: string;
+  gestione_id: string | null;
+  descrizione: string;
+  importo_centesimi: number;
+  data_scadenza: string;
+  created_at: string;
+}
+
+export interface IScadenziarioRecuperoCredito {
+  id: string;
+  condominio_id: string;
+  esercizio_id: string;
+  unita_id: string;
+  utente_id: string | null;
+  soggetto_id: string | null;
+  rata_dettaglio_id: string | null;
+  saldo_pregresso_id: string | null;
+  importo_esigibile_centesimi: number;
+  data_esigibilita: string;
+  data_decorrenza_semestre: string;
+  data_limite_azione: string;
+  alert_90gg_at: string;
+  alert_30gg_at: string;
+  alert_7gg_at: string;
+  stato: 'DA_AVVIARE' | 'AVVIATO' | 'DISPENSATO' | 'CHIUSO';
+  data_avvio_azione: string | null;
+  data_dispensa: string | null;
+  delibera_dispensa: string | null;
+  data_chiusura: string | null;
+  note: string | null;
+  autore_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IConguaglioUnita {
+  id: string;
+  condominio_id: string;
+  esercizio_id: string;
+  gestione_id: string | null;
+  unita_id: string;
+  utente_id: string | null;
+  soggetto_id: string | null;
+  periodo_da: string;
+  periodo_a: string;
+  quota_consuntivo_centesimi: number;
+  rate_versate_centesimi: number;
+  saldo_conguaglio_centesimi: number;
+  modalita_regolazione: 'DA_REGOLARE' | 'COMPENSATO_RATA' | 'RIMBORSATO' | 'RIPORTATO_NUOVO_ESERCIZIO' | null;
+  rata_compensazione_id: string | null;
+  autore_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============================== Database (formato supabase-js) ==============================
 /** Converte un'interfaccia in type-alias (richiesto da supabase-js: niente index-signature mancante). */
 type Plain<T> = { [K in keyof T]: T[K] };
@@ -706,7 +1144,7 @@ export interface Database {
       };
       audit_logs: {
         Row: Plain<IAuditLog>;
-        Insert: Plain<Omit<IAuditLog, 'id' | 'utente_id' | 'tabella' | 'record_id' | 'timestamp' | 'ip_address'> & Partial<Pick<IAuditLog, 'id' | 'utente_id' | 'tabella' | 'record_id' | 'timestamp' | 'ip_address'>>>;
+        Insert: Plain<Omit<IAuditLog, 'id' | 'utente_id' | 'tabella' | 'record_id' | 'timestamp' | 'ip_address' | 'condominio_id' | 'valore_prima' | 'valore_dopo' | 'motivo'> & Partial<Pick<IAuditLog, 'id' | 'utente_id' | 'tabella' | 'record_id' | 'timestamp' | 'ip_address' | 'condominio_id' | 'valore_prima' | 'valore_dopo' | 'motivo'>>>;
         Update: Plain<Partial<IAuditLog>>;
         Relationships: [];
       };
@@ -724,7 +1162,7 @@ export interface Database {
       };
       configurazioni_condominio: {
         Row: Plain<IConfigurazioneCondominio>;
-        Insert: Plain<Omit<IConfigurazioneCondominio, 'id' | 'palazzo_id' | 'abilita_social' | 'abilita_chat' | 'abilita_bacheca' | 'abilita_ticket' | 'abilita_prenotazioni' | 'abilita_pacchi' | 'updated_at'> & Partial<Pick<IConfigurazioneCondominio, 'id' | 'palazzo_id' | 'abilita_social' | 'abilita_chat' | 'abilita_bacheca' | 'abilita_ticket' | 'abilita_prenotazioni' | 'abilita_pacchi' | 'updated_at'>>>;
+        Insert: Plain<Omit<IConfigurazioneCondominio, 'id' | 'palazzo_id' | 'abilita_social' | 'abilita_chat' | 'abilita_bacheca' | 'abilita_ticket' | 'abilita_prenotazioni' | 'abilita_pacchi' | 'updated_at' | 'abilita_contabilita_nuova' | 'quota_fissa_riscaldamento_perc' | 'quota_fissa_acqua_perc' | 'ordine_imputazione_incassi' | 'decorrenza_recupero_mesi' | 'esigibilita_rate_preventivo' | 'interessi_mora_tasso_annuo' | 'interessi_mora_giorni_tolleranza' | 'interessi_mora_fonte'> & Partial<Pick<IConfigurazioneCondominio, 'id' | 'palazzo_id' | 'abilita_social' | 'abilita_chat' | 'abilita_bacheca' | 'abilita_ticket' | 'abilita_prenotazioni' | 'abilita_pacchi' | 'updated_at' | 'abilita_contabilita_nuova' | 'quota_fissa_riscaldamento_perc' | 'quota_fissa_acqua_perc' | 'ordine_imputazione_incassi' | 'decorrenza_recupero_mesi' | 'esigibilita_rate_preventivo' | 'interessi_mora_tasso_annuo' | 'interessi_mora_giorni_tolleranza' | 'interessi_mora_fonte'>>>;
         Update: Plain<Partial<IConfigurazioneCondominio>>;
         Relationships: [];
       };
@@ -748,7 +1186,7 @@ export interface Database {
       };
       anagrafiche_unita: {
         Row: Plain<IAnagraficaUnita>;
-        Insert: Plain<Omit<IAnagraficaUnita, 'id' | 'data_inizio' | 'data_fine' | 'quota_possesso' | 'created_at' | 'updated_at'> & Partial<Pick<IAnagraficaUnita, 'id' | 'data_inizio' | 'data_fine' | 'quota_possesso' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<IAnagraficaUnita, 'id' | 'data_inizio' | 'data_fine' | 'quota_possesso' | 'created_at' | 'updated_at' | 'condominio_id' | 'soggetto_id' | 'ruolo_titolarita' | 'is_referente_bollettino' | 'contratto_inizio' | 'contratto_fine' | 'patto_contrario_oneri' | 'tabella_oneri_custom' | 'regola_usufrutto_custom' | 'data_atto_subentro' | 'dante_causa_utente_id' | 'note_patto_straordinarie' | 'autore_id'> & Partial<Pick<IAnagraficaUnita, 'id' | 'data_inizio' | 'data_fine' | 'quota_possesso' | 'created_at' | 'updated_at' | 'condominio_id' | 'soggetto_id' | 'ruolo_titolarita' | 'is_referente_bollettino' | 'contratto_inizio' | 'contratto_fine' | 'patto_contrario_oneri' | 'tabella_oneri_custom' | 'regola_usufrutto_custom' | 'data_atto_subentro' | 'dante_causa_utente_id' | 'note_patto_straordinarie' | 'autore_id'>>>;
         Update: Plain<Partial<IAnagraficaUnita>>;
         Relationships: [];
       };
@@ -772,7 +1210,7 @@ export interface Database {
       };
       fornitori: {
         Row: Plain<IFornitore>;
-        Insert: Plain<Omit<IFornitore, 'id' | 'p_iva' | 'iban' | 'email' | 'telefono' | 'categoria' | 'created_at' | 'updated_at'> & Partial<Pick<IFornitore, 'id' | 'p_iva' | 'iban' | 'email' | 'telefono' | 'categoria' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<IFornitore, 'id' | 'p_iva' | 'iban' | 'email' | 'telefono' | 'categoria' | 'created_at' | 'updated_at' | 'condominio_id' | 'codice_fiscale' | 'pec' | 'indirizzo'> & Partial<Pick<IFornitore, 'id' | 'p_iva' | 'iban' | 'email' | 'telefono' | 'categoria' | 'created_at' | 'updated_at' | 'condominio_id' | 'codice_fiscale' | 'pec' | 'indirizzo'>>>;
         Update: Plain<Partial<IFornitore>>;
         Relationships: [];
       };
@@ -808,61 +1246,61 @@ export interface Database {
       };
       esercizi_contabili: {
         Row: Plain<IEsercizioContabile>;
-        Insert: Plain<Omit<IEsercizioContabile, 'id' | 'stato' | 'created_at' | 'updated_at'> & Partial<Pick<IEsercizioContabile, 'id' | 'stato' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<IEsercizioContabile, 'id' | 'stato' | 'created_at' | 'updated_at' | 'stato_modello' | 'data_chiusura_effettiva' | 'data_approvazione_rendiconto' | 'delibera_approvazione' | 'scadenza_approvazione_180gg' | 'saldo_iniziale_conto_centesimi' | 'saldo_iniziale_cassa_centesimi' | 'saldo_finale_conto_centesimi' | 'saldo_finale_cassa_centesimi' | 'stato_rendiconto' | 'nota_sintetica_esplicativa' | 'riepilogo_finanziario_json' | 'registro_contabilita_completo' | 'versione_lock' | 'autore_id'> & Partial<Pick<IEsercizioContabile, 'id' | 'stato' | 'created_at' | 'updated_at' | 'stato_modello' | 'data_chiusura_effettiva' | 'data_approvazione_rendiconto' | 'delibera_approvazione' | 'scadenza_approvazione_180gg' | 'saldo_iniziale_conto_centesimi' | 'saldo_iniziale_cassa_centesimi' | 'saldo_finale_conto_centesimi' | 'saldo_finale_cassa_centesimi' | 'stato_rendiconto' | 'nota_sintetica_esplicativa' | 'riepilogo_finanziario_json' | 'registro_contabilita_completo' | 'versione_lock' | 'autore_id'>>>;
         Update: Plain<Partial<IEsercizioContabile>>;
         Relationships: [];
       };
       tabelle_millesimali: {
         Row: Plain<ITabellaMillesimale>;
-        Insert: Plain<Omit<ITabellaMillesimale, 'id' | 'palazzo_id' | 'scala_colonna_id' | 'totale' | 'created_at' | 'updated_at'> & Partial<Pick<ITabellaMillesimale, 'id' | 'palazzo_id' | 'scala_colonna_id' | 'totale' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<ITabellaMillesimale, 'id' | 'palazzo_id' | 'scala_colonna_id' | 'totale' | 'created_at' | 'updated_at' | 'tipo' | 'origine' | 'tabella_sorgente_id' | 'da_rigenerare' | 'stato_approvazione' | 'data_approvazione' | 'delibera_riferimento' | 'valida_da' | 'valida_a' | 'versione' | 'precedente_id' | 'autore_id'> & Partial<Pick<ITabellaMillesimale, 'id' | 'palazzo_id' | 'scala_colonna_id' | 'totale' | 'created_at' | 'updated_at' | 'tipo' | 'origine' | 'tabella_sorgente_id' | 'da_rigenerare' | 'stato_approvazione' | 'data_approvazione' | 'delibera_riferimento' | 'valida_da' | 'valida_a' | 'versione' | 'precedente_id' | 'autore_id'>>>;
         Update: Plain<Partial<ITabellaMillesimale>>;
         Relationships: [];
       };
       quote_millesimali: {
         Row: Plain<IQuotaMillesimale>;
-        Insert: Plain<Omit<IQuotaMillesimale, 'id'> & Partial<Pick<IQuotaMillesimale, 'id'>>>;
+        Insert: Plain<Omit<IQuotaMillesimale, 'id' | 'condominio_id' | 'valore_millesimi_int' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<IQuotaMillesimale, 'id' | 'condominio_id' | 'valore_millesimi_int' | 'autore_id' | 'created_at' | 'updated_at'>>>;
         Update: Plain<Partial<IQuotaMillesimale>>;
         Relationships: [];
       };
       movimenti_contabili: {
         Row: Plain<IMovimentoContabile>;
-        Insert: Plain<Omit<IMovimentoContabile, 'id' | 'sottoconto_id' | 'fornitore_id' | 'descrizione' | 'doc_allegato_id' | 'created_at' | 'updated_at'> & Partial<Pick<IMovimentoContabile, 'id' | 'sottoconto_id' | 'fornitore_id' | 'descrizione' | 'doc_allegato_id' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<IMovimentoContabile, 'id' | 'sottoconto_id' | 'fornitore_id' | 'descrizione' | 'doc_allegato_id' | 'created_at' | 'updated_at' | 'condominio_id' | 'gestione_id' | 'voce_spesa_id' | 'numero_progressivo' | 'data_registrazione' | 'importo_centesimi' | 'tag_spesa' | 'competenza_da' | 'competenza_a' | 'chi_paga' | 'tabella_millesimale_id' | 'versione_tabella' | 'palazzo_id' | 'scala_colonna_id' | 'atto_deroga_tipo' | 'atto_deroga_data' | 'atto_deroga_numero' | 'motivazione_deroga' | 'delibera_riferimento' | 'stato_spesa' | 'storno_di_id' | 'eccezione_conto_corrente' | 'motivo_eccezione_cc' | 'impronta_file_giustificativo' | 'imponibile_centesimi' | 'iva_centesimi' | 'ritenuta_acconto_centesimi' | 'ritenuta_aliquota_perc' | 'numero_fattura' | 'data_scadenza_fattura' | 'fondo_id' | 'versione_motore_calcolo' | 'autore_id'> & Partial<Pick<IMovimentoContabile, 'id' | 'sottoconto_id' | 'fornitore_id' | 'descrizione' | 'doc_allegato_id' | 'created_at' | 'updated_at' | 'condominio_id' | 'gestione_id' | 'voce_spesa_id' | 'numero_progressivo' | 'data_registrazione' | 'importo_centesimi' | 'tag_spesa' | 'competenza_da' | 'competenza_a' | 'chi_paga' | 'tabella_millesimale_id' | 'versione_tabella' | 'palazzo_id' | 'scala_colonna_id' | 'atto_deroga_tipo' | 'atto_deroga_data' | 'atto_deroga_numero' | 'motivazione_deroga' | 'delibera_riferimento' | 'stato_spesa' | 'storno_di_id' | 'eccezione_conto_corrente' | 'motivo_eccezione_cc' | 'impronta_file_giustificativo' | 'imponibile_centesimi' | 'iva_centesimi' | 'ritenuta_acconto_centesimi' | 'ritenuta_aliquota_perc' | 'numero_fattura' | 'data_scadenza_fattura' | 'fondo_id' | 'versione_motore_calcolo' | 'autore_id'>>>;
         Update: Plain<Partial<IMovimentoContabile>>;
         Relationships: [];
       };
       rate_testata: {
         Row: Plain<IRataTestata>;
-        Insert: Plain<Omit<IRataTestata, 'id' | 'tabella_millesimale_id' | 'pubblicata' | 'created_at' | 'updated_at'> & Partial<Pick<IRataTestata, 'id' | 'tabella_millesimale_id' | 'pubblicata' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<IRataTestata, 'id' | 'tabella_millesimale_id' | 'pubblicata' | 'created_at' | 'updated_at' | 'condominio_id' | 'gestione_id' | 'preventivo_id' | 'versione_preventivo' | 'stato_preventivo' | 'data_approvazione_preventivo' | 'delibera_approvazione' | 'emessa_con_override' | 'motivo_override' | 'delibera_override' | 'numero_rata' | 'percentuale_preventivo' | 'autore_id'> & Partial<Pick<IRataTestata, 'id' | 'tabella_millesimale_id' | 'pubblicata' | 'created_at' | 'updated_at' | 'condominio_id' | 'gestione_id' | 'preventivo_id' | 'versione_preventivo' | 'stato_preventivo' | 'data_approvazione_preventivo' | 'delibera_approvazione' | 'emessa_con_override' | 'motivo_override' | 'delibera_override' | 'numero_rata' | 'percentuale_preventivo' | 'autore_id'>>>;
         Update: Plain<Partial<IRataTestata>>;
         Relationships: [];
       };
       rate_dettaglio: {
         Row: Plain<IRataDettaglio>;
-        Insert: Plain<Omit<IRataDettaglio, 'id' | 'utente_id' | 'importo_pagato' | 'stato' | 'data_pagamento' | 'bollettino_url' | 'created_at' | 'updated_at'> & Partial<Pick<IRataDettaglio, 'id' | 'utente_id' | 'importo_pagato' | 'stato' | 'data_pagamento' | 'bollettino_url' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<IRataDettaglio, 'id' | 'utente_id' | 'importo_pagato' | 'stato' | 'data_pagamento' | 'bollettino_url' | 'created_at' | 'updated_at' | 'condominio_id' | 'soggetto_id' | 'obbligato_in_solido_utente_id' | 'importo_dovuto_centesimi' | 'importo_pagato_centesimi' | 'stato_rata_modello' | 'data_esigibilita' | 'bollettino_id' | 'versione_motore_calcolo' | 'autore_id'> & Partial<Pick<IRataDettaglio, 'id' | 'utente_id' | 'importo_pagato' | 'stato' | 'data_pagamento' | 'bollettino_url' | 'created_at' | 'updated_at' | 'condominio_id' | 'soggetto_id' | 'obbligato_in_solido_utente_id' | 'importo_dovuto_centesimi' | 'importo_pagato_centesimi' | 'stato_rata_modello' | 'data_esigibilita' | 'bollettino_id' | 'versione_motore_calcolo' | 'autore_id'>>>;
         Update: Plain<Partial<IRataDettaglio>>;
         Relationships: [];
       };
       saldi_pregressi: {
         Row: Plain<ISaldoPregresso>;
-        Insert: Plain<Omit<ISaldoPregresso, 'id' | 'utente_id' | 'note' | 'created_at'> & Partial<Pick<ISaldoPregresso, 'id' | 'utente_id' | 'note' | 'created_at'>>>;
+        Insert: Plain<Omit<ISaldoPregresso, 'id' | 'utente_id' | 'note' | 'created_at' | 'condominio_id' | 'gestione_id' | 'soggetto_id' | 'obbligato_in_solido_utente_id' | 'anno_competenza' | 'importo_centesimi' | 'importo_pagato_centesimi' | 'data_esigibilita' | 'autore_id' | 'updated_at'> & Partial<Pick<ISaldoPregresso, 'id' | 'utente_id' | 'note' | 'created_at' | 'condominio_id' | 'gestione_id' | 'soggetto_id' | 'obbligato_in_solido_utente_id' | 'anno_competenza' | 'importo_centesimi' | 'importo_pagato_centesimi' | 'data_esigibilita' | 'autore_id' | 'updated_at'>>>;
         Update: Plain<Partial<ISaldoPregresso>>;
         Relationships: [];
       };
       pagamenti_rate: {
         Row: Plain<IPagamentoRata>;
-        Insert: Plain<Omit<IPagamentoRata, 'id' | 'utente_id' | 'provider' | 'provider_ref' | 'stato' | 'created_at' | 'completed_at' | 'updated_at'> & Partial<Pick<IPagamentoRata, 'id' | 'utente_id' | 'provider' | 'provider_ref' | 'stato' | 'created_at' | 'completed_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<IPagamentoRata, 'id' | 'utente_id' | 'provider' | 'provider_ref' | 'stato' | 'created_at' | 'completed_at' | 'updated_at' | 'condominio_id' | 'importo_centesimi' | 'pagatore_nome' | 'pagatore_utente_id' | 'riferimento_cro' | 'data_valuta' | 'storno_di_id' | 'autore_id'> & Partial<Pick<IPagamentoRata, 'id' | 'utente_id' | 'provider' | 'provider_ref' | 'stato' | 'created_at' | 'completed_at' | 'updated_at' | 'condominio_id' | 'importo_centesimi' | 'pagatore_nome' | 'pagatore_utente_id' | 'riferimento_cro' | 'data_valuta' | 'storno_di_id' | 'autore_id'>>>;
         Update: Plain<Partial<IPagamentoRata>>;
         Relationships: [];
       };
       transazioni_bancarie: {
         Row: Plain<ITransazioneBancaria>;
-        Insert: Plain<Omit<ITransazioneBancaria, 'id' | 'causale' | 'origine' | 'hash_movimento' | 'stato_riconciliazione' | 'created_at' | 'updated_at'> & Partial<Pick<ITransazioneBancaria, 'id' | 'causale' | 'origine' | 'hash_movimento' | 'stato_riconciliazione' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<ITransazioneBancaria, 'id' | 'causale' | 'origine' | 'hash_movimento' | 'stato_riconciliazione' | 'created_at' | 'updated_at' | 'importo_centesimi' | 'pagatore_nome' | 'riferimento_cro' | 'storno_di_id' | 'autore_id'> & Partial<Pick<ITransazioneBancaria, 'id' | 'causale' | 'origine' | 'hash_movimento' | 'stato_riconciliazione' | 'created_at' | 'updated_at' | 'importo_centesimi' | 'pagatore_nome' | 'riferimento_cro' | 'storno_di_id' | 'autore_id'>>>;
         Update: Plain<Partial<ITransazioneBancaria>>;
         Relationships: [];
       };
       riconciliazioni_log: {
         Row: Plain<IRiconciliazioneLog>;
-        Insert: Plain<Omit<IRiconciliazioneLog, 'id' | 'importo_assegnato' | 'metodo' | 'data_matching'> & Partial<Pick<IRiconciliazioneLog, 'id' | 'importo_assegnato' | 'metodo' | 'data_matching'>>>;
+        Insert: Plain<Omit<IRiconciliazioneLog, 'id' | 'importo_assegnato' | 'metodo' | 'data_matching' | 'condominio_id' | 'importo_assegnato_centesimi' | 'bollettino_id' | 'saldo_pregresso_id' | 'autore_id'> & Partial<Pick<IRiconciliazioneLog, 'id' | 'importo_assegnato' | 'metodo' | 'data_matching' | 'condominio_id' | 'importo_assegnato_centesimi' | 'bollettino_id' | 'saldo_pregresso_id' | 'autore_id'>>>;
         Update: Plain<Partial<IRiconciliazioneLog>>;
         Relationships: [];
       };
@@ -1052,6 +1490,96 @@ export interface Database {
         Update: Plain<Partial<IImportJob>>;
         Relationships: [];
       };
+      migrazioni_contabilita_log: {
+        Row: Plain<IMigrazioneContabilitaLog>;
+        Insert: Plain<Omit<IMigrazioneContabilitaLog, 'id' | 'conteggi_prima' | 'conteggi_dopo' | 'somme_prima' | 'somme_dopo' | 'righe_orfane' | 'note' | 'eseguita_at'> & Partial<Pick<IMigrazioneContabilitaLog, 'id' | 'conteggi_prima' | 'conteggi_dopo' | 'somme_prima' | 'somme_dopo' | 'righe_orfane' | 'note' | 'eseguita_at'>>>;
+        Update: Plain<Partial<IMigrazioneContabilitaLog>>;
+        Relationships: [];
+      };
+      soggetti_contabili: {
+        Row: Plain<ISoggettoContabile>;
+        Insert: Plain<Omit<ISoggettoContabile, 'id' | 'utente_id' | 'fornitore_id' | 'tipo_soggetto' | 'codice_fiscale' | 'partita_iva' | 'indirizzo' | 'citta' | 'cap' | 'provincia' | 'email' | 'pec' | 'telefono' | 'iban' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<ISoggettoContabile, 'id' | 'utente_id' | 'fornitore_id' | 'tipo_soggetto' | 'codice_fiscale' | 'partita_iva' | 'indirizzo' | 'citta' | 'cap' | 'provincia' | 'email' | 'pec' | 'telefono' | 'iban' | 'autore_id' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<ISoggettoContabile>>;
+        Relationships: [];
+      };
+      assegnazioni_amministratore: {
+        Row: Plain<IAssegnazioneAmministratore>;
+        Insert: Plain<Omit<IAssegnazioneAmministratore, 'id' | 'ruolo_incarico' | 'permessi_collaboratore' | 'data_cessazione' | 'delibera_nomina' | 'compenso_annuo_centesimi' | 'dettaglio_compenso' | 'is_attivo' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<IAssegnazioneAmministratore, 'id' | 'ruolo_incarico' | 'permessi_collaboratore' | 'data_cessazione' | 'delibera_nomina' | 'compenso_annuo_centesimi' | 'dettaglio_compenso' | 'is_attivo' | 'autore_id' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<IAssegnazioneAmministratore>>;
+        Relationships: [];
+      };
+      voci_spesa_catalogo: {
+        Row: Plain<IVoceSpesaCatalogo>;
+        Insert: Plain<Omit<IVoceSpesaCatalogo, 'id' | 'sottoconto_id' | 'tag_default' | 'criterio_default' | 'tabella_default_id' | 'quota_inquilino_default_perc' | 'is_a_periodo' | 'is_compenso_admin' | 'attiva' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<IVoceSpesaCatalogo, 'id' | 'sottoconto_id' | 'tag_default' | 'criterio_default' | 'tabella_default_id' | 'quota_inquilino_default_perc' | 'is_a_periodo' | 'is_compenso_admin' | 'attiva' | 'autore_id' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<IVoceSpesaCatalogo>>;
+        Relationships: [];
+      };
+      fondi: {
+        Row: Plain<IFondo>;
+        Insert: Plain<Omit<IFondo, 'id' | 'esercizio_id' | 'delibera_costituzione' | 'data_delibera' | 'importo_lavori_centesimi' | 'importo_obiettivo_centesimi' | 'saldo_attuale_centesimi' | 'is_progressivo_sal' | 'contratto_appalto_ref' | 'stato' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<IFondo, 'id' | 'esercizio_id' | 'delibera_costituzione' | 'data_delibera' | 'importo_lavori_centesimi' | 'importo_obiettivo_centesimi' | 'saldo_attuale_centesimi' | 'is_progressivo_sal' | 'contratto_appalto_ref' | 'stato' | 'autore_id' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<IFondo>>;
+        Relationships: [];
+      };
+      movimenti_fondo: {
+        Row: Plain<IMovimentoFondo>;
+        Insert: Plain<Omit<IMovimentoFondo, 'id' | 'movimento_contabile_id' | 'data' | 'is_override_vincolo' | 'motivo_override' | 'delibera_override' | 'autore_id' | 'created_at'> & Partial<Pick<IMovimentoFondo, 'id' | 'movimento_contabile_id' | 'data' | 'is_override_vincolo' | 'motivo_override' | 'delibera_override' | 'autore_id' | 'created_at'>>>;
+        Update: Plain<Partial<IMovimentoFondo>>;
+        Relationships: [];
+      };
+      gestioni_esercizio: {
+        Row: Plain<IGestioneEsercizio>;
+        Insert: Plain<Omit<IGestioneEsercizio, 'id' | 'descrizione' | 'delibera_riferimento' | 'data_delibera' | 'importo_lavori_centesimi' | 'fondo_speciale_id' | 'stato' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<IGestioneEsercizio, 'id' | 'descrizione' | 'delibera_riferimento' | 'data_delibera' | 'importo_lavori_centesimi' | 'fondo_speciale_id' | 'stato' | 'autore_id' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<IGestioneEsercizio>>;
+        Relationships: [];
+      };
+      preventivi: {
+        Row: Plain<IPreventivo>;
+        Insert: Plain<Omit<IPreventivo, 'id' | 'gestione_id' | 'versione' | 'stato' | 'totale_previsto_centesimi' | 'data_approvazione' | 'delibera_approvazione' | 'precedente_id' | 'note' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<IPreventivo, 'id' | 'gestione_id' | 'versione' | 'stato' | 'totale_previsto_centesimi' | 'data_approvazione' | 'delibera_approvazione' | 'precedente_id' | 'note' | 'autore_id' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<IPreventivo>>;
+        Relationships: [];
+      };
+      preventivi_voci: {
+        Row: Plain<IPreventivoVoce>;
+        Insert: Plain<Omit<IPreventivoVoce, 'id' | 'voce_spesa_id' | 'sottoconto_id' | 'tabella_millesimale_id' | 'versione_tabella' | 'criterio_ripartizione' | 'created_at'> & Partial<Pick<IPreventivoVoce, 'id' | 'voce_spesa_id' | 'sottoconto_id' | 'tabella_millesimale_id' | 'versione_tabella' | 'criterio_ripartizione' | 'created_at'>>>;
+        Update: Plain<Partial<IPreventivoVoce>>;
+        Relationships: [];
+      };
+      riparti_spese: {
+        Row: Plain<IRipartoSpesa>;
+        Insert: Plain<Omit<IRipartoSpesa, 'id' | 'utente_id' | 'soggetto_id' | 'tabella_millesimale_id' | 'versione_tabella' | 'valore_unitario' | 'somma_valori_partecipanti' | 'giorni_titolarita' | 'giorni_periodo' | 'resto_arrotondamento_centesimi' | 'quota_proprietario_centesimi' | 'quota_conduttore_centesimi' | 'quota_usufruttuario_centesimi' | 'da_conguagliare' | 'versione_motore_calcolo' | 'autore_id' | 'created_at'> & Partial<Pick<IRipartoSpesa, 'id' | 'utente_id' | 'soggetto_id' | 'tabella_millesimale_id' | 'versione_tabella' | 'valore_unitario' | 'somma_valori_partecipanti' | 'giorni_titolarita' | 'giorni_periodo' | 'resto_arrotondamento_centesimi' | 'quota_proprietario_centesimi' | 'quota_conduttore_centesimi' | 'quota_usufruttuario_centesimi' | 'da_conguagliare' | 'versione_motore_calcolo' | 'autore_id' | 'created_at'>>>;
+        Update: Plain<Partial<IRipartoSpesa>>;
+        Relationships: [];
+      };
+      letture_contatori: {
+        Row: Plain<ILetturaContatore>;
+        Insert: Plain<Omit<ILetturaContatore, 'id' | 'esercizio_id' | 'utente_id' | 'matricola_contatore' | 'consumo_calcolato' | 'is_stimata' | 'is_subentro' | 'da_conguagliare' | 'note' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<ILetturaContatore, 'id' | 'esercizio_id' | 'utente_id' | 'matricola_contatore' | 'consumo_calcolato' | 'is_stimata' | 'is_subentro' | 'da_conguagliare' | 'note' | 'autore_id' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<ILetturaContatore>>;
+        Relationships: [];
+      };
+      bollettini: {
+        Row: Plain<IBollettino>;
+        Insert: Plain<Omit<IBollettino, 'id' | 'destinatario_utente_id' | 'destinatario_soggetto_id' | 'importo_pagato_centesimi' | 'data_emissione' | 'stato' | 'sostituisce_id' | 'sostituito_da_id' | 'motivo_rettifica_annullamento' | 'anomalie_rilevate' | 'confermato_da' | 'confermato_at' | 'url_pdf' | 'iban_accredito' | 'causale_versamento' | 'versione' | 'versione_lock' | 'versione_motore_calcolo' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<IBollettino, 'id' | 'destinatario_utente_id' | 'destinatario_soggetto_id' | 'importo_pagato_centesimi' | 'data_emissione' | 'stato' | 'sostituisce_id' | 'sostituito_da_id' | 'motivo_rettifica_annullamento' | 'anomalie_rilevate' | 'confermato_da' | 'confermato_at' | 'url_pdf' | 'iban_accredito' | 'causale_versamento' | 'versione' | 'versione_lock' | 'versione_motore_calcolo' | 'autore_id' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<IBollettino>>;
+        Relationships: [];
+      };
+      bollettini_righe: {
+        Row: Plain<IBollettinoRiga>;
+        Insert: Plain<Omit<IBollettinoRiga, 'id' | 'rata_dettaglio_id' | 'gestione_id' | 'created_at'> & Partial<Pick<IBollettinoRiga, 'id' | 'rata_dettaglio_id' | 'gestione_id' | 'created_at'>>>;
+        Update: Plain<Partial<IBollettinoRiga>>;
+        Relationships: [];
+      };
+      scadenziario_recupero_crediti: {
+        Row: Plain<IScadenziarioRecuperoCredito>;
+        Insert: Plain<Omit<IScadenziarioRecuperoCredito, 'id' | 'utente_id' | 'soggetto_id' | 'rata_dettaglio_id' | 'saldo_pregresso_id' | 'stato' | 'data_avvio_azione' | 'data_dispensa' | 'delibera_dispensa' | 'data_chiusura' | 'note' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<IScadenziarioRecuperoCredito, 'id' | 'utente_id' | 'soggetto_id' | 'rata_dettaglio_id' | 'saldo_pregresso_id' | 'stato' | 'data_avvio_azione' | 'data_dispensa' | 'delibera_dispensa' | 'data_chiusura' | 'note' | 'autore_id' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<IScadenziarioRecuperoCredito>>;
+        Relationships: [];
+      };
+      conguagli_unita: {
+        Row: Plain<IConguaglioUnita>;
+        Insert: Plain<Omit<IConguaglioUnita, 'id' | 'gestione_id' | 'utente_id' | 'soggetto_id' | 'quota_consuntivo_centesimi' | 'rate_versate_centesimi' | 'saldo_conguaglio_centesimi' | 'modalita_regolazione' | 'rata_compensazione_id' | 'autore_id' | 'created_at' | 'updated_at'> & Partial<Pick<IConguaglioUnita, 'id' | 'gestione_id' | 'utente_id' | 'soggetto_id' | 'quota_consuntivo_centesimi' | 'rate_versate_centesimi' | 'saldo_conguaglio_centesimi' | 'modalita_regolazione' | 'rata_compensazione_id' | 'autore_id' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<IConguaglioUnita>>;
+        Relationships: [];
+      };
     };
     Views: {
       profili_pubblici: {
@@ -1069,6 +1597,7 @@ export interface Database {
       has_cond_access: { Args: { p_cond: string }; Returns: boolean };
       has_role_in: { Args: { p_cond: string; p_codice: string }; Returns: boolean };
       has_unita_access: { Args: { p_unita: string }; Returns: boolean };
+      has_readonly_audit_access: { Args: { p_cond: string }; Returns: boolean };
       can_read_documento: { Args: { p_doc: string }; Returns: boolean };
       risultati_voto: {
         Args: { p_punto: string };

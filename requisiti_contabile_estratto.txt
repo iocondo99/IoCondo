@@ -1,0 +1,255 @@
+﻿Requisiti modulo contabile – gestionale condominiale
+Versione 3 dell'8/11/2026. Il database è già realizzato: il documento descrive come analizzarlo, adeguarlo e proteggerlo dalle regressioni (RC-O), il modello obiettivo con cui confrontarlo, i requisiti funzionali e 22 casi di test. I punti non verificati sul testo ufficiale sono marcati [DA VERIFICARE]. Non è un parere legale.
+1. Perimetro e principi
+Il modulo gestisce i conti del condominio: dal preventivo al rendiconto, passando da spese, rate, bollettini, incassi e morosità. Non genera dichiarazioni fiscali.
+Dentro: analisi e adeguamento del database esistente; anagrafica condominio, unità e soggetti; tabelle millesimali; registro di contabilità; spese e ripartizione; preventivo e rate; bollettini; incassi; morosità e scadenziario di recupero; subentri per vendita; quota proprietario, inquilino e usufruttuario; fondi; rendiconto annuale; conguaglio; audit; passaggio di consegne tra amministratori.
+Fuori in questa versione: F24, CU e 770; invio dei bollettini (endpoint da sviluppare dopo, vedi RC-E5); import automatico dell'estratto conto; assemblee e verbali; pagamenti online.
+Ipotesi da confermare: le ritenute d'acconto sui fornitori sono solo un dato della fattura (importo e aliquota), senza versamenti né certificazioni.
+Principi guida
+I dati appartengono al condominio, non all'account. Cambiare amministratore non cambia i dati.
+Niente cancellazioni contabili. Un errore si corregge con una scrittura contraria collegata all'originale.
+Importi in centesimi interi. Mai numeri decimali in virgola mobile per i soldi.
+Ogni calcolo è riproducibile. Si salvano criterio, tabella e versione usati.
+Il software calcola e propone, l'amministratore verifica ed emette.
+Dove la norma è derogabile, la regola è configurazione. I criteri degli artt. 1123 e 1124 c.c. possono essere modificati da regolamento contrattuale o delibera unanime, quindi il criterio usato registra l'atto che lo giustifica.
+Il database esistente si estende, non si ricrea. Ogni modifica allo schema passa da analisi, mappa delle dipendenze, test di regressione e migrazione reversibile (RC-O).
+Nessuna regressione silenziosa. Il comportamento esistente si fissa con test prima di modificarlo, e i casi di test della sezione 10 non devono mai rompersi.
+2. Glossario
+I termini sotto vanno usati con questo significato in codice, interfaccia e documenti.
+3. Database esistente, modello obiettivo e stati
+Il database è già realizzato. Questa sezione ha due parti: il metodo per analizzarlo e adeguarlo (RC-O) e il modello obiettivo, cioè entità e stati con cui confrontarlo. Ogni entità del modello obiettivo ha ID immutabile (UUID), data di creazione, autore e riferimento al condominio. Bollettini, spese e movimenti hanno in più un numero progressivo per condominio e anno.
+Database esistente (RC-O)
+Il database è già realizzato. Le tabelle "Entità" e "Stati e transizioni" qui sotto sono il modello obiettivo del modulo contabile: non vanno ricreate da zero, ma confrontate con lo schema che c'è.
+RC-O1 [MVP] Prima di scrivere codice si confronta lo schema esistente con questo modello e si compila l'elenco delle differenze: tabelle mancanti, colonne mancanti, vincoli, indici, tipi sbagliati.
+RC-O2 [MVP] Dove una tabella esiste già, si riusa e si aggiungono solo le colonne mancanti. Le nuove tabelle servono solo per entità assenti.
+RC-O3 [MVP] Ogni modifica è una migrazione versionata e reversibile, provata su una copia prima che sul database reale. Nessuna colonna esistente si rinomina o si elimina senza controllare cosa la usa.
+RC-O4 [MVP] Lo schema finale deve avere, anche dove oggi manca: importi in centesimi interi, ID immutabili, riferimento al condominio su ogni riga, campi di audit (autore e data), stati come elenchi chiusi, date di inizio e fine su titolarità e assegnazioni amministratore, versione su tabelle millesimali e preventivi.
+RC-O5 [MVP] I dati già presenti non si perdono. Ogni migrazione ha un controllo prima e dopo (conteggi e somme) e un piano di ripristino.
+RC-O6 [MVP] Il confronto e le differenze approvate si salvano in questo documento o in un file collegato. Lo schema esistente va dato come contesto al primo prompt di sviluppo, con la richiesta di proporre solo le differenze.
+Analisi, impatti e regressioni (RC-O7 – RC-O13)
+RC-O7 [MVP] Analisi tabella per tabella. Per ogni tabella esistente si decide: tenere così, estendere, sostituire. La decisione si basa su cosa contiene, chi la usa (query, API, interfaccia, report, job) e quanti dati ha.
+RC-O8 [MVP] Mappa delle dipendenze. Prima di toccare una tabella o una colonna si elencano tutti i punti del codice che la leggono o la scrivono, inclusi vincoli, trigger, viste e regole di sicurezza per riga. Una modifica senza questo elenco non si fa.
+RC-O9 [MVP] Impatti futuri. Ogni scelta di schema va controllata anche contro la fase 2: endpoint di inoltro dei bollettini, preset degli artt. 1124-1126, tabelle derivate, interessi di mora, import dell'estratto conto. Le colonne e gli ID che serviranno dopo (per esempio ID e versione del bollettino) si predispongono ora, per non rifare le migrazioni.
+RC-O10 [MVP] Modifiche in due passi. Ogni modifica non banale segue il metodo "prima aggiungi, poi sposta, poi togli": si aggiunge la nuova struttura, il codice passa a usarla, e solo in un rilascio successivo si elimina la vecchia. Mai rinominare o eliminare in un solo rilascio.
+RC-O11 [MVP] Test di regressione. Prima di modificare lo schema si scrivono test che fissano il comportamento attuale: risultati delle query e delle API esistenti su un set di dati di esempio. Dopo la migrazione gli stessi test devono dare lo stesso risultato. I casi di test T1-T22 (sezione 10) si aggiungono a questi.
+RC-O12 [MVP] Gestione degli errori di migrazione. Ogni migrazione ha controllo prima e dopo (conteggi, somme, righe orfane), registro degli esiti e ripristino provato. Se un controllo fallisce, la migrazione si ferma e non applica nulla a metà.
+RC-O13 [MVP] Rilascio graduale. Le funzioni nuove che usano lo schema modificato partono dietro un interruttore, attivabile per un solo condominio di prova. Dopo il rilascio si controllano errori e importi anomali prima di estenderlo.
+Classificazione delle modifiche
+La conversione degli importi in centesimi interi, se oggi sono salvati in euro con decimali, è la modifica con più rischio di regressione: tutti i punti che leggono o mostrano un importo vanno rivisti e testati.
+Procedura di analisi dello schema
+Inventario. Elenca tabelle, colonne, tipi, vincoli, indici, viste, trigger e regole di sicurezza. Conta le righe di ogni tabella.
+Mappa delle dipendenze. Per ogni tabella, chi la legge e chi la scrive (RC-O8).
+Confronto con il modello obiettivo. Per ogni entità segna: presente e completa, presente da estendere, assente, diversa e da sostituire.
+Classificazione. Ogni differenza è additiva, rischiosa o che rompe il codice. Valuta l'impatto sulla fase 2 (RC-O9).
+Test di regressione sul comportamento attuale (RC-O11).
+Migrazioni. Prova su una copia, rilascio graduale e ripristino pronto (RC-O10, RC-O12, RC-O13).
+L'elenco delle differenze approvato si salva (RC-O6). Solo dopo si procede con i requisiti funzionali delle sezioni 4-9.
+Entità
+Stati e transizioni
+4. Anagrafica: condominio, tabelle, soggetti, amministratore
+Le etichette [MVP] e [F2] indicano la fase. Ogni requisito ha un'accettazione verificabile.
+Condominio, palazzi, unità
+RC-A1 [MVP] Il condominio ha nome, codice fiscale, indirizzo, struttura in palazzi o scale e un conto corrente. Accettazione: non si crea un condominio senza IBAN.
+RC-A2 [MVP] Ogni unità ha identificativo, palazzo o scala, piano e tipo (appartamento, box, cantina, negozio). Accettazione: l'unità è sempre collegata a un condominio.
+Tabelle millesimali
+RC-A3 [MVP] Più tabelle per condominio: proprietà, scala, ascensore, riscaldamento, acqua, uso, altra. Ogni unità ha un valore per tabella, fino a 3 decimali. Accettazione: la somma di una tabella è controllata (default 1000) e una tabella a 998 segnala l'errore.
+RC-A4 [MVP] Le tabelle sono versionate con data di inizio validità. Ogni riparto salva la versione usata. Accettazione: una revisione non cambia nessun rendiconto già approvato.
+RC-A5 [MVP] Ogni tabella ha stato di approvazione (bozza o approvata, con data e delibera). Una ripartizione con tabella non approvata genera un avviso, non un blocco. [DA VERIFICARE: artt. 68-69 disp. att.]
+RC-A6 [F2] Tabelle derivate per palazzo o scala: ricalcolo proporzionale su base 1000 a partire dalla tabella di proprietà. Accettazione: la derivata ha un link alla sorgente; se la sorgente cambia, diventa "da rigenerare" e non si aggiorna da sola.
+RC-A7 [MVP] Tabelle non derivabili (riscaldamento, acqua, uso) sono sempre inserite a mano.
+Soggetti e titolarità
+RC-A8 [MVP] Il soggetto ha nome o denominazione, CF o P.IVA, indirizzo e PEC o email. È separato dall'unità. Accettazione: un soggetto con più unità compare una sola volta.
+RC-A9 [MVP] La titolarità lega soggetto e unità con ruolo (proprietario, comproprietario, usufruttuario, nudo proprietario, conduttore), quota percentuale e periodo. Accettazione: la somma delle quote dei proprietari è 100% in ogni data; due titolari con lo stesso ruolo e quota piena non si sovrappongono.
+RC-A10 [MVP] Il conduttore ha un contratto con date, flag "patto contrario sugli oneri accessori" e, se serve, una tabella personalizzata degli oneri. Dettagli in RC-I.
+RC-A11 [MVP] Usufrutto: usufruttuario e nudo proprietario sono due titolarità sulla stessa unità. La ripartizione tra loro segue RC-I5.
+RC-A12 [MVP] Comproprietà: quota percentuale per titolare. Il bollettino è intestato al referente scelto o a tutti i comproprietari. [DA VERIFICARE: solidarietà tra comproprietari]
+Amministratore e passaggio di consegne
+RC-A13 [MVP] Il rapporto tra condominio e amministratore è una tabella con data di nomina e di cessazione. Accettazione: un solo amministratore attivo alla volta; le date non si sovrappongono.
+RC-A14 [MVP] Il compenso dell'amministratore è registrato con indicazione analitica delle voci per ogni nomina e rinnovo (art. 1129, c. 14). È una voce di spesa dedicata.
+RC-A15 [MVP] Passaggio di consegne: il nuovo account riceve il condominio con tutto lo storico. L'ex amministratore passa a sola lettura e può esportare i dati della sua gestione. Non si elimina mai l'account. Accettazione: dopo il passaggio, l'ex non può scrivere e l'audit mostra ancora il suo nome sui movimenti del suo periodo.
+RC-A16 [MVP] Ruoli: amministratore (scrittura), collaboratore (scrittura limitata e configurabile). [F2] condomino (lettura dei propri dati e dei giustificativi) e revisore o consiglio di condominio (lettura e commenti).
+5. Conto, registro di contabilità, spese e ripartizione
+Conto e registro (RC-B)
+RC-B1 [MVP] Tutte le somme in entrata e in uscita transitano dal conto corrente intestato al condominio (art. 1129, c. 7). Un movimento fuori conto si registra solo con flag "eccezione" e motivo, e compare in un elenco di controllo.
+RC-B2 [MVP] Il registro di contabilità è cronologico. Ogni riga ha data movimento, data registrazione, importo, segno, causale, voce, gestione, conto e soggetto. Accettazione: se la registrazione supera 30 giorni dal movimento, il sistema avvisa (art. 1130, n. 7, e prassi sulla riforma).
+RC-B3 [MVP] Ogni movimento ha un giustificativo allegato (PDF o immagine) con impronta del file. Una spesa senza giustificativo resta "incompleta" e impedisce di segnare il rendiconto come completo.
+RC-B4 [MVP] Nessuna cancellazione. Una correzione è una scrittura contraria collegata all'originale. La modifica di un campo non economico (causale) è ammessa e tracciata.
+RC-B5 [MVP] Fornitori e fatture: anagrafica con CF o P.IVA; fattura con imponibile, IVA, ritenuta (solo dato: importo e aliquota), totale, scadenza e data di competenza. Nessun F24, CU o 770.
+Spese (RC-C)
+RC-C1 [MVP] Una spesa ha voce, gestione, tag ordinaria o straordinaria (obbligatorio), periodo di competenza, importo, criterio di ripartizione e giustificativo. Il tag ha un default dalla voce e si cambia solo con traccia.
+RC-C2 [MVP] Catalogo delle voci con default per ogni voce: criterio, tag e percentuale a carico dell'inquilino (vedi RC-I2). Voci iniziali: ascensore, pulizia scale, acqua, riscaldamento, energia elettrica parti comuni, assicurazione fabbricato, compenso amministratore, manutenzione ordinaria, manutenzione straordinaria, spese legali.
+RC-C3 [MVP] Menu Chi paga su ogni spesa, con quattro scelte:
+Tutti: tutte le unità del condominio, con la tabella di proprietà.
+Palazzo o scala: solo le unità del gruppo, con la tabella del gruppo.
+Tabella specifica: partecipa chi ha un valore in quella tabella (acqua, riscaldamento, uso).
+Personalizzato: unità scelte a mano, con quota in millesimi o importi. Richiede motivazione e atto di riferimento (delibera o regolamento, con data).
+RC-C4 [MVP] Calcolo: quota di un'unità = importo della spesa × valore dell'unità ÷ somma dei valori delle unità partecipanti. Accettazione: la somma delle quote è uguale all'importo, al centesimo (regole di arrotondamento nella sezione 10).
+RC-C5 [MVP] Acqua e riscaldamento si ripartiscono per consumi. Servono letture dei contatori per unità e per periodo. Quota di consumo = importo dei consumi × consumo dell'unità ÷ consumo totale. L'eventuale quota fissa si ripartisce per tabella. La percentuale tra quota fissa e variabile è un parametro del condominio. Se manca una lettura, il sistema stima dallo storico e marca la quota "da conguagliare". [DA VERIFICARE: norme sulla contabilizzazione e sulla ripartizione del riscaldamento]
+RC-C6 [MVP] Deroghe: i criteri di legge (artt. 1123 e 1124) possono essere derogati da regolamento contrattuale o delibera unanime. Il criterio personalizzato salva tipo di atto, data e numero.
+RC-C7 [F2] Preset legali, come voci pronte a formula fissa:
+Scale e ascensore (art. 1124): metà in proporzione al valore delle unità, metà in proporzione all'altezza del piano dal suolo. [DA VERIFICARE: testo esatto e trattamento del piano terra]
+Soffitti, volte e solai (art. 1125): in parti uguali tra i proprietari dei due piani sovrapposti.
+Lastrico solare di uso esclusivo (art. 1126): un terzo a chi ne ha l'uso, due terzi agli altri a cui serve, in proporzione al valore.
+RC-C8 [MVP] Condominio parziale (art. 1123, c. 3): si realizza con "Palazzo o scala" o "Personalizzato", senza una regola separata.
+6. Preventivo, rate, bollettini e incassi
+Preventivo e rate (RC-D)
+RC-D1 [MVP] L'esercizio ha data di inizio e chiusura. Dentro l'esercizio ci sono più gestioni: ordinaria, straordinaria per ogni lavoro deliberato, riscaldamento.
+RC-D2 [MVP] Il preventivo è per gestione e voce, con importo previsto, tabella e criterio. Stati: bozza e approvato. L'approvazione richiede data dell'assemblea e riferimento alla delibera. Il sistema non importa verbali.
+RC-D3 [MVP] Il piano rate definisce numero di rate, scadenze e percentuali o importi. Le rate si calcolano per unità e per soggetto pagante. Dopo un subentro, le rate non ancora emesse vanno al nuovo soggetto.
+RC-D4 [MVP] Le rate si emettono solo da un preventivo approvato. Con preventivo non approvato l'emissione è vietata. L'amministratore può forzarla con un override che registra motivo e delibera di riferimento, tracciato in audit. [DA VERIFICARE: prassi sulle rate in attesa del nuovo preventivo]
+RC-D5 [MVP] Una variazione del preventivo è una nuova versione approvata. Non modifica la precedente.
+Bollettini (RC-E)
+RC-E1 [MVP] Il bollettino ha ID immutabile, numero progressivo per condominio e anno, destinatario, righe (rata, unità, gestione, importo, scadenza), totale e stato.
+RC-E2 [MVP] Stati: bozza → verificato → emesso → parzialmente pagato o pagato. Da emesso può passare a rettificato o annullato. Un bollettino emesso non si modifica.
+RC-E3 [MVP] Anteprima prima dell'emissione, con totali di controllo (somma delle quote uguale alla somma delle rate per gestione) e elenco anomalie: unità senza titolare alla data, tabella non approvata, quota negativa, unità duplicata. L'emissione richiede una conferma esplicita.
+RC-E4 [MVP] Rettifica di un bollettino emesso: si annulla e si crea un nuovo bollettino collegato (campo "sostituisce"). Gli incassi già registrati passano sul nuovo bollettino. Accettazione: lo storico mostra tutte le versioni e chi le ha emesse.
+RC-E5 [F2] Endpoint di inoltro (email, PEC o altro canale). Payload stabile con id, numero, destinatario, righe, importo, scadenza, stato e versione. L'invio è idempotente e lascia un log. Ora basta che il modello dati sia compatibile.
+RC-E6 [MVP] Esportazione PDF del bollettino con conto di accredito, causale e dati del condominio.
+Incassi (RC-F)
+RC-F1 [MVP] L'incasso si registra a mano con data valuta, importo, conto, pagatore e riferimento (CRO). L'import dell'estratto conto è [F2].
+RC-F2 [MVP] Imputazione: di default sul debito più vecchio del soggetto. L'amministratore può imputare a mano. L'ordine di imputazione è configurabile.
+RC-F3 [MVP] Gestire incasso parziale, incasso eccedente (credito del soggetto) e pagamento da un terzo, per esempio l'inquilino che paga per il proprietario. Il pagatore è registrato a parte.
+RC-F4 [MVP] Storno di un incasso (assegno o bonifico respinto): scrittura contraria collegata, con riapertura del debito.
+7. Morosità, subentri, competenze e inquilini
+Morosità e recupero crediti (RC-G)
+RC-G1 [MVP] Stato del debito per soggetto, unità e anno, con anzianità e importi esigibili.
+RC-G2 [MVP] L'esigibilità è un campo del credito. Le rate di preventivo sono esigibili alla scadenza; il conguaglio dopo l'approvazione del consuntivo. [DA VERIFICARE: la prassi è discordante sull'azione forzosa su rate non ancora approvate nel consuntivo; il default sia configurabile]
+RC-G3 [MVP] Scadenziario di recupero. Salvo dispensa dell'assemblea, l'amministratore deve agire per la riscossione forzosa entro sei mesi dalla chiusura dell'esercizio in cui il credito è esigibile (art. 1129, c. 9). Non farlo è motivo di revoca. Il sistema calcola la data limite per ogni credito, manda alert a 90, 30 e 7 giorni, e gestisce gli stati: da avviare, avviata, dispensata (con data e delibera), chiusa. Decorrenza di default: chiusura dell'esercizio. [DA VERIFICARE: alcuni la fanno decorrere dall'approvazione del bilancio]
+RC-G4 [MVP] L'amministratore deve comunicare i dati dei morosi ai creditori non soddisfatti che li chiedano (art. 63, c. 1, disp. att.): nome, cognome, codice fiscale e indirizzo da anagrafe. Il sistema produce l'elenco e registra richieste e risposte.
+RC-G5 [MVP] I condomini in regola non coprono i morosi nei conguagli. La quota del moroso resta credito e non viene ridistribuita sugli altri. Se serve liquidità, si usa il fondo cassa. [DA VERIFICARE: art. 63 e sentenze riportate dalla stampa giuridica]
+RC-G6 [F2] Interessi di mora. Il Codice non fissa un tasso: tasso, giorni di tolleranza e fonte (regolamento, delibera, legge) sono parametri del condominio. Formula: capitale × tasso × giorni ÷ 365.
+RC-G7 [F2] Solleciti: modelli e storico. L'invio è fuori scope.
+Subentri e competenza temporale (RC-H)
+RC-H1 [MVP] Vendita: si registra data dell'atto, venditore e acquirente. La titolarità del venditore si chiude a quella data, quella dell'acquirente si apre.
+RC-H2 [MVP] Chi subentra è obbligato in solido con il venditore per i contributi dell'anno in corso e di quello precedente (art. 63, c. 4, disp. att.). Oltre il biennio il debito resta del solo venditore. Il sistema mostra sempre il debitore principale e l'obbligato in solido.
+RC-H3 [MVP] Lavori straordinari deliberati prima dell'atto: si registra la data della delibera e un campo note per il patto tra le parti. Il patto tra venditore e acquirente non vincola il condominio.
+RC-H4 [MVP] Rate già emesse al venditore restano a suo nome e non si riemettono. Le rate successive vanno all'acquirente.
+RC-H5 [MVP] Spese a periodo (assicurazione annuale, compenso): la quota dell'unità si divide in proporzione ai giorni di titolarità. Quota del titolare = quota annua × giorni di titolarità ÷ giorni del periodo.
+RC-H6 [MVP] Cambio inquilino: letture dei contatori alla data di subentro. I consumi tra due letture vanno al titolare di quel periodo. Se manca una lettura, si stima per giorni e si marca "da conguagliare".
+Proprietario, inquilino, usufruttuario (RC-I)
+RC-I1 [MVP] Il condominio si rivolge sempre al condomino proprietario. Il riparto con l'inquilino è un prospetto, non una fatturazione separata.
+RC-I2 [MVP] Ogni voce ha la percentuale a carico del conduttore, da 0 a 100%, basata sull'art. 9 L. 392/1978 e sulla tabella del DM 16/1/2017. La regola base è: ordinaria all'inquilino, straordinaria al proprietario. [DA VERIFICARE: tabella completa del DM]
+RC-I3 [MVP] Patto contrario: per unità si può registrare una tabella oneri diversa da quella standard. Va valutata con il divieto di clausole che attribuiscano al locatore vantaggi in contrasto con la legge (art. 79).
+RC-I4 [MVP] Il compenso dell'amministratore non rientra negli oneri accessori dell'inquilino, salvo patto contrario. Stesso default per l'assicurazione del fabbricato.
+RC-I5 [MVP] Usufrutto: le spese di custodia, amministrazione e manutenzione ordinaria sono a carico dell'usufruttuario (art. 1004 c.c.). Per le straordinarie conta la natura dell'opera. La regola è configurabile per unità.
+RC-I6 [MVP] Prospetto per l'inquilino voce per voce e per periodo, esportabile in PDF. Il conduttore paga entro due mesi dalla richiesta (art. 9, c. 3, L. 392/1978): il sistema registra la data di richiesta e calcola la scadenza.
+RC-I7 [MVP] Cambio inquilino a metà periodo: il prospetto divide le spese a periodo per giorni e i consumi per letture (RC-H5 e RC-H6).
+8. Fondi, rendiconto annuale e conguaglio
+Fondi (RC-J)
+RC-J1 [MVP] Fondi con saldo e movimenti: fondo speciale per lavori (per delibera), fondo cassa o riserva, fondo morosità opzionale.
+RC-J2 [MVP] Per lavori straordinari o innovazioni l'assemblea deve costituire un fondo speciale pari all'importo dei lavori (art. 1135, c. 1, n. 4). Una delibera con fondo di importo parziale è nulla secondo la giurisprudenza riportata. Il sistema non può bloccare una delibera: impedisce di emettere rate straordinarie se mancano importo dei lavori e fondo deliberato.
+RC-J3 [MVP] Se l'appalto prevede pagamenti graduali, il fondo si costituisce in modo progressivo, in corrispondenza dei pagamenti. Il piano di versamenti è collegato al contratto.
+RC-J4 [MVP] Le somme del fondo sono vincolate. Spostarle ad altra destinazione richiede un override con motivo e delibera, tracciato. Mai per pagare il compenso dell'amministratore.
+RC-J5 [MVP] Il fondo è una voce contabile, non un conto aggiuntivo: resta un solo conto condominiale.
+Rendiconto (RC-K)
+Il rendiconto è unitario e si compone di tre documenti inscindibili (art. 1130-bis, Cass. 25446/2025 nella sintesi riportata).
+RC-K1 [MVP] Tre documenti: registro di contabilità, riepilogo finanziario, nota sintetica esplicativa. Accettazione: lo stato "completo" richiede tutti e tre; la mancanza di uno rende il rendiconto impugnabile.
+RC-K2 [MVP] Registro: i movimenti dell'esercizio in ordine cronologico, ognuno con giustificativo.
+RC-K3 [MVP] Riepilogo finanziario: saldo del conto e della cassa all'inizio e alla fine, fondi e riserve, crediti verso i condomini (morosi), debiti verso i fornitori. Controllo: saldo finale = saldo iniziale + entrate − uscite.
+RC-K4 [MVP] Nota sintetica: testo compilato dall'amministratore su rapporti con i fornitori, contenziosi e anomalie, con i dati principali precompilati.
+RC-K5 [MVP] Sistema misto cassa-competenza (Cass. 25446/2025, nella sintesi riportata). Ogni movimento ha data di cassa e data di competenza. Il sistema riconcilia le due viste: la differenza è fatta da crediti, debiti e ratei.
+RC-K6 [MVP] Il rendiconto deve essere comprensibile a un condomino non professionista. Per ogni unità si mostrano quota di consuntivo, rate versate e conguaglio.
+RC-K7 [MVP] Stati: in preparazione → completo → approvato (data assemblea e delibera) → rettificato (solo con nuova approvazione). Un rendiconto approvato non si modifica.
+RC-K8 [MVP] L'amministratore deve convocare l'assemblea per l'approvazione entro 180 giorni dalla chiusura dell'esercizio (art. 1130, n. 10). Promemoria a 60, 30 e 7 giorni dalla scadenza.
+RC-K9 [MVP] Accesso: condomini e titolari di diritti di godimento possono vedere i giustificativi e chiederne copia a proprie spese. Il sistema genera l'estratto per soggetto e registra gli accessi.
+RC-K10 [F2] Il revisore e il consiglio di condominio hanno un ruolo di sola lettura con commenti.
+Conguaglio (RC-L)
+RC-L1 [MVP] Conguaglio di un'unità = quota di consuntivo − rate versate (per competenza). Il risultato è un credito o un debito, separato per gestione.
+RC-L2 [MVP] Un soggetto con più unità riceve un conguaglio aggregato, con dettaglio per unità.
+RC-L3 [MVP] Se la titolarità cambia tra preventivo e consuntivo, il conguaglio si calcola per periodi di titolarità.
+RC-L4 [MVP] Il conguaglio non include quote dei morosi altrui (RC-G5).
+RC-L5 [MVP] Un credito di conguaglio si compensa sulla rata successiva o si rimborsa, a scelta dell'amministratore. L'operazione è tracciata.
+RC-L6 [MVP] Rettifiche dopo l'approvazione: scrittura nell'esercizio successivo o nuova approvazione del rendiconto.
+9. Audit, GDPR, controlli e responsabilità del software
+Audit, conservazione, sicurezza (RC-M)
+RC-M1 [MVP] Audit log di ogni modifica: chi, quando, oggetto, azione, valore prima e dopo. Non è modificabile e l'amministratore lo consulta.
+RC-M2 [MVP] Nessuna cancellazione di dati contabili. Il periodo minimo di conservazione va definito con l'esperto (la prassi parla di 10 anni, non verificato). Backup giornalieri con ripristino testato.
+RC-M3 [MVP] GDPR: informativa privacy, nomina a responsabile del trattamento con ogni amministratore, minimizzazione dei dati, accesso per ruolo, export e rettifica dei dati, anonimizzazione di un profilo senza perdere la traccia contabile, hosting in UE, cifratura in transito e a riposo.
+RC-M4 [MVP] Sicurezza: autenticazione a più fattori per gli amministratori, isolamento dei dati per condominio a livello di database, log degli accessi.
+RC-M5 [MVP] CF e IBAN mascherati nell'interfaccia per default. Nei log applicativi non compaiono dati personali.
+Controlli e responsabilità (RC-N)
+RC-N1 [MVP] Il software calcola in base ai dati e ai criteri inseriti. L'amministratore verifica ed emette. Per i dati inseriti dall'utente la responsabilità è dell'utente, per gli errori di calcolo è del software. La formulazione contrattuale va scritta da un legale.
+RC-N2 [MVP] Controlli che bloccano l'emissione: somma delle quote diversa dalla spesa; tabella che non somma al totale atteso; unità senza titolare alla data; titolarità sovrapposte; unità duplicata in un bollettino.
+RC-N3 [MVP] Controlli che avvisano senza bloccare: tabella non approvata; criterio personalizzato senza atto; spesa senza giustificativo; registrazione oltre 30 giorni; rate emesse con override del preventivo non approvato.
+RC-N4 [MVP] Ogni calcolo salva la versione del motore di calcolo. Se un bug viene corretto, il sistema elenca i riparti e i bollettini che avrebbero un importo diverso.
+RC-N5 [MVP] Procedura per un errore di calcolo scoperto dopo l'emissione: individuazione dei bollettini impattati, rettifica per sostituzione con motivo (RC-E4), elenco dei destinatari da avvisare.
+RC-N6 [F2] Simulazione "e se": ricalcolo di un riparto o di un preventivo senza emettere nulla.
+10. Regole di calcolo e casi di test
+Regole di calcolo
+Centesimi interi. Ogni importo è un intero in centesimi. Nessun decimale in virgola mobile.
+Quota. Quota = importo × valore dell'unità ÷ somma dei valori dei partecipanti. Il calcolo è esatto (razionale) e si arrotonda una sola volta, al centesimo, per eccesso da 0,5.
+Resto. Resto = importo − somma delle quote arrotondate. Va all'unità con il valore maggiore; a parità, alla prima per ordine di inserimento. Compare nel prospetto come riga "arrotondamento".
+Giorni di titolarità. Giorni = data fine − data inizio + 1, entrambi inclusi. Quota del titolare = quota annua × giorni di titolarità ÷ giorni del periodo, poi regola 3.
+Consumi. Quota di consumo = importo dei consumi × consumo dell'unità ÷ consumo totale. Una lettura mancante si stima dallo storico e la quota resta "da conguagliare".
+Conguaglio. Conguaglio = quota di consuntivo − rate versate. Positivo = debito dell'unità, negativo = credito.
+Interessi di mora [F2]. Interessi = capitale × tasso annuo × giorni di ritardo ÷ 365.
+Casi di test
+Ogni caso è un test automatico. Il codice non è pronto finché tutti passano.
+Test di regressione sulle migrazioni
+11. Requisiti non funzionali e roadmap
+Requisiti non funzionali
+Precisione: importi in centesimi interi, valuta EUR, nessun arrotondamento intermedio.
+Date e lingua: fuso orario Europe/Rome, date in formato ISO nel database, interfaccia in italiano (it-IT).
+Prestazioni: ripartizione di una spesa su 500 unità in meno di 2 secondi; generazione del PDF di un bollettino in meno di 10 secondi.
+Concorrenza: blocco ottimistico su bollettini e rendiconti; due utenti non sovrascrivono lo stesso oggetto senza avviso.
+Test: tutti i casi T1-T22 automatizzati e eseguiti a ogni modifica; ogni regola di calcolo ha test con dati di confine (resto, giorni, consumi mancanti).
+Regressioni: nessun rilascio senza test di regressione verdi (RC-O11); ogni funzione nuova dietro un interruttore; ripristino pronto prima di ogni migrazione.
+Affidabilità: backup giornalieri, ripristino provato prima del rilascio, registro modifiche non cancellabile.
+Migrazione dati: import da fogli di calcolo con anteprima e report degli errori; nessun import crea movimenti senza giustificativo marcato "incompleto".
+Roadmap
+Ordine di sviluppo
+Passo 0: audit e adeguamento dello schema (sezione 3).
+Passo 1: motore di calcolo puro, senza database né interfaccia (sezione 10), con i test T1, T2, T3, T5, T8 e T9. Qui conviene la prima revisione dell'esperto.
+Passo 2: registro, spese e ripartizione (sezione 5).
+Passo 3: preventivo, rate e bollettini (sezione 6).
+Passo 4: incassi, morosità e subentri (sezioni 6 e 7).
+Passo 5: inquilini e fondi (sezioni 7 e 8).
+Passo 6: rendiconto e conguaglio (sezione 8).
+Un passo è chiuso solo quando passano i suoi test e tutti i test dei passi precedenti, inclusi quelli di regressione.
+12. Decisioni, ipotesi e punti da validare
+Decisioni prese
+L'endpoint di inoltro dei bollettini si sviluppa dopo (RC-E5).
+Acqua e riscaldamento si ripartiscono per consumi (RC-C5).
+Ogni spesa ha il tag ordinaria o straordinaria (RC-C1).
+Responsabilità: il software risponde degli errori di calcolo, l'utente dei dati che inserisce (RC-N1).
+Il documento e le regole vengono fatti rivedere da un esperto prima del rilascio.
+Il database esiste già: si rivede e si estende con colonne e tabelle mancanti, senza ricrearlo (RC-O).
+Le modifiche allo schema si valutano per impatto su codice esistente e su fase 2, con test di regressione e migrazioni reversibili (RC-O7 – RC-O13).
+Ipotesi mie, da confermare
+Passaggio di consegne: il vecchio account si disattiva e non si elimina, con assegnazioni amministratore datate (RC-A13 e RC-A15).
+Rate emesse solo da preventivo approvato, con override tracciato (RC-D4).
+Spese a periodo divise per giorni di titolarità (RC-H5).
+Il resto dell'arrotondamento va all'unità con il valore maggiore (sezione 10).
+I sei mesi per il recupero crediti decorrono dalla chiusura dell'esercizio (RC-G3).
+Le ritenute d'acconto sono solo un dato della fattura (RC-B5).
+L'esigibilità è un campo configurabile del credito (RC-G2).
+Da validare con l'esperto prima del codice
+Domande aperte che bloccano il codice
+A chi si intesta il bollettino di una unità in comproprietà?
+Le gestioni multiple (riscaldamento incluso) sono tutte nell'MVP o solo ordinaria e straordinaria?
+Serve un formato di export specifico per il passaggio di consegne?
+Come si importano i saldi iniziali quando un condominio entra a metà esercizio?
+Come sono salvati oggi gli importi: in euro con decimali o in centesimi?
+Quali parti del codice usano già le tabelle esistenti?
+Esistono test automatici o dati di esempio da cui partire?
+C'è un ambiente di prova con una copia dei dati?
+13. Fonti e limiti
+Le fonti sotto sono pagine giuridiche e di prassi consultate il 7/11/2026 tramite estratti di ricerca. Non sono state aperte per intero e non sostituiscono il testo ufficiale su Normattiva.
+Norme e giurisprudenza
+Art. 1123 c.c., art. 1124, art. 1125 e art. 1126: ripartizione delle spese.
+Art. 1129 c.c.: conto corrente, azione di recupero entro sei mesi, compenso. Sul comma 9: Fisco e Tasse.
+Art. 1130 c.c. e art. 1130-bis: attribuzioni dell'amministratore e rendiconto.
+Rendiconto e Cass. 25446/2025 e aspetti contabili della riforma.
+Art. 1135 c.c. e nullità della delibera con fondo parziale.
+Art. 63 disp. att.: biennio e subentro (Cass. 10346/2019) e comunicazione dei dati dei morosi.
+Oneri accessori dell'inquilino (art. 9 L. 392/1978, DM 16/1/2017) e usufrutto (artt. 1004-1005 c.c.).
+Non verificato sul testo ufficiale
+Formula esatta dell'art. 1124 (metà valore, metà altezza) e trattamento del piano terra.
+Tabella completa del DM 16/1/2017.
+Artt. 68-69 disp. att. nel dettaglio.
+Tassi e termini degli interessi di mora.
+Periodo di conservazione dei documenti contabili.
+Norme sulla ripartizione del riscaldamento a consumo.
+Solidarietà tra comproprietari.
+Decorrenza dei sei mesi dell'art. 1129, c. 9, e momento di esigibilità delle rate di preventivo, su cui le fonti sono discordi.
+Il D.Lgs. 175/2014 riguarda la semplificazione fiscale e il 730 precompilato, non il condominio: non è una fonte di questo documento.
