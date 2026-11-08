@@ -34,6 +34,8 @@ export * from './contabilita/registroContabileLogic';
 export * from './contabilita/bollettiniLogic';
 export * from './contabilita/morositaLogic';
 export * from './contabilita/subentriLogic';
+export * from './contabilita/oneriAccessoriLogic';
+export * from './contabilita/fondiLogic';
 export * from './contabilita/contabilitaService';
 
 // Risoluzione ambiguità esportazioni duplicate

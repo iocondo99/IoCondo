@@ -4,7 +4,10 @@ import type {
   IAuditLog,
   IBollettino,
   IBollettinoRiga,
+  IFondo,
+  IGestioneEsercizio,
   IMovimentoContabile,
+  IMovimentoFondo,
   IPagamentoRata,
   IPreventivo,
   IPreventivoVoce,
@@ -144,6 +147,42 @@ import {
   type RegistraSubentroCompravenditaInput,
   type RisultatoSubentroCompravendita,
 } from './subentriLogic.ts';
+import {
+  calcolaRipartoLocatoreConduttoreVoce as calcolaRipartoLocatoreConduttoreVoceLogic,
+  calcolaRipartoTripartitoUnitaVoce as calcolaRipartoTripartitoUnitaVoceLogic,
+  calcolaRipartoUsufruttuarioNudoProprietarioVoce as calcolaRipartoUsufruttuarioNudoProprietarioVoceLogic,
+  calcolaScadenzaPagamentoInquilino as calcolaScadenzaPagamentoInquilinoLogic,
+  calcolaSubentroInquilinoVoce as calcolaSubentroInquilinoVoceLogic,
+  generaProspettoInquilino as generaProspettoInquilinoLogic,
+  type CalcolaRipartoLocatoreConduttoreVoceInput,
+  type CalcolaRipartoUsufruttoInput,
+  type GeneraProspettoInquilinoInput,
+  type PeriodoConduttoreInput,
+  type ProspettoInquilinoOutput,
+  type RegolaUsufruttoCustomUnita,
+  type RisultatoRipartoLocatoreConduttoreVoce,
+  type RisultatoRipartoUsufrutto,
+  type RisultatoSubentroInquilinoVoce,
+  type SubentroInquilinoVoceInput,
+  type TabellaOneriCustomMap,
+  type VoceSpesaPerProspettoInquilinoInput,
+} from './oneriAccessoriLogic.ts';
+import {
+  assertFondoSpecialeCostituitoPerRateStraordinarie as assertFondoSpecialeCostituitoPerRateStraordinarieLogic,
+  calcolaSaldoEMovimentiFondo as calcolaSaldoEMovimentiFondoLogic,
+  creaFondo as creaFondoLogic,
+  riconciliaFondiConContoUnico as riconciliaFondiConContoUnicoLogic,
+  validaERegistraMovimentoFondo as validaERegistraMovimentoFondoLogic,
+  validaFondoSpecialePerEmissioneRateStraordinarie as validaFondoSpecialePerEmissioneRateStraordinarieLogic,
+  type CreaFondoInput,
+  type RisultatoRiconciliazioneFondiContoUnico,
+  type RisultatoSaldoFondo,
+  type RisultatoValidazioneFondoSpecialeRate,
+  type ScaglioneSalFondoInput,
+  type SegnoMovimentoFondo,
+  type StatoFondo,
+  type TipoFondo,
+} from './fondiLogic.ts';
 
 export interface FiltriRegistroContabile {
   esercizioId?: string;
@@ -663,6 +702,75 @@ export interface RegistraSubentroCompravenditaServiceOutput {
   saldiPregressiAggiornati: ISaldoPregresso[];
   rateDettaglioAggiornate: IRataDettaglio[];
   auditLog: IAuditLog;
+}
+
+// ============================================================================
+// INTERFACCE SEZIONE 7 (RC-I1..I7, T10) E SEZIONE 8 (RC-J1..J5, T7):
+// PROSPETTO INQUILINO / USUFRUTTUARIO E FONDI CONDOMINIALI
+// ============================================================================
+
+export interface GeneraProspettoInquilinoServiceInput {
+  condominioId: string;
+  nomeCondominio?: string;
+  unitaId: string;
+  internoUnita?: string;
+  esercizioId?: string | null;
+  periodoDa: string;
+  periodoA: string;
+  dataRichiesta: string;
+  proprietario?: {
+    utenteId?: string | null;
+    soggettoId?: string | null;
+    nomeDenominazione: string;
+  };
+  conduttore?: PeriodoConduttoreInput;
+  conduttori?: readonly PeriodoConduttoreInput[];
+  usufruttuario?: {
+    utenteId?: string | null;
+    soggettoId?: string | null;
+    nomeDenominazione: string;
+    regolaUsufruttoCustom?: RegolaUsufruttoCustomUnita | null;
+  } | null;
+  pattoContrarioOneri?: boolean;
+  tabellaOneriCustom?: TabellaOneriCustomMap | null;
+  accontiVersatiConduttoreCent?: CentesimiInput;
+  /** Se passate in memoria evita la lettura di `riparti_spese` / `movimenti_contabili` dal DB. */
+  vociSpesa?: readonly VoceSpesaPerProspettoInquilinoInput[];
+}
+
+export interface FondoConSaldoEMovimentiView {
+  fondo: IFondo;
+  movimenti: IMovimentoFondo[];
+  riepilogoSaldo: RisultatoSaldoFondo;
+}
+
+export interface CreaFondoServiceOutput {
+  fondo: IFondo;
+  auditLog: IAuditLog;
+}
+
+export interface RegistraMovimentoFondoServiceInput {
+  condominioId: string;
+  fondoId: string;
+  movimentoContabileId?: string | null;
+  data?: string;
+  importoCent: CentesimiInput;
+  segno: SegnoMovimentoFondo;
+  causale: string;
+  codiceVoceSpesa?: string | null;
+  descrizioneSpesa?: string | null;
+  isCompensoAdmin?: boolean;
+  destinazioneConformeAlVincolo?: boolean;
+  isOverrideVincolo?: boolean;
+  motivoOverride?: string | null;
+  deliberaOverride?: string | null;
+  autoreId?: string | null;
+}
+
+export interface RegistraMovimentoFondoServiceOutput {
+  movimentoFondo: IMovimentoFondo;
+  fondoAggiornato: IFondo;
+  auditLogOverride: IAuditLog | null;
 }
 
 const dataOggiIso = (): string => new Date().toISOString().slice(0, 10);
@@ -2196,14 +2304,75 @@ export function createContabilitaService(db: TypedSupabaseClient) {
         input.primoProgressivoBollettino ??
         (await prossimoProgressivoBollettino(input.condominioId, annoBollettini));
 
+      const gestioneIdEffettiva = input.gestioneId ?? preventivo.gestione_id ?? null;
+      let tipoGestioneEffettivo: TipoGestioneEsercizio = input.tipoGestione ?? 'ORDINARIA';
+      let importoLavoriStraordinariCent = input.importoLavoriStraordinariCent;
+      let fondoSpecialeCostituito = input.fondoSpecialeCostituito;
+      let importoFondoSpecialeCent = input.importoFondoSpecialeCent;
+
+      // Se la gestione non ha i parametri del fondo speciale passati in memoria, li risolve da gestioni_esercizio / fondi (RC-J2, T7)
+      if (
+        gestioneIdEffettiva &&
+        importoLavoriStraordinariCent === undefined &&
+        fondoSpecialeCostituito === undefined &&
+        importoFondoSpecialeCent === undefined
+      ) {
+        const { data: gestRow } = await db
+          .from('gestioni_esercizio')
+          .select('*')
+          .eq('id', gestioneIdEffettiva)
+          .eq('condominio_id', input.condominioId)
+          .maybeSingle();
+
+        if (gestRow) {
+          tipoGestioneEffettivo = input.tipoGestione ?? gestRow.tipo;
+          if (tipoGestioneEffettivo === 'STRAORDINARIA') {
+            importoLavoriStraordinariCent =
+              gestRow.importo_lavori_centesimi ?? preventivo.totale_previsto_centesimi;
+            if (gestRow.fondo_speciale_id) {
+              const { data: fondoRow } = await db
+                .from('fondi')
+                .select('*')
+                .eq('id', gestRow.fondo_speciale_id)
+                .eq('condominio_id', input.condominioId)
+                .maybeSingle();
+              if (fondoRow && fondoRow.tipo === 'SPECIALE' && fondoRow.stato !== 'CHIUSO') {
+                fondoSpecialeCostituito = true;
+                importoFondoSpecialeCent = fondoRow.importo_obiettivo_centesimi;
+              } else {
+                fondoSpecialeCostituito = false;
+                importoFondoSpecialeCent = 0;
+              }
+            } else {
+              fondoSpecialeCostituito = false;
+              importoFondoSpecialeCent = 0;
+            }
+          }
+        }
+      }
+
+      if (
+        tipoGestioneEffettivo === 'STRAORDINARIA' &&
+        (importoLavoriStraordinariCent !== undefined ||
+          fondoSpecialeCostituito !== undefined ||
+          importoFondoSpecialeCent !== undefined)
+      ) {
+        assertFondoSpecialeCostituitoPerRateStraordinarieLogic({
+          tipoGestione: 'STRAORDINARIA',
+          importoLavoriDeliberatiCent: importoLavoriStraordinariCent,
+          fondoSpecialeCostituito,
+          importoFondoSpecialeDeliberatoCent: importoFondoSpecialeCent,
+        });
+      }
+
       return generaPianoRate({
         condominioId: input.condominioId,
         esercizioId: input.esercizioId,
         preventivoId: preventivo.id,
         versionePreventivo: preventivo.versione ?? 1,
         statoPreventivo: preventivo.stato,
-        gestioneId: input.gestioneId ?? preventivo.gestione_id,
-        tipoGestione: input.tipoGestione ?? 'ORDINARIA',
+        gestioneId: gestioneIdEffettiva,
+        tipoGestione: tipoGestioneEffettivo,
         importoPreventivoCent: preventivo.totale_previsto_centesimi,
         vociPreventivo: input.vociPreventivo,
         unita,
@@ -2212,9 +2381,9 @@ export function createContabilitaService(db: TypedSupabaseClient) {
         emessaConOverride: input.emessaConOverride,
         motivoOverride: input.motivoOverride,
         deliberaOverride: input.deliberaOverride,
-        importoLavoriStraordinariCent: input.importoLavoriStraordinariCent,
-        fondoSpecialeCostituito: input.fondoSpecialeCostituito,
-        importoFondoSpecialeCent: input.importoFondoSpecialeCent,
+        importoLavoriStraordinariCent,
+        fondoSpecialeCostituito,
+        importoFondoSpecialeCent,
         annoBollettini,
         numeroProgressivoInizialeBollettini: primoProgressivo,
         autoreId: input.autoreId ?? preventivo.autore_id,
@@ -3747,6 +3916,436 @@ export function createContabilitaService(db: TypedSupabaseClient) {
         rateDettaglioAggiornate,
         auditLog,
       };
+    },
+
+    // =========================================================================
+    // 12. PROSPETTO INQUILINI, ONERI ACCESSORI E USUFRUTTO (RC-I1..I7, T10)
+    // =========================================================================
+
+    /**
+     * Calcola la ripartizione di una singola voce tra locatore e conduttore
+     * ai sensi dell'art. 9 L. 392/1978 e della tabella DM 16/01/2017 (RC-I2, RC-I4, T10).
+     */
+    calcolaRipartoLocatoreConduttoreVoce(
+      input: CalcolaRipartoLocatoreConduttoreVoceInput,
+    ): RisultatoRipartoLocatoreConduttoreVoce {
+      return calcolaRipartoLocatoreConduttoreVoceLogic(input);
+    },
+
+    /**
+     * Calcola la ripartizione tra usufruttuario e nudo proprietario ex artt. 1004-1005 c.c. (RC-I5).
+     */
+    calcolaRipartoUsufruttuarioNudoProprietarioVoce(
+      input: CalcolaRipartoUsufruttoInput,
+    ): RisultatoRipartoUsufrutto {
+      return calcolaRipartoUsufruttuarioNudoProprietarioVoceLogic(input);
+    },
+
+    /**
+     * Calcola il riparto per giorni/consumi in caso di subentro inquilino a metà periodo (RC-I7, RC-H5, RC-H6).
+     */
+    calcolaSubentroInquilinoVoce(
+      voce: SubentroInquilinoVoceInput,
+      conduttori: readonly PeriodoConduttoreInput[],
+    ): RisultatoSubentroInquilinoVoce {
+      return calcolaSubentroInquilinoVoceLogic(voce, conduttori);
+    },
+
+    /**
+     * Calcola la scadenza di pagamento a 2 mesi dalla richiesta ex art. 9 c. 3 L. 392/1978 (RC-I6).
+     */
+    calcolaScadenzaPagamentoInquilino(dataRichiesta: string): string {
+      return calcolaScadenzaPagamentoInquilinoLogic(dataRichiesta);
+    },
+
+    /**
+     * Genera il prospetto completo degli oneri accessori per l'inquilino (e/o usufruttuario) di un'unità,
+     * caricando automaticamente da `riparti_spese`, `movimenti_contabili`, `voci_spesa_catalogo` e
+     * `anagrafiche_unita` i dati se non passati in memoria (RC-I1..I7, T10).
+     */
+    async generaProspettoInquilino(
+      input: GeneraProspettoInquilinoServiceInput,
+    ): Promise<ProspettoInquilinoOutput> {
+      let vociSpesa: VoceSpesaPerProspettoInquilinoInput[] = input.vociSpesa
+        ? [...input.vociSpesa]
+        : [];
+
+      let proprietario = input.proprietario;
+      let conduttori: PeriodoConduttoreInput[] | undefined = input.conduttori
+        ? [...input.conduttori]
+        : input.conduttore
+          ? [input.conduttore]
+          : undefined;
+      let usufruttuario = input.usufruttuario;
+      let pattoContrarioOneri = input.pattoContrarioOneri;
+      let tabellaOneriCustom = input.tabellaOneriCustom;
+
+      if (!proprietario || !conduttori || pattoContrarioOneri === undefined) {
+        const anagraficheRows = unwrap(
+          await db
+            .from('anagrafiche_unita')
+            .select('*')
+            .eq('unita_id', input.unitaId)
+            .order('data_inizio', { ascending: true }),
+        );
+
+        const conduttoriDaDb: PeriodoConduttoreInput[] = [];
+        for (const a of anagraficheRows) {
+          const ruolo =
+            a.ruolo_titolarita ??
+            (a.tipo_possesso === 'INQUILINO' ? 'CONDUTTORE' : 'PROPRIETARIO');
+          if (ruolo === 'CONDUTTORE' || a.tipo_possesso === 'INQUILINO') {
+            conduttoriDaDb.push({
+              conduttoreId: a.soggetto_id ?? a.utente_id,
+              nomeConduttore: `Conduttore (${a.soggetto_id ?? a.utente_id})`,
+              contrattoInizio: a.contratto_inizio ?? a.data_inizio,
+              contrattoFine: a.contratto_fine ?? a.data_fine,
+            });
+            if (pattoContrarioOneri === undefined && a.patto_contrario_oneri !== undefined) {
+              pattoContrarioOneri = Boolean(a.patto_contrario_oneri);
+            }
+            if (
+              !tabellaOneriCustom &&
+              a.tabella_oneri_custom &&
+              typeof a.tabella_oneri_custom === 'object' &&
+              !Array.isArray(a.tabella_oneri_custom)
+            ) {
+              tabellaOneriCustom = a.tabella_oneri_custom as unknown as TabellaOneriCustomMap;
+            }
+          } else if (ruolo === 'USUFRUTTUARIO' && usufruttuario === undefined) {
+            usufruttuario = {
+              utenteId: a.utente_id,
+              soggettoId: a.soggetto_id ?? null,
+              nomeDenominazione: `Usufruttuario (${a.soggetto_id ?? a.utente_id})`,
+              regolaUsufruttoCustom:
+                a.regola_usufrutto_custom &&
+                typeof a.regola_usufrutto_custom === 'object' &&
+                !Array.isArray(a.regola_usufrutto_custom)
+                  ? (a.regola_usufrutto_custom as unknown as RegolaUsufruttoCustomUnita)
+                  : null,
+            };
+          } else if (!proprietario) {
+            proprietario = {
+              utenteId: a.utente_id,
+              soggettoId: a.soggetto_id ?? null,
+              nomeDenominazione: `Proprietario (${a.soggetto_id ?? a.utente_id})`,
+            };
+          }
+        }
+
+        if (!conduttori && conduttoriDaDb.length > 0) {
+          conduttori = conduttoriDaDb;
+        }
+      }
+
+      if (!input.vociSpesa) {
+        const ripartiRows = unwrap(
+          await db
+            .from('riparti_spese')
+            .select('*')
+            .eq('condominio_id', input.condominioId)
+            .eq('unita_id', input.unitaId),
+        );
+
+        if (ripartiRows.length > 0) {
+          const movimentoIds = Array.from(new Set(ripartiRows.map((r) => r.movimento_id)));
+          let movQuery = db
+            .from('movimenti_contabili')
+            .select('*')
+            .eq('condominio_id', input.condominioId)
+            .in('id', movimentoIds);
+          if (input.esercizioId) {
+            movQuery = movQuery.eq('esercizio_id', input.esercizioId);
+          }
+          const movRows = unwrap(await movQuery);
+          const movMap = new Map(movRows.map((m) => [m.id, m]));
+
+          const catalogoRows = await this.listVociCatalogo(input.condominioId, false);
+          const catMap = new Map(catalogoRows.map((c) => [c.id, c]));
+
+          for (const rip of ripartiRows) {
+            const mov = movMap.get(rip.movimento_id);
+            if (!mov || mov.stato_spesa === 'STORNATA') continue;
+            const voceCat = mov.voce_spesa_id ? catMap.get(mov.voce_spesa_id) : undefined;
+            vociSpesa.push({
+              spesaId: mov.id,
+              codiceVoce: voceCat?.codice ?? 'GENERICA',
+              nomeVoce: voceCat?.nome ?? null,
+              descrizione: mov.descrizione ?? voceCat?.nome ?? 'Spesa condominiale',
+              tagSpesa: mov.tag_spesa ?? voceCat?.tag_default ?? 'ORDINARIA',
+              quotaInquilinoCatalogoPerc: voceCat
+                ? Number(voceCat.quota_inquilino_default_perc)
+                : undefined,
+              isCompensoAdmin: voceCat?.is_compenso_admin ?? false,
+              competenzaDa: mov.competenza_da ?? input.periodoDa,
+              competenzaA: mov.competenza_a ?? input.periodoA,
+              importoSpesaTotaleCondominioCent:
+                mov.importo_centesimi ?? Math.round(mov.importo * 100),
+              quotaUnitaCent: rip.importo_quota_centesimi,
+              docAllegatoId: mov.doc_allegato_id,
+              numeroFattura: mov.numero_fattura ?? null,
+            });
+          }
+        }
+      }
+
+      const payloadProspetto: GeneraProspettoInquilinoInput = {
+        condominioId: input.condominioId,
+        nomeCondominio: input.nomeCondominio,
+        unitaId: input.unitaId,
+        internoUnita: input.internoUnita,
+        esercizioId: input.esercizioId,
+        periodoDa: input.periodoDa,
+        periodoA: input.periodoA,
+        dataRichiesta: input.dataRichiesta,
+        proprietario: proprietario ?? {
+          utenteId: null,
+          soggettoId: null,
+          nomeDenominazione: 'Proprietario',
+        },
+        conduttori,
+        usufruttuario: usufruttuario ?? null,
+        pattoContrarioOneri,
+        tabellaOneriCustom,
+        accontiVersatiConduttoreCent: input.accontiVersatiConduttoreCent,
+        vociSpesa,
+      };
+
+      return generaProspettoInquilinoLogic(payloadProspetto);
+    },
+
+    // =========================================================================
+    // 13. FONDI CONDOMINIALI, MOVIMENTI E BLOCCO LEGALE ART. 1135 (RC-J1..J5, T7)
+    // =========================================================================
+
+    /**
+     * Elenca i fondi del condominio (`SPECIALE`, `CASSA`, `MOROSITA`) con i relativi movimenti
+     * e il calcolo analitico di saldo e copertura obiettivo (RC-J1).
+     */
+    async listFondi(
+      condominioId: string,
+      filtri: { tipo?: TipoFondo; stato?: StatoFondo; esercizioId?: string } = {},
+    ): Promise<FondoConSaldoEMovimentiView[]> {
+      let query = db.from('fondi').select('*').eq('condominio_id', condominioId);
+      if (filtri.tipo) query = query.eq('tipo', filtri.tipo);
+      if (filtri.stato) query = query.eq('stato', filtri.stato);
+      if (filtri.esercizioId) query = query.eq('esercizio_id', filtri.esercizioId);
+
+      const fondiRows = unwrap(await query.order('created_at', { ascending: true }));
+      if (fondiRows.length === 0) return [];
+
+      const movRows = unwrap(
+        await db
+          .from('movimenti_fondo')
+          .select('*')
+          .eq('condominio_id', condominioId)
+          .order('data', { ascending: true }),
+      );
+
+      return fondiRows.map((f) => {
+        const movFondo = movRows.filter((m) => m.fondo_id === f.id);
+        const riepilogoSaldo = calcolaSaldoEMovimentiFondoLogic(f, movFondo);
+        return {
+          fondo: f,
+          movimenti: movFondo,
+          riepilogoSaldo,
+        };
+      });
+    },
+
+    /**
+     * Crea un nuovo fondo condominiale (`SPECIALE`, `CASSA` o `MOROSITA`, RC-J1, RC-J2, RC-J3, T7),
+     * verificando per i fondi speciali che sia presente la delibera e che l'importo obiettivo copra
+     * l'intero importo dei lavori straordinari deliberati (art. 1135 c. 1 n. 4 c.c.).
+     */
+    async creaFondoCondominiale(input: CreaFondoInput): Promise<CreaFondoServiceOutput> {
+      const esito = creaFondoLogic(input);
+
+      const fondo = unwrap(
+        await db.from('fondi').insert(esito.fondo).select('*').single(),
+      );
+
+      const auditLog = await registraEventoAudit({
+        ...esito.eventoAudit,
+        recordId: fondo.id,
+      });
+
+      return {
+        fondo,
+        auditLog,
+      };
+    },
+
+    /**
+     * Registra un movimento su un fondo condominiale (`+` accantonamento o `-` utilizzo/giroconto, RC-J1, RC-J4):
+     * - Impedisce in modo assoluto qualsiasi utilizzo per pagare il compenso dell'amministratore (RC-J4);
+     * - Richiede override motivato e delibera assembleare se le somme vengono spostate ad altra destinazione,
+     *   tracciando l'evento in `audit_logs` (RC-J4, RC-M1);
+     * - Aggiorna `saldo_attuale_centesimi` sul record di `fondi`.
+     */
+    async registraMovimentoFondo(
+      input: RegistraMovimentoFondoServiceInput,
+    ): Promise<RegistraMovimentoFondoServiceOutput> {
+      const fondoCorrente = unwrap(
+        await db
+          .from('fondi')
+          .select('*')
+          .eq('id', input.fondoId)
+          .eq('condominio_id', input.condominioId)
+          .single(),
+      );
+
+      const esito = validaERegistraMovimentoFondoLogic({
+        fondo: fondoCorrente,
+        movimentoContabileId: input.movimentoContabileId,
+        data: input.data ?? dataOggiIso(),
+        importoCent: input.importoCent,
+        segno: input.segno,
+        causale: input.causale,
+        codiceVoceSpesa: input.codiceVoceSpesa,
+        descrizioneSpesa: input.descrizioneSpesa,
+        isCompensoAdmin: input.isCompensoAdmin,
+        destinazioneConformeAlVincolo: input.destinazioneConformeAlVincolo,
+        isOverrideVincolo: input.isOverrideVincolo,
+        motivoOverride: input.motivoOverride,
+        deliberaOverride: input.deliberaOverride,
+        autoreId: input.autoreId,
+      });
+
+      const movimentoFondo = unwrap(
+        await db
+          .from('movimenti_fondo')
+          .insert(esito.movimentoFondo)
+          .select('*')
+          .single(),
+      );
+
+      const fondoAggiornato = unwrap(
+        await db
+          .from('fondi')
+          .update({
+            saldo_attuale_centesimi: esito.nuovoSaldoFondoCent,
+          })
+          .eq('id', fondoCorrente.id)
+          .eq('condominio_id', input.condominioId)
+          .select('*')
+          .single(),
+      );
+
+      let auditLogOverride: IAuditLog | null = null;
+      if (esito.eventoAudit) {
+        auditLogOverride = await registraEventoAudit({
+          ...esito.eventoAudit,
+          recordId: movimentoFondo.id,
+        });
+      }
+
+      return {
+        movimentoFondo,
+        fondoAggiornato,
+        auditLogOverride,
+      };
+    },
+
+    /**
+     * Verifica se per una gestione straordinaria il Fondo Speciale ex art. 1135 c. 1 n. 4 c.c.
+     * è regolarmente costituito per l'intero importo dei lavori deliberati (RC-J2, RC-J3, T7).
+     */
+    async validaFondoSpecialePerRateStraordinarie(input: {
+      condominioId: string;
+      gestioneId?: string | null;
+      fondoSpecialeId?: string | null;
+      importoLavoriDeliberatiCent?: CentesimiInput | null;
+      scaglioniSal?: readonly ScaglioneSalFondoInput[];
+      finoAlSalNumero?: number;
+    }): Promise<RisultatoValidazioneFondoSpecialeRate> {
+      let importoLavori = input.importoLavoriDeliberatiCent;
+      let fondoId = input.fondoSpecialeId ?? null;
+      let tipoGestione: 'ORDINARIA' | 'STRAORDINARIA' | 'RISCALDAMENTO' = 'STRAORDINARIA';
+
+      if (input.gestioneId) {
+        const gest: IGestioneEsercizio = unwrap(
+          await db
+            .from('gestioni_esercizio')
+            .select('*')
+            .eq('id', input.gestioneId)
+            .eq('condominio_id', input.condominioId)
+            .single(),
+        );
+        tipoGestione = gest.tipo;
+        if (importoLavori === undefined || importoLavori === null) {
+          importoLavori = gest.importo_lavori_centesimi;
+        }
+        if (!fondoId) {
+          fondoId = gest.fondo_speciale_id;
+        }
+      }
+
+      let fondoRecord: IFondo | null = null;
+      if (fondoId) {
+        const { data } = await db
+          .from('fondi')
+          .select('*')
+          .eq('id', fondoId)
+          .eq('condominio_id', input.condominioId)
+          .maybeSingle();
+        fondoRecord = data ?? null;
+      }
+
+      return validaFondoSpecialePerEmissioneRateStraordinarieLogic({
+        tipoGestione,
+        importoLavoriDeliberatiCent: importoLavori,
+        fondoSpeciale: fondoRecord
+          ? {
+              id: fondoRecord.id,
+              tipo: fondoRecord.tipo,
+              stato: fondoRecord.stato,
+              deliberaCostituzione: fondoRecord.delibera_costituzione,
+              importoLavoriCent: fondoRecord.importo_lavori_centesimi,
+              importoObiettivoCent: fondoRecord.importo_obiettivo_centesimi,
+              saldoAttualeCent: fondoRecord.saldo_attuale_centesimi,
+              isProgressivoSal: fondoRecord.is_progressivo_sal,
+              contrattoAppaltoRef: fondoRecord.contratto_appalto_ref,
+            }
+          : null,
+        scaglioniSal: input.scaglioniSal,
+        finoAlSalNumero: input.finoAlSalNumero,
+      });
+    },
+
+    /**
+     * Riconcilia i fondi contabili del condominio con l'unico conto corrente condominiale (RC-J5).
+     */
+    async riconciliaFondiConContoCorrente(input: {
+      condominioId: string;
+      saldoContoCorrenteCent: CentesimiInput;
+      ibanContoUnico?: string;
+    }): Promise<RisultatoRiconciliazioneFondiContoUnico> {
+      let iban = input.ibanContoUnico;
+      if (!iban) {
+        const cond = unwrap(
+          await db
+            .from('condomini')
+            .select('iban_principale')
+            .eq('id', input.condominioId)
+            .single(),
+        );
+        iban = cond.iban_principale ?? 'IT00X0000000000000000000000';
+      }
+
+      const fondi = unwrap(
+        await db
+          .from('fondi')
+          .select('*')
+          .eq('condominio_id', input.condominioId),
+      );
+
+      return riconciliaFondiConContoUnicoLogic({
+        condominioId: input.condominioId,
+        ibanContoUnico: iban,
+        saldoContoCorrenteCent: input.saldoContoCorrenteCent,
+        fondi,
+      });
     },
   };
 }
