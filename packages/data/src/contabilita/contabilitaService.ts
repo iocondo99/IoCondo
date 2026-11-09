@@ -4,6 +4,8 @@ import type {
   IAuditLog,
   IBollettino,
   IBollettinoRiga,
+  IConguaglioUnita,
+  IEsercizioContabile,
   IFondo,
   IGestioneEsercizio,
   IMovimentoContabile,
@@ -183,6 +185,111 @@ import {
   type StatoFondo,
   type TipoFondo,
 } from './fondiLogic.ts';
+import {
+  assertRendicontoModificabile,
+  calcolaConguagliEsercizio as calcolaConguagliEsercizioLogic,
+  calcolaScadenzaApprovazioneRendiconto,
+  costruisciRiepilogoFinanziario as costruisciRiepilogoFinanziarioLogic,
+  pianificaRegolazioneConguaglio as pianificaRegolazioneConguaglioLogic,
+  precompilaNotaSintetica as precompilaNotaSinteticaLogic,
+  preparaApprovazioneRendiconto as preparaApprovazioneRendicontoLogic,
+  preparaChiusuraEsercizio as preparaChiusuraEsercizioLogic,
+  preparaRettificaRendiconto as preparaRettificaRendicontoLogic,
+  riconciliaCassaCompetenza as riconciliaCassaCompetenzaLogic,
+  validaCompletezzaRendiconto as validaCompletezzaRendicontoLogic,
+  valutaPromemoriaApprovazioneRendiconto as valutaPromemoriaApprovazioneRendicontoLogic,
+  type ChiusuraEsercizioPreparata,
+  type MovimentoCassaCompetenzaInput,
+  type PromemoriaApprovazioneRendiconto,
+  type RegolazioneConguaglioPianificata,
+  type RiconciliazioneCassaCompetenza,
+  type RisultatoCompletezzaRendiconto,
+  type RisultatoConguagliEsercizio,
+  type RiepilogoFinanziario,
+  type ScelteRegolazioneConguaglio,
+  type StatoRendiconto,
+} from './rendicontoLogic.ts';
+
+export interface ChiudiEsercizioServiceInput {
+  condominioId: string;
+  esercizioId: string;
+  dataChiusuraEffettiva?: string;
+  autoreId?: string | null;
+}
+
+export interface RedigiRendicontoServiceInput {
+  condominioId: string;
+  esercizioId: string;
+  /** Testo della nota sintetica (RC-K4); se omesso si mantiene quella già salvata. La bozza precompilata è solo restituita, mai salvata. */
+  notaSintetica?: string | null;
+  saldoInizialeContoCent?: CentesimiInput;
+  saldoInizialeCassaCent?: CentesimiInput;
+  saldoFinaleContoDichiaratoCent?: CentesimiInput | null;
+  saldoFinaleCassaDichiaratoCent?: CentesimiInput | null;
+  autoreId?: string | null;
+}
+
+export interface RedigiRendicontoServiceOutput {
+  esercizio: IEsercizioContabile;
+  riepilogo: RiepilogoFinanziario;
+  riconciliazione: RiconciliazioneCassaCompetenza;
+  completezza: RisultatoCompletezzaRendiconto;
+  notaPrecompilata: string;
+}
+
+export interface ApprovaRendicontoServiceInput {
+  condominioId: string;
+  esercizioId: string;
+  dataAssemblea: string;
+  deliberaApprovazione: string;
+  autoreId?: string | null;
+}
+
+export interface ApprovaRendicontoServiceOutput {
+  esercizio: IEsercizioContabile;
+  tardiva: boolean;
+  giorniRitardo: number;
+  auditLog: IAuditLog;
+}
+
+export interface RettificaRendicontoServiceInput {
+  condominioId: string;
+  esercizioId: string;
+  motivo: string;
+  autoreId?: string | null;
+}
+
+export interface CalcolaConguagliServiceInput {
+  condominioId: string;
+  esercizioId: string;
+  autoreId?: string | null;
+}
+
+export interface CalcolaConguagliServiceOutput {
+  conguagli: IConguaglioUnita[];
+  risultato: RisultatoConguagliEsercizio;
+}
+
+export interface RegolaConguaglioServiceInput {
+  condominioId: string;
+  conguaglioId: string;
+  scelta: ScelteRegolazioneConguaglio;
+  /** Prima rata dell'esercizio successivo (`rate_dettaglio.id`), obbligatoria per la compensazione. */
+  primaRataSuccessivaId?: string | null;
+  autoreId?: string | null;
+}
+
+export interface RegolaConguaglioServiceOutput {
+  conguaglio: IConguaglioUnita;
+  regolazione: RegolazioneConguaglioPianificata;
+  auditLog: IAuditLog;
+}
+
+export interface PromemoriaApprovazioneEsercizioView {
+  esercizioId: string;
+  anno: number;
+  promemoria: PromemoriaApprovazioneRendiconto;
+}
 
 export interface FiltriRegistroContabile {
   esercizioId?: string;
@@ -871,6 +978,90 @@ export function createContabilitaService(db: TypedSupabaseClient) {
   }
 
   /**
+   * Blocca ogni modifica contabile su un esercizio il cui rendiconto è `APPROVATO` (RC-K7).
+   * Solleva `ErroreRendicontoApprovatoImmodificabile`.
+   */
+  async function assertEsercizioModificabile(
+    condominioId: string,
+    esercizioId: string,
+    operazione: string,
+  ): Promise<void> {
+    const { data } = await db
+      .from('esercizi_contabili')
+      .select('stato_rendiconto')
+      .eq('id', esercizioId)
+      .eq('condominio_id', condominioId)
+      .maybeSingle();
+    assertRendicontoModificabile(data?.stato_rendiconto ?? null, operazione);
+  }
+
+  /** Carica l'esercizio contabile del condominio (errore se non trovato). */
+  async function caricaEsercizio(condominioId: string, esercizioId: string): Promise<IEsercizioContabile> {
+    return unwrap(
+      await db
+        .from('esercizi_contabili')
+        .select('*')
+        .eq('id', esercizioId)
+        .eq('condominio_id', condominioId)
+        .single(),
+    );
+  }
+
+  /**
+   * Aggiorna l'esercizio con lock ottimistico su `versione_lock` (RC-K7, T15): se un altro utente ha
+   * modificato l'esercizio nel frattempo, l'operazione fallisce senza sovrascrivere.
+   */
+  async function aggiornaEsercizioConLock(
+    esercizio: IEsercizioContabile,
+    patch: TablesUpdate<'esercizi_contabili'>,
+  ): Promise<IEsercizioContabile> {
+    const versione = esercizio.versione_lock ?? 1;
+    const { data, error } = await db
+      .from('esercizi_contabili')
+      .update({ ...patch, versione_lock: versione + 1 })
+      .eq('id', esercizio.id)
+      .eq('condominio_id', esercizio.condominio_id)
+      .eq('versione_lock', versione)
+      .select('*')
+      .maybeSingle();
+    if (error) throw new Error(error.message || 'Errore aggiornamento esercizio');
+    if (!data) {
+      throw new Error(
+        "Conflitto di versione: l'esercizio è stato modificato da un altro utente. Ricaricare e riprovare.",
+      );
+    }
+    return data;
+  }
+
+  /** Importo in centesimi di un movimento (colonna `importo_centesimi` o, in mancanza, `importo` × 100). */
+  function centesimiMovimento(m: IMovimentoContabile): Centesimi {
+    return m.importo_centesimi ?? Math.round(m.importo * 100);
+  }
+
+  /** Crediti verso i condomini: rate dell'esercizio dovute e non ancora versate (RC-K3). */
+  async function caricaCreditiVersoCondomini(
+    esercizioId: string,
+  ): Promise<Array<{ unitaId: string; soggettoId: string | null; importoCent: Centesimi }>> {
+    const testate = unwrap(await db.from('rate_testata').select('id').eq('esercizio_id', esercizioId));
+    if (testate.length === 0) return [];
+    const dettagli = unwrap(
+      await db
+        .from('rate_dettaglio')
+        .select('*')
+        .in('rata_testata_id', testate.map((t) => t.id)),
+    );
+    const crediti: Array<{ unitaId: string; soggettoId: string | null; importoCent: Centesimi }> = [];
+    for (const d of dettagli) {
+      const dovuto = d.importo_dovuto_centesimi ?? Math.round(d.importo_dovuto * 100);
+      const pagato = d.importo_pagato_centesimi ?? Math.round(d.importo_pagato * 100);
+      if (dovuto > pagato) {
+        crediti.push({ unitaId: d.unita_id, soggettoId: d.soggetto_id ?? null, importoCent: dovuto - pagato });
+      }
+    }
+    return crediti;
+  }
+
+  /**
    * Carica le unità del condominio con i rispettivi titolari attivi per il riparto.
    */
   async function caricaUnitaCondominioPerRiparto(
@@ -1313,6 +1504,9 @@ export function createContabilitaService(db: TypedSupabaseClient) {
       const dataMovimento = input.dataMovimento.trim().slice(0, 10);
       const dataRegistrazione = (input.dataRegistrazione ?? dataOggiIso()).trim().slice(0, 10);
 
+      // 0. Blocco modifiche su rendiconto approvato (RC-K7)
+      await assertEsercizioModificabile(input.condominioId, input.esercizioId, 'registrazione movimento');
+
       // 1. Validazione eccezione fuori conto corrente (RC-B1)
       const eccezioneCc = validaEccezioneContoCorrente({
         eccezioneContoCorrente: input.eccezioneContoCorrente,
@@ -1412,6 +1606,8 @@ export function createContabilitaService(db: TypedSupabaseClient) {
           .single(),
       );
 
+      await assertEsercizioModificabile(condominioId, originale.esercizio_id, 'modifica movimento');
+
       // Mappa eventuali chiavi camelCase in snake_case per il controllo di RC-B4
       const patchDb: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(patch)) {
@@ -1490,6 +1686,8 @@ export function createContabilitaService(db: TypedSupabaseClient) {
           .eq('condominio_id', input.condominioId)
           .single(),
       );
+
+      await assertEsercizioModificabile(input.condominioId, originale.esercizio_id, 'storno movimento');
 
       const numeroProgressivoStorno = await prossimoNumeroProgressivo(
         input.condominioId,
@@ -1596,6 +1794,9 @@ export function createContabilitaService(db: TypedSupabaseClient) {
 
       const dataMovimento = input.dataFattura.trim().slice(0, 10);
       const dataRegistrazione = (input.dataRegistrazione ?? dataOggiIso()).trim().slice(0, 10);
+
+      // 0. Blocco modifiche su rendiconto approvato (RC-K7)
+      await assertEsercizioModificabile(input.condominioId, input.esercizioId, 'registrazione movimento');
 
       const eccezioneCc = validaEccezioneContoCorrente({
         eccezioneContoCorrente: input.eccezioneContoCorrente,
@@ -1710,6 +1911,9 @@ export function createContabilitaService(db: TypedSupabaseClient) {
       const competenzaA = input.competenzaA.trim().slice(0, 10);
       const dataMovimento = input.dataMovimento.trim().slice(0, 10);
       const dataRegistrazione = (input.dataRegistrazione ?? dataOggiIso()).trim().slice(0, 10);
+
+      // 0. Blocco modifiche su rendiconto approvato (RC-K7)
+      await assertEsercizioModificabile(input.condominioId, input.esercizioId, 'registrazione movimento');
 
       // 1. Se è indicata una voce di spesa dal catalogo, carica i suoi default (RC-C1, RC-C2)
       let voceCatalogo: IVoceSpesaCatalogo | null = null;
@@ -4346,6 +4550,465 @@ export function createContabilitaService(db: TypedSupabaseClient) {
         saldoContoCorrenteCent: input.saldoContoCorrenteCent,
         fondi,
       });
+    },
+
+    // ========================================================================
+    // RENDICONTO ANNUALE TRIPARTITO E CONGUAGLIO (Sezione 8: RC-K1..K8, RC-L1..L6; T5, T15)
+    // ========================================================================
+
+    /**
+     * Chiude l'esercizio contabile e calcola la scadenza dei 180 giorni per l'approvazione (RC-K8).
+     */
+    async chiudiEsercizio(input: ChiudiEsercizioServiceInput): Promise<IEsercizioContabile> {
+      const esercizio = await caricaEsercizio(input.condominioId, input.esercizioId);
+      const chiusura: ChiusuraEsercizioPreparata = preparaChiusuraEsercizioLogic({
+        dataFineEsercizio: esercizio.data_fine,
+        statoModello: esercizio.stato_modello ?? 'APERTO',
+        dataChiusuraEffettiva: input.dataChiusuraEffettiva,
+      });
+      const aggiornato = await aggiornaEsercizioConLock(esercizio, {
+        stato: 'CHIUSO',
+        stato_modello: chiusura.statoModello,
+        data_chiusura_effettiva: chiusura.dataChiusuraEffettiva,
+        scadenza_approvazione_180gg: chiusura.scadenzaApprovazione180gg,
+        stato_rendiconto: chiusura.statoRendiconto,
+        autore_id: input.autoreId ?? esercizio.autore_id ?? null,
+      });
+      await registraEventoAudit({
+        azione: 'CHIUSURA_ESERCIZIO',
+        tabella: 'esercizi_contabili',
+        recordId: esercizio.id,
+        condominioId: input.condominioId,
+        autoreId: input.autoreId ?? null,
+        timestampIso: new Date().toISOString(),
+        motivo: `Chiusura esercizio ${esercizio.anno}: approvazione rendiconto entro il ${chiusura.scadenzaApprovazione180gg} (art. 1130 n. 10 c.c.)`,
+        valorePrima: { stato_modello: esercizio.stato_modello ?? 'APERTO' },
+        valoreDopo: {
+          stato_modello: chiusura.statoModello,
+          data_chiusura_effettiva: chiusura.dataChiusuraEffettiva,
+          scadenza_approvazione_180gg: chiusura.scadenzaApprovazione180gg,
+        },
+      });
+      return aggiornato;
+    },
+
+    /**
+     * Redige il rendiconto unitario nei tre documenti (RC-K1..K5): ricostruisce riepilogo finanziario,
+     * riconciliazione cassa-competenza e nota sintetica, verifica il registro e porta lo stato a `COMPLETO`
+     * solo se tutti e tre i documenti sono presenti (T15). Non modifica un rendiconto approvato (RC-K7).
+     */
+    async redigiRendiconto(input: RedigiRendicontoServiceInput): Promise<RedigiRendicontoServiceOutput> {
+      const esercizio = await caricaEsercizio(input.condominioId, input.esercizioId);
+      assertRendicontoModificabile(esercizio.stato_rendiconto ?? null, 'redazione rendiconto');
+
+      const movimenti = unwrap(
+        await db
+          .from('movimenti_contabili')
+          .select('*')
+          .eq('condominio_id', input.condominioId)
+          .eq('esercizio_id', input.esercizioId),
+      ).filter((m) => (m.stato_spesa ?? 'REGISTRATA') === 'REGISTRATA' && !m.storno_di_id);
+
+      // Data di cassa: la data del movimento, salvo fatture fornitore con scadenza oltre la fine esercizio (debito)
+      const movimentiCC: MovimentoCassaCompetenzaInput[] = movimenti.map((m) => ({
+        id: m.id,
+        importoCent: centesimiMovimento(m),
+        segno: m.segno,
+        dataCassa:
+          m.segno === '-' && m.fornitore_id && m.data_scadenza_fattura && m.data_scadenza_fattura > esercizio.data_fine
+            ? null
+            : m.data,
+        competenzaDa: m.competenza_da ?? m.data,
+        competenzaA: m.competenza_a ?? m.competenza_da ?? m.data,
+      }));
+      const riconciliazione = riconciliaCassaCompetenzaLogic({
+        inizioEsercizio: esercizio.data_inizio,
+        fineEsercizio: esercizio.data_fine,
+        movimenti: movimentiCC,
+      });
+
+      const mappaMovimenti = new Map(movimenti.map((m) => [m.id, m]));
+      const debiti = riconciliazione.voci
+        .filter((v) => (v.tipo === 'DEBITO' || v.tipo === 'RATEO_PASSIVO') && v.segno === '-')
+        .map((v) => ({ fornitoreId: mappaMovimenti.get(v.movimentoId)?.fornitore_id ?? null, importoCent: v.importoCent }));
+
+      const movimentiCassa = movimenti.filter((m) => {
+        const cc = movimentiCC.find((x) => x.id === m.id);
+        return !!cc?.dataCassa && cc.dataCassa >= esercizio.data_inizio && cc.dataCassa <= esercizio.data_fine;
+      });
+
+      const crediti = await caricaCreditiVersoCondomini(input.esercizioId);
+      const fondi = unwrap(await db.from('fondi').select('*').eq('condominio_id', input.condominioId)).filter(
+        (f) => f.stato !== 'CHIUSO' && (!f.esercizio_id || f.esercizio_id === input.esercizioId),
+      );
+
+      const riepilogo = costruisciRiepilogoFinanziarioLogic({
+        saldoInizialeContoCent: input.saldoInizialeContoCent ?? esercizio.saldo_iniziale_conto_centesimi ?? 0,
+        saldoInizialeCassaCent: input.saldoInizialeCassaCent ?? esercizio.saldo_iniziale_cassa_centesimi ?? 0,
+        movimenti: movimentiCassa.map((m) => ({
+          importoCent: centesimiMovimento(m),
+          segno: m.segno,
+          mezzo: m.eccezione_conto_corrente ? 'CASSA' : 'CONTO',
+        })),
+        saldoFinaleContoDichiaratoCent: input.saldoFinaleContoDichiaratoCent,
+        saldoFinaleCassaDichiaratoCent: input.saldoFinaleCassaDichiaratoCent,
+        creditiVersoCondomini: crediti,
+        debitiVersoFornitori: debiti,
+        fondi: fondi.map((f) => ({
+          id: f.id,
+          nome: f.nome,
+          tipo: f.tipo,
+          saldoCent: f.saldo_attuale_centesimi,
+        })),
+      });
+
+      const fornitoriMovimentati = new Set(movimenti.map((m) => m.fornitore_id).filter((x): x is string => !!x));
+      const notaPrecompilata = precompilaNotaSinteticaLogic({
+        anno: esercizio.anno,
+        riepilogo,
+        numeroFornitori: fornitoriMovimentati.size,
+      });
+
+      const registroCompleto = await aggiornaStatoCompletezzaRegistroEsercizio(
+        input.condominioId,
+        input.esercizioId,
+      );
+      const notaAmministratore =
+        input.notaSintetica !== undefined ? input.notaSintetica : (esercizio.nota_sintetica_esplicativa ?? null);
+      const notaDaSalvare =
+        notaAmministratore && notaAmministratore.trim().length > 0 ? notaAmministratore : null;
+
+      const completezza = validaCompletezzaRendicontoLogic({
+        registroContabilitaCompleto: registroCompleto,
+        riepilogoFinanziario: riepilogo,
+        notaSintetica: notaDaSalvare,
+      });
+
+      const aggiornato = await aggiornaEsercizioConLock(esercizio, {
+        riepilogo_finanziario_json: riepilogo as unknown as Json,
+        nota_sintetica_esplicativa: notaDaSalvare,
+        saldo_iniziale_conto_centesimi: riepilogo.saldoInizialeContoCent,
+        saldo_iniziale_cassa_centesimi: riepilogo.saldoInizialeCassaCent,
+        saldo_finale_conto_centesimi: riepilogo.saldoFinaleContoCent,
+        saldo_finale_cassa_centesimi: riepilogo.saldoFinaleCassaCent,
+        registro_contabilita_completo: registroCompleto,
+        stato_rendiconto: completezza.statoProposto as StatoRendiconto,
+        autore_id: input.autoreId ?? esercizio.autore_id ?? null,
+      });
+
+      return { esercizio: aggiornato, riepilogo, riconciliazione, completezza, notaPrecompilata };
+    },
+
+    /**
+     * Registra l'approvazione del rendiconto in assemblea (RC-K7): richiede stato `COMPLETO` (o `RETTIFICATO`),
+     * data assemblea e delibera. Segnala l'eventuale ritardo oltre i 180 giorni (RC-K8).
+     */
+    async approvaRendiconto(input: ApprovaRendicontoServiceInput): Promise<ApprovaRendicontoServiceOutput> {
+      const esercizio = await caricaEsercizio(input.condominioId, input.esercizioId);
+      const riepilogo = (esercizio.riepilogo_finanziario_json ?? null) as { quadra?: boolean } | null;
+      const approvazione = preparaApprovazioneRendicontoLogic({
+        statoRendiconto: esercizio.stato_rendiconto ?? 'IN_PREPARAZIONE',
+        completezza: {
+          registroContabilitaCompleto: esercizio.registro_contabilita_completo ?? false,
+          riepilogoFinanziario: riepilogo ? { quadra: riepilogo.quadra === true } : null,
+          notaSintetica: esercizio.nota_sintetica_esplicativa,
+        },
+        dataAssemblea: input.dataAssemblea,
+        deliberaApprovazione: input.deliberaApprovazione,
+        dataChiusuraEsercizio: esercizio.data_fine,
+        esercizioId: esercizio.id,
+        condominioId: input.condominioId,
+        autoreId: input.autoreId ?? null,
+      });
+
+      const aggiornato = await aggiornaEsercizioConLock(esercizio, {
+        stato: 'CHIUSO',
+        stato_modello: approvazione.statoModello,
+        stato_rendiconto: approvazione.statoRendiconto,
+        data_approvazione_rendiconto: approvazione.dataApprovazione,
+        delibera_approvazione: approvazione.deliberaApprovazione,
+        scadenza_approvazione_180gg: esercizio.scadenza_approvazione_180gg ?? calcolaScadenzaApprovazioneRendiconto(esercizio.data_fine),
+        autore_id: input.autoreId ?? esercizio.autore_id ?? null,
+      });
+      const auditLog = await registraEventoAudit(approvazione.eventoAudit);
+      return { esercizio: aggiornato, tardiva: approvazione.tardiva, giorniRitardo: approvazione.giorniRitardo, auditLog };
+    },
+
+    /**
+     * Avvia la rettifica di un rendiconto approvato (RC-K7, RC-L6): lo riporta a `RETTIFICATO`,
+     * modificabile solo fino alla nuova approvazione.
+     */
+    async avviaRettificaRendiconto(input: RettificaRendicontoServiceInput): Promise<IEsercizioContabile> {
+      const esercizio = await caricaEsercizio(input.condominioId, input.esercizioId);
+      const rettifica = preparaRettificaRendicontoLogic({
+        statoRendiconto: esercizio.stato_rendiconto ?? 'IN_PREPARAZIONE',
+        motivo: input.motivo,
+        esercizioId: esercizio.id,
+        condominioId: input.condominioId,
+        autoreId: input.autoreId ?? null,
+      });
+      const aggiornato = await aggiornaEsercizioConLock(esercizio, {
+        stato_rendiconto: rettifica.statoRendiconto,
+        stato_modello: 'CHIUSO',
+        autore_id: input.autoreId ?? esercizio.autore_id ?? null,
+      });
+      await registraEventoAudit(rettifica.eventoAudit);
+      return aggiornato;
+    },
+
+    /**
+     * Promemoria sull'obbligo di convocare l'assemblea di approvazione entro 180 giorni dalla chiusura
+     * (RC-K8): alert a 60, 30 e 7 giorni, per ogni esercizio non ancora approvato.
+     */
+    async elencaPromemoriaApprovazioneRendiconto(
+      condominioId: string,
+      oggi: string = dataOggiIso(),
+    ): Promise<PromemoriaApprovazioneEsercizioView[]> {
+      const esercizi = unwrap(await db.from('esercizi_contabili').select('*').eq('condominio_id', condominioId));
+      return esercizi
+        .filter((e) => (e.stato_rendiconto ?? 'IN_PREPARAZIONE') !== 'APPROVATO' && e.data_fine <= oggi)
+        .map((e) => ({
+          esercizioId: e.id,
+          anno: e.anno,
+          promemoria: valutaPromemoriaApprovazioneRendicontoLogic({
+            dataChiusuraEsercizio: e.data_fine,
+            oggi,
+            statoRendiconto: e.stato_rendiconto ?? null,
+          }),
+        }))
+        .filter((x) => x.promemoria.attivo && (x.promemoria.soglia !== null || x.promemoria.scaduto));
+    },
+
+    /**
+     * Calcola e salva i conguagli per unità e gestione dell'esercizio: `quota consuntivo − rate versate`
+     * (RC-L1, RC-L2, T5). I conguagli già regolati non vengono toccati.
+     */
+    async calcolaConguagliEsercizio(input: CalcolaConguagliServiceInput): Promise<CalcolaConguagliServiceOutput> {
+      const esercizio = await caricaEsercizio(input.condominioId, input.esercizioId);
+      assertRendicontoModificabile(esercizio.stato_rendiconto ?? null, 'calcolo conguagli');
+
+      const movimenti = unwrap(
+        await db
+          .from('movimenti_contabili')
+          .select('id, gestione_id, segno, stato_spesa, storno_di_id')
+          .eq('condominio_id', input.condominioId)
+          .eq('esercizio_id', input.esercizioId),
+      ).filter((m) => m.segno === '-' && (m.stato_spesa ?? 'REGISTRATA') === 'REGISTRATA' && !m.storno_di_id);
+      const gestionePerMovimento = new Map(movimenti.map((m) => [m.id, m.gestione_id ?? null]));
+
+      const riparti: IRipartoSpesa[] = movimenti.length
+        ? unwrap(
+            await db
+              .from('riparti_spese')
+              .select('*')
+              .eq('condominio_id', input.condominioId)
+              .in('movimento_id', movimenti.map((m) => m.id)),
+          )
+        : [];
+
+      interface Accumulatore {
+        unitaId: string;
+        gestioneId: string | null;
+        soggettoId: string | null;
+        utenteId: string | null;
+        quota: number;
+        rate: number;
+      }
+      const righe = new Map<string, Accumulatore>();
+      const chiave = (u: string, g: string | null, s: string | null): string => `${u}|${g ?? ''}|${s ?? ''}`;
+      for (const r of riparti) {
+        const g = gestionePerMovimento.get(r.movimento_id) ?? null;
+        const k = chiave(r.unita_id, g, r.soggetto_id);
+        const acc = righe.get(k) ?? {
+          unitaId: r.unita_id,
+          gestioneId: g,
+          soggettoId: r.soggetto_id,
+          utenteId: r.utente_id,
+          quota: 0,
+          rate: 0,
+        };
+        acc.quota += r.importo_quota_centesimi;
+        righe.set(k, acc);
+      }
+
+      const testate = unwrap(
+        await db.from('rate_testata').select('*').eq('esercizio_id', input.esercizioId),
+      );
+      const gestionePerTestata = new Map(testate.map((t) => [t.id, t.gestione_id ?? null]));
+      const dettagli: IRataDettaglio[] = testate.length
+        ? unwrap(
+            await db
+              .from('rate_dettaglio')
+              .select('*')
+              .in('rata_testata_id', testate.map((t) => t.id)),
+          )
+        : [];
+      for (const d of dettagli) {
+        const versato = d.importo_pagato_centesimi ?? Math.round(d.importo_pagato * 100);
+        if (versato <= 0) continue;
+        const g = gestionePerTestata.get(d.rata_testata_id) ?? null;
+        let k = chiave(d.unita_id, g, d.soggetto_id ?? null);
+        if (!righe.has(k)) {
+          // Rate senza soggetto: si attribuiscono alla prima riga di riparto della stessa unità e gestione
+          const prefisso = `${d.unita_id}|${g ?? ''}|`;
+          const esistente = [...righe.keys()].find((x) => x.startsWith(prefisso));
+          if (esistente) k = esistente;
+        }
+        const acc = righe.get(k) ?? {
+          unitaId: d.unita_id,
+          gestioneId: g,
+          soggettoId: d.soggetto_id ?? null,
+          utenteId: d.utente_id,
+          quota: 0,
+          rate: 0,
+        };
+        acc.rate += versato;
+        righe.set(k, acc);
+      }
+
+      const risultato = calcolaConguagliEsercizioLogic(
+        [...righe.values()].map((a) => ({
+          unitaId: a.unitaId,
+          soggettoId: a.soggettoId,
+          utenteId: a.utenteId,
+          gestioneId: a.gestioneId,
+          periodoDa: esercizio.data_inizio,
+          periodoA: esercizio.data_fine,
+          quotaConsuntivoCent: a.quota,
+          rateVersateCent: a.rate,
+        })),
+      );
+
+      const esistenti = unwrap(
+        await db
+          .from('conguagli_unita')
+          .select('*')
+          .eq('condominio_id', input.condominioId)
+          .eq('esercizio_id', input.esercizioId),
+      );
+      const conguagli: IConguaglioUnita[] = [];
+      for (const c of risultato.perUnita) {
+        const presente = esistenti.find(
+          (e) =>
+            e.unita_id === c.unitaId &&
+            (e.gestione_id ?? null) === c.gestioneId &&
+            (e.soggetto_id ?? null) === c.soggettoId &&
+            e.periodo_da === esercizio.data_inizio &&
+            e.periodo_a === esercizio.data_fine,
+        );
+        const valori = {
+          quota_consuntivo_centesimi: c.quotaConsuntivoCent,
+          rate_versate_centesimi: c.rateVersateCent,
+          saldo_conguaglio_centesimi: c.conguaglioCent,
+          autore_id: input.autoreId ?? null,
+        };
+        if (presente) {
+          if (presente.modalita_regolazione && presente.modalita_regolazione !== 'DA_REGOLARE') {
+            conguagli.push(presente);
+            continue;
+          }
+          conguagli.push(
+            unwrap(
+              await db
+                .from('conguagli_unita')
+                .update(valori)
+                .eq('id', presente.id)
+                .eq('condominio_id', input.condominioId)
+                .select('*')
+                .single(),
+            ),
+          );
+        } else {
+          conguagli.push(
+            unwrap(
+              await db
+                .from('conguagli_unita')
+                .insert({
+                  condominio_id: input.condominioId,
+                  esercizio_id: input.esercizioId,
+                  gestione_id: c.gestioneId,
+                  unita_id: c.unitaId,
+                  utente_id: c.utenteId,
+                  soggetto_id: c.soggettoId,
+                  periodo_da: esercizio.data_inizio,
+                  periodo_a: esercizio.data_fine,
+                  modalita_regolazione: 'DA_REGOLARE',
+                  ...valori,
+                })
+                .select('*')
+                .single(),
+            ),
+          );
+        }
+      }
+      return { conguagli, risultato };
+    },
+
+    /**
+     * Regola un credito di conguaglio: compensazione sulla prima rata dell'esercizio successivo oppure
+     * rimborso, a scelta dell'amministratore, con tracciamento in audit (RC-L5).
+     */
+    async regolaConguaglio(input: RegolaConguaglioServiceInput): Promise<RegolaConguaglioServiceOutput> {
+      const conguaglio = unwrap(
+        await db
+          .from('conguagli_unita')
+          .select('*')
+          .eq('id', input.conguaglioId)
+          .eq('condominio_id', input.condominioId)
+          .single(),
+      );
+      if (conguaglio.modalita_regolazione && conguaglio.modalita_regolazione !== 'DA_REGOLARE') {
+        throw new Error(`Il conguaglio è già stato regolato (${conguaglio.modalita_regolazione}).`);
+      }
+
+      let rata: IRataDettaglio | null = null;
+      if (input.scelta === 'COMPENSAZIONE_PRIMA_RATA' && input.primaRataSuccessivaId) {
+        rata = unwrap(
+          await db.from('rate_dettaglio').select('*').eq('id', input.primaRataSuccessivaId).single(),
+        );
+      }
+
+      const regolazione = pianificaRegolazioneConguaglioLogic({
+        conguaglioCent: conguaglio.saldo_conguaglio_centesimi,
+        scelta: input.scelta,
+        primaRataSuccessiva: rata
+          ? {
+              id: rata.id,
+              importoDovutoCent: rata.importo_dovuto_centesimi ?? Math.round(rata.importo_dovuto * 100),
+            }
+          : null,
+        conguaglioId: conguaglio.id,
+        condominioId: input.condominioId,
+        autoreId: input.autoreId ?? null,
+      });
+
+      if (rata && regolazione.nuovoImportoPrimaRataCent !== null) {
+        assertOk(
+          await db
+            .from('rate_dettaglio')
+            .update({
+              importo_dovuto: regolazione.nuovoImportoPrimaRataCent / 100,
+              importo_dovuto_centesimi: regolazione.nuovoImportoPrimaRataCent,
+            })
+            .eq('id', rata.id),
+        );
+      }
+
+      const aggiornato = unwrap(
+        await db
+          .from('conguagli_unita')
+          .update({
+            modalita_regolazione: regolazione.modalitaRegolazione,
+            rata_compensazione_id: regolazione.rataCompensazioneId,
+            autore_id: input.autoreId ?? conguaglio.autore_id ?? null,
+          })
+          .eq('id', conguaglio.id)
+          .eq('condominio_id', input.condominioId)
+          .select('*')
+          .single(),
+      );
+      const auditLog = await registraEventoAudit(regolazione.eventoAudit);
+      return { conguaglio: aggiornato, regolazione, auditLog };
     },
   };
 }

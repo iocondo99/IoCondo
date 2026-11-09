@@ -586,6 +586,23 @@ describe('registroContabileLogic — Sezioni 4 e 5 Requisiti Contabili', () => {
 
           if (table === 'esercizi_contabili') {
             return {
+              // Guard RC-K7: esercizio con rendiconto non approvato
+              select() {
+                return {
+                  eq() {
+                    return {
+                      eq() {
+                        return {
+                          maybeSingle: async () => ({
+                            data: { stato_rendiconto: 'IN_PREPARAZIONE' },
+                            error: null,
+                          }),
+                        };
+                      },
+                    };
+                  },
+                };
+              },
               update() {
                 return {
                   eq() {
