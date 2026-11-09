@@ -42,14 +42,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 description="Il tuo account non è ancora associato a nessun condominio. Contatta il tuo amministratore."
               />
             )}
-            <Button
-              variant="secondary"
-              label="Esci"
-              icon="log-out"
-              onPress={async () => {
-                await signOut();
-              }}
-            />
+            <View style={styles.azioni}>
+              <Button
+                variant="secondary"
+                label="Esci"
+                icon="log-out"
+                onPress={async () => {
+                  await signOut();
+                }}
+              />
+            </View>
           </View>
         </View>
       ) : null}
@@ -70,6 +72,7 @@ const styles = StyleSheet.create({
     padding: space[4],
   },
   blocco: { alignItems: 'center', gap: space[4], width: '100%' },
+  azioni: { width: '100%', flexDirection: 'row', justifyContent: 'center' },
   layout: { flex: 1 },
   nascosto: { display: 'none' },
 });
