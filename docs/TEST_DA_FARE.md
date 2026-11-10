@@ -1121,5 +1121,114 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 - [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/admin_assemblee_extra_pulizia.sql`.
   **Risultato atteso:** le assemblee di prova, i punti ODG, i voti nominali e le presenze create dal seed vengono eliminati in modo sicuro e pulito dal database senza lasciare residui.
 
+---
+
+## N. Modulo Contabile e Bilanci (Amministratore - /admin/contabilita, Passo 8 modulo Amministratore)
+
+### N1 — Migrazione Schema Contabile e Dati di Prova
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire nell'ordine:
+  1. `supabase/da-applicare/10_contabilita_schema_modello_obiettivo.sql` (schema completo, trigger di immutabilità, RLS e funzioni RPC/helper);
+  2. `supabase/da-applicare/10_verifica.sql` (controlli di integrità post-migrazione).
+  **Risultato atteso:** la migrazione termina con successo e lo script `10_verifica.sql` restituisce `OK` su tutti i 12 controlli (tabelle, indici, trigger di immutabilità `movimenti_contabili` e `audit_log`, RLS attive, funzioni helper).
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire gli script di seed contabile per popolare il condominio di prova con movimenti, bollettini, posizioni morose, fondi speciali e rendiconto/conguagli:
+  1. `supabase/seed-dev/admin_contabilita_registro_extra.sql`;
+  2. `supabase/seed-dev/admin_contabilita_bollettini_extra.sql`;
+  3. `supabase/seed-dev/admin_contabilita_morosita_extra.sql`;
+  4. `supabase/seed-dev/admin_contabilita_fondi_extra.sql`;
+  5. `supabase/seed-dev/admin_contabilita_rendiconto_extra.sql`.
+  **Risultato atteso:** tutti gli script completano senza errori né duplicati (idempotenti), popolando l'esercizio contabile con scritture cronologiche, preventivi, rate, bollettini, scadenziario recupero crediti, fondi accantonati e conguagli per unità.
+
+### N2 — Testata Istituzionale, Selettore Esercizio e 4 StatCard Ufficiali
+
+- [ ] **Cosa fare:** accedere all'app come amministratore e navigare su `/admin/contabilita`:
+  - Verificare il `PageHeader` con titolo `"Contabilità e Bilanci"`, breadcrumb `"Home / Amministrazione / Contabilità"` e i 2 pulsanti primari d'azione con icone Lucide: `"Nuova spesa"` (icona `plus`) e `"Emetti rate"` (icona `receipt`);
+  - Verificare la barra di stato dell'esercizio contabile con il menù a tendina `Select` per cambiare esercizio e i badge informativi di stato esercizio e stato rendiconto;
+  - Verificare le 4 `StatCard` ufficiali (Sez. 8 Design System, contrasto WCAG AA):
+    1. `"Saldo di Cassa Attuale"` (blu navy, icona `wallet`): importo formattato in Euro da centesimi (`1.250,50 €`) con dettaglio entrate e uscite;
+    2. `"Riscossione Rate Esercizio"` (turchese teal, icona `badge-percent`): percentuale di incasso su emesso;
+    3. `"Morosità Scadute"` (rosso/navy con badge di allarme se presenti posizioni oltre 180 giorni ex art. 1129 c.c., icona `alert-triangle`): totale insoluto scaduto e numero di posizioni critiche;
+    4. `"Fondi Speciali Accantonati"` (viola/blu, icona `piggy-bank`): saldo complessivo accantonato nei fondi attivi (art. 1135 n. 4 c.c.).
+
+### N3 — Scheda 1: Registro & Spese (Art. 1130 n. 7 c.c.)
+
+- [ ] **Cosa fare:** nella scheda `"Registro & Spese"`:
+  - Testare i filtri rapidi: `SearchBar` per descrizione/fattura, `FilterChips` (`"Tutti i movimenti"`, `"Spese (-)"`, `"Entrate (+)"`, `"Straordinarie"`, `"Giustificativo incompleto"`) e intervallo date (`"Dal"`, `"Al"`);
+  - Verificare la tabella `ResponsiveDataView` (tabella su desktop/tablet, card su smartphone):
+    * Colonne: `Prog. & Data` (`#N` + `DD/MM/YYYY`), `Descrizione & Voce` (con alert eventuale di registrazione > 30 gg), `Natura` (`Ordinaria` / `Straordinaria` / `Entrata` / `Storno`), `Giustificativo` (`Completo`, `Eccezione c/c`, `Incompleto`), `Importo` (`- 1.250,00 €` / `+ 500,00 €`) e `Azioni`;
+  - Cliccare su `"Nuova spesa"` per aprire la modale accessibile `"Registra spesa"`:
+    * Compilare categoria spesa, descrizione, importo in Euro, data pagamento, natura (`Spesa Ordinaria` / `Spesa Straordinaria`), criterio `"Chi paga"` (es. Tabella A o Tabella specifica) e riferimento giustificativo;
+    * Verificare che con `"Spesa Straordinaria"` sia richiesto il riferimento alla delibera assembleare;
+    * Salvare la spesa: il movimento compare nel registro cronologico e il saldo di cassa si aggiorna;
+  - Cliccare sul pulsante `"Storna"` su un movimento attivo:
+    * Si apre la modale `"Storna movimento contabile (Art. 1130 c.c.)"`;
+    * Verificare che il tentativo di conferma senza motivo mostri l'errore di validazione;
+    * Inserire il motivo dello storno e confermare: viene creata la scrittura di contropartita di segno opposto senza mai cancellare il movimento originario (immutabilità registro).
+
+### N4 — Scheda 2: Preventivi & Rate
+
+- [ ] **Cosa fare:** selezionare la scheda `"Preventivi & Rate"`:
+  - Verificare l'elenco delle versioni di preventivo con stato (`Bozza`, `Approvato`, `Storico`), totale ripartito in Euro e data assemblea;
+  - Cliccare su `"Nuovo preventivo"` per aprire la modale accessibile:
+    * Inserire gli importi delle voci principali (Gestione ordinaria, Pulizia/Igiene, Energia elettrica) e salvare la bozza;
+  - Cliccare su `"Approva in assemblea"` su un preventivo in bozza:
+    * Inserire data assemblea e riferimento delibera e confermare: lo stato passa ad `Approvato`;
+  - Cliccare su `"Emetti rate"` per aprire la modale di generazione del piano rate:
+    * Selezionare il preventivo, il numero di scadenze (es. 4 rate trimestrali) e la data della prima scadenza;
+    * Se si seleziona un preventivo ancora in bozza, verificare il blocco di sicurezza che richiede il flag esplicito di deroga motivata (`Override preventivo in bozza`);
+    * Confermare l'emissione: il piano rate e i relativi bollettini per unità vengono generati e compaiono nella tabella `"Piano Rate e Scadenze Esercizio"`.
+
+### N5 — Scheda 3: Bollettini & Incassi (Art. 1193 c.c.)
+
+- [ ] **Cosa fare:** selezionare la scheda `"Bollettini & Incassi"`:
+  - Verificare l'elenco dei bollettini emessi filtrabile tramite `SearchBar` (codice bollettino, unità, pagatore);
+  - Cliccare su `"Dettaglio / Rettifica"` (o sulla riga del bollettino) per aprire la modale `"Dettaglio bollettino / Rettifica"`:
+    * Consultare l'anteprima delle righe analitiche del bollettino e il riepilogo importi (Totale, Incassato, Residuo);
+    * Per un bollettino non annullato, compilare la sezione `"Rettifica Bollettino Emesso"` con nuovo importo e motivazione obbligatoria: il bollettino originario passa a `RETTIFICATO` e viene emesso il nuovo bollettino collegato;
+  - Cliccare su `"Registra incasso"` per aprire la modale `"Registra incasso manuale"`:
+    * Selezionare l'unità immobiliare, il nome del pagatore, l'importo in Euro, la data valuta, il metodo di pagamento (`Bonifico`, `MAV`, ` Bollettino Postale`, ecc.), il criterio di imputazione (`FIFO ex art. 1193 c.c.` dal debito più vecchio) e l'eventuale flag `"Pagamento eseguito da terzo (art. 1180 c.c.)"`;
+    * Confermare: l'incasso viene imputato alle rate/bollettini aperti, registrato sul giornale contabile e le StatCard di riscossione si aggiornano.
+
+### N6 — Scheda 4: Morosità & Recupero (Art. 1129 co. 9 c.c. e Art. 63 disp. att. c.c.)
+
+- [ ] **Cosa fare:** selezionare la scheda `"Morosità & Recupero"`:
+  - Verificare l'`Alert` automatico nel caso di posizioni con oltre 180 giorni di ritardo dalla scadenza di pagamento (obbligo di attivazione riscossione forzosa entro 6 mesi ex art. 1129 co. 9 c.c.);
+  - Verificare la tabella `"Prospetto Debitori e Solidarietà Subentro"` con indicazione di unità, debitore, scadenza più vecchia, giorni di ritardo, stato recupero e insoluto totale;
+  - Verificare la tabella `"Scadenziario Pratiche di Recupero Crediti (Art. 1129 c.c.)"` e testare i pulsanti di avanzamento stato (`"Avvia sollecito"`, `"Messa in mora"`, `"Azione legale"`) verificando l'aggiornamento immediato dello stato della pratica.
+
+### N7 — Scheda 5: Rendiconto & Conguagli (Art. 1130-bis c.c.)
+
+- [ ] **Cosa fare:** selezionare la scheda `"Rendiconto & Conguagli"`:
+  - Verificare il `"Semaforo Completezza Fascicolo Rendiconto (Art. 1130-bis c.c.)"` con lo stato dei 3 documenti obbligatori per legge:
+    1. *Registro di Contabilità* (entrate e uscite cronologiche con verifica giustificativi);
+    2. *Riepilogo Finanziario e Fondi* (situazione patrimoniale, cassa e fondi accantonati);
+    3. *Nota Sintetica Esplicativa* (relazione gestionale sui rapporti in corso e questioni pendenti);
+  - Compilare o aggiornare il testo nella `Textarea` della Nota Sintetica Esplicativa e cliccare su `"Salva e redigi rendiconto"`: il fascicolo viene salvato e il semaforo si aggiorna;
+  - Cliccare su `"Calcola conguagli unità"`: vengono calcolati e visualizzati nella tabella `"Prospetto Conguagli per Unità Immobiliare"` per ciascuna unità la quota consuntiva, le rate emesse, il versato e il saldo conguaglio (`A Debito` / `A Credito` / `In Pareggio`).
+
+### N8 — Responsive Design (1440px, 820px, 390px) e Accessibilità WCAG 2.2 AA
+
+- [ ] **Cosa fare:** verificare `/admin/contabilita` sui 3 breakpoint obbligatori:
+  - **Desktop (`1440x900`)**: sidebar blu navy visibile, 4 StatCard affiancate, tabelle `ResponsiveDataView` allineate senza alcuna scrollbar orizzontale (`document.documentElement.scrollWidth <= window.innerWidth`);
+  - **Tablet (`820x1180`)**: riposizionamento fluido delle StatCard su 2 colonne e tabelle/card prive di overflow orizzontale;
+  - **Smartphone (`390x844`)**: barra di navigazione inferiore, commutazione automatica di tutte le `ResponsiveDataView` in card compatte verticali, apertura e chiusura di tutte le modali (`Registra spesa`, `Emetti rate`, `Registra incasso`, `Nuovo preventivo`, `Dettaglio bollettino`) senza overflow né `<ScrollView>` annidati.
+
+- [ ] **Cosa fare:** verificare la navigazione da tastiera e il contrasto cromatico WCAG 2.2 AA:
+  - Navigare con `Tab`, `Shift+Tab`, `Invio`, `Spazio` ed `Escape` attraverso pulsanti d'azione, selettore esercizio, barra delle 5 schede (`Tabs`), filtri, tabelle e modali;
+  - Verificare che il focus ring `#0284C7` (inset 2px) sia sempre ben visibile e mai tagliato su tutti gli elementi interattivi;
+  - Verificare la leggibilità a zoom 200% senza tagli del contenuto.
+
+### N9 — Ripristino e Pulizia Dati di Prova
+
+- [ ] **Cosa fare:** al termine delle verifiche, eseguire nel SQL Editor di Supabase gli script di pulizia in ordine inverso:
+  1. `supabase/seed-dev/admin_contabilita_rendiconto_extra_pulizia.sql`;
+  2. `supabase/seed-dev/admin_contabilita_fondi_extra_pulizia.sql`;
+  3. `supabase/seed-dev/admin_contabilita_morosita_extra_pulizia.sql`;
+  4. `supabase/seed-dev/admin_contabilita_bollettini_extra_pulizia.sql`;
+  5. `supabase/seed-dev/admin_contabilita_registro_extra_pulizia.sql`.
+  **Risultato atteso:** tutti i dati di test contabili aggiunti dagli script `*_extra.sql` vengono rimossi in modo sicuro senza alterare i dati base del condominio.
+
+
 
 

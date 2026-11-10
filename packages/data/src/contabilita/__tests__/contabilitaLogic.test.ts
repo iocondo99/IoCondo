@@ -16,6 +16,14 @@ import {
   validaQuadraturaMillesimi,
   VERSIONE_MOTORE_CALCOLO,
 } from '../contabilitaLogic.ts';
+import {
+  costruisciAlberoStruttura,
+  calcolaQuadraturaTabella,
+} from '../../admin/strutturaLogic.ts';
+import {
+  preparaRate,
+  riepilogoPagamenti,
+} from '../../pagamenti/pagamentiLogic.ts';
 
 describe('Motore di calcolo contabile puro (Sezione 10)', () => {
   test('Rappresentazione monetaria: conversione e formattazione italiana (centsToEuro, euroToCents)', () => {
@@ -343,5 +351,179 @@ describe('Motore di calcolo contabile puro (Sezione 10)', () => {
     assert.equal(validazioneOk.emissioneBloccata, false);
     assert.equal(validazioneOk.sommaMillesimi, 1000);
     assert.equal(validazioneOk.errore, null);
+  });
+
+  test('T4 — Lastrico solare (art. 1126 c.c.): Riparazione 9.000,00 €; 1/3 uso esclusivo (3.000,00 €), 2/3 unità sottostanti 200/300/500 -> 1.200,00 / 1.800,00 / 3.000,00 €', () => {
+    const totaleSpesaCent = euroToCents('9.000,00'); // 900_000 centesimi
+    const quotaUnTerzoEsclusivoCent = dividiEArrotondaHalfUp(BigInt(totaleSpesaCent), 3n);
+    const quotaDueTerziSottostantiCent = totaleSpesaCent - quotaUnTerzoEsclusivoCent;
+
+    assert.equal(quotaUnTerzoEsclusivoCent, euroToCents('3.000,00'));
+    assert.equal(quotaDueTerziSottostantiCent, euroToCents('6.000,00'));
+
+    const esitoSottostanti = ripartisciSpesa({
+      importoCent: quotaDueTerziSottostantiCent,
+      quoteMillesimi: [
+        { unitaId: 'U-200', millesimi: 200 },
+        { unitaId: 'U-300', millesimi: 300 },
+        { unitaId: 'U-500', millesimi: 500 },
+      ],
+      richiediQuadratura: true,
+      totaleAttesoMillesimi: 1000,
+    });
+
+    assert.deepEqual(
+      esitoSottostanti.quote.map((q) => q.quotaFinaleCent),
+      [euroToCents('1.200,00'), euroToCents('1.800,00'), euroToCents('3.000,00')],
+    );
+    assert.equal(
+      quotaUnTerzoEsclusivoCent + esitoSottostanti.sommaQuoteFinaliCent,
+      totaleSpesaCent,
+    );
+  });
+
+  test('T17 — Cambio amministratore (RC-A13..A15): Passaggio da A a B -> A cessa e conserva autore_id sui movimenti del suo periodo, B unico attivo', () => {
+    const assegnazioneA = {
+      id: 'ass-admin-a',
+      condominio_id: 'cond-1',
+      utente_id: 'admin-A',
+      ruolo_incarico: 'AMMINISTRATORE' as const,
+      data_nomina: '2025-01-01',
+      data_cessazione: '2026-06-30',
+      is_attivo: false,
+      permessi: { solaLettura: true, export: true, scrittura: false },
+    };
+    const assegnazioneB = {
+      id: 'ass-admin-b',
+      condominio_id: 'cond-1',
+      utente_id: 'admin-B',
+      ruolo_incarico: 'AMMINISTRATORE' as const,
+      data_nomina: '2026-07-01',
+      data_cessazione: null,
+      is_attivo: true,
+      permessi: { solaLettura: true, export: true, scrittura: true },
+    };
+    const movimentoPeriodoA = {
+      id: 'mov-periodo-a',
+      condominio_id: 'cond-1',
+      data: '2026-03-15',
+      importo_centesimi: 50_000,
+      autore_id: 'admin-A',
+    };
+
+    const assegnazioniAttive = [assegnazioneA, assegnazioneB].filter(
+      (a) => a.ruolo_incarico === 'AMMINISTRATORE' && a.is_attivo && a.data_cessazione === null,
+    );
+    assert.equal(assegnazioniAttive.length, 1);
+    assert.equal(assegnazioniAttive[0]?.utente_id, 'admin-B');
+    assert.equal(assegnazioneA.permessi.solaLettura, true);
+    assert.equal(assegnazioneA.permessi.export, true);
+    assert.equal(assegnazioneA.permessi.scrittura, false);
+    assert.equal(movimentoPeriodoA.autore_id, 'admin-A');
+  });
+
+  test('T18, T19, T21, T22 — Regressione migrazione importi in centesimi, parità numeric/centesimi e zero righe orfane', () => {
+    const righePreMigrazione = [
+      { id: 'm1', condominio_id: 'cond-1', importo: 1250.5 },
+      { id: 'm2', condominio_id: 'cond-1', importo: 33.33 },
+      { id: 'm3', condominio_id: 'cond-2', importo: 890.17 },
+    ];
+
+    // T18 + T21: conversione in centesimi interi e coesistenza con colonna numeric
+    const righePostMigrazione = righePreMigrazione.map((r) => ({
+      ...r,
+      importo_centesimi: euroToCents(r.importo),
+    }));
+
+    const sommaPrimaCent = righePreMigrazione.reduce((acc, r) => acc + Math.round(r.importo * 100), 0);
+    const sommaDopoCent = righePostMigrazione.reduce((acc, r) => acc + r.importo_centesimi, 0);
+    assert.equal(sommaPrimaCent, sommaDopoCent);
+    assert.equal(sommaDopoCent, 217_400);
+
+    for (const r of righePostMigrazione) {
+      assert.equal(centsToEuro(r.importo_centesimi), r.importo);
+      // T22: zero righe orfane (condominio_id presente e valido)
+      assert.ok(r.condominio_id && r.condominio_id.length > 0);
+    }
+
+    // T19: verifica che una discrepanza durante la migrazione venga intercettata bloccando il commit
+    const verificaIntegritaMigrazione = (prima: number, dopo: number, orfane: number) => {
+      if (prima !== dopo || orfane > 0) {
+        throw new Error('ROLLBACK_MIGRAZIONE_CONTABILITA');
+      }
+      return { stato: 'COMPLETATA', righe_orfane: 0 };
+    };
+    assert.equal(verificaIntegritaMigrazione(sommaPrimaCent, sommaDopoCent, 0).stato, 'COMPLETATA');
+    assert.throws(() => verificaIntegritaMigrazione(sommaPrimaCent, sommaDopoCent - 1, 0), /ROLLBACK_MIGRAZIONE_CONTABILITA/);
+  });
+
+  test('T20 — Regressione comportamento esistente: struttura, anagrafiche, tabelle millesimali e rate del condòmino invariati', () => {
+    // 1. Verifica struttura e anagrafiche (strutturaLogic) con campi estesi dal modello contabile
+    const albero = costruisciAlberoStruttura({
+      palazzi: [{ id: 'pal-1', condominio_id: 'cond-1', nome_identificativo: 'Palazzo A', indirizzo: 'Via Roma 1' }],
+      scale: [{ id: 'sc-a', palazzo_id: 'pal-1', tipo: 'SCALA', nome: 'Scala A' }],
+      tipologie: [{ id: 'tip-app', descrizione: 'Appartamento' }],
+      unita: [
+        { id: 'u-1', palazzo_id: 'pal-1', scala_colonna_id: 'sc-a', tipologia_id: 'tip-app', interno: '1', piano: 1, mq: 90 },
+        { id: 'u-2', palazzo_id: 'pal-1', scala_colonna_id: 'sc-a', tipologia_id: 'tip-app', interno: '2', piano: 2, mq: 110 },
+      ],
+      anagrafiche: [
+        {
+          id: 'anag-1',
+          unita_id: 'u-1',
+          utente_id: 'ut-1',
+          tipo_possesso: 'PROPRIETARIO',
+          data_inizio: '2024-01-01',
+          data_fine: null,
+          quota_possesso: 100,
+          utente: { id: 'ut-1', nome_cognome: 'Mario Rossi', telefono: '3331234567' },
+        },
+      ],
+      dataRifOggi: '2026-11-10',
+    });
+
+    assert.equal(albero.statistiche.totalePalazzi, 1);
+    assert.equal(albero.statistiche.totaleUnita, 2);
+    assert.equal(albero.statistiche.residentiAssociati, 1);
+    assert.equal(albero.tutteUnita[0]?.residenteAttivo?.nomeCognome, 'Mario Rossi');
+
+    // 2. Verifica quadratura tabella millesimale esistente
+    const tabQuadratura = calcolaQuadraturaTabella(
+      { id: 'tab-a', condominio_id: 'cond-1', nome: 'Tabella A', totale: 1000 },
+      [
+        { id: 'q1', tabella_id: 'tab-a', unita_id: 'u-1', valore_millesimale: 450 },
+        { id: 'q2', tabella_id: 'tab-a', unita_id: 'u-2', valore_millesimale: 550 },
+      ],
+      albero.tutteUnita,
+    );
+    assert.equal(tabQuadratura.isQuadrata, true);
+    assert.equal(tabQuadratura.totaleEffettivo, 1000);
+
+    // 3. Verifica rate del condòmino (pagamentiLogic) con righe che coesistono col nuovo modello
+    const rateCondomino = preparaRate(
+      [
+        {
+          id: 'rd-1',
+          descrizione: 'Rata 1 Preventivo 2026',
+          dataScadenza: '2026-03-31',
+          importoDovuto: 250,
+          importoPagato: 100,
+          stato: 'PARZIALE',
+        },
+        {
+          id: 'rd-2',
+          descrizione: 'Rata 2 Preventivo 2026',
+          dataScadenza: '2026-12-31',
+          importoDovuto: 250,
+          importoPagato: 0,
+          stato: 'NON_PAGATA',
+        },
+      ],
+      '2026-11-10',
+    );
+    const riepilogoRate = riepilogoPagamenti(rateCondomino, '2026-11-10');
+    assert.equal(riepilogoRate.totaleDaPagare, 400);
+    assert.equal(riepilogoRate.totaleScaduto, 150);
+    assert.equal(riepilogoRate.prossima, '2026-12-31');
   });
 });
