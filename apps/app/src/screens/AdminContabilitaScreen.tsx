@@ -79,12 +79,22 @@ type ModaleAttiva =
   | 'approva-preventivo'
   | 'emetti-rate'
   | 'registra-incasso'
-  | 'dettaglio-bollettino';
+  | 'dettaglio-bollettino'
+  | 'dettaglio-generico';
 
 interface VoceScadenziarioRecuperoRow {
   record: IScadenziarioRecuperoCredito;
   valutazione: VoceScadenziarioRecuperoValutata;
 }
+
+/** Riga selezionata in una tabella: il dettaglio si apre in una modale, senza pulsanti "Azione" in tabella. */
+type DettaglioSelezionato =
+  | { tipo: 'movimento'; riga: RigaRegistroContabileView }
+  | { tipo: 'preventivo'; preventivo: IPreventivo }
+  | { tipo: 'rata'; rata: IRataTestata }
+  | { tipo: 'recupero'; voce: VoceScadenziarioRecuperoRow }
+  | { tipo: 'debitore'; debitore: RiepilogoMorositaSoggetto }
+  | { tipo: 'conguaglio'; conguaglio: IConguaglioUnita };
 
 const OPZIONI_FILTRO_REGISTRO: readonly FilterOption[] = [
   { value: 'TUTTI', label: 'Tutti i movimenti' },
@@ -237,6 +247,7 @@ function AdminContabilitaContenuto() {
   // Modale attiva (una sola modale aperta alla volta come da Sez. 13 Design System)
   const [modaleAttiva, setModaleAttiva] = useState<ModaleAttiva>(null);
   const [operazioneInCorso, setOperazioneInCorso] = useState(false);
+  const [dettaglio, setDettaglio] = useState<DettaglioSelezionato | null>(null);
 
   // Stato Form Modale 1: "Registra spesa"
   const [spesaVoceCodice, setSpesaVoceCodice] = useState<string>(
@@ -1192,12 +1203,24 @@ function AdminContabilitaContenuto() {
   const colonneRegistro: readonly DataColumn<RigaRegistroContabileView>[] = useMemo(
     () => [
       {
+        key: 'numero',
+        header: '#',
+        cell: (r) => (
+          <Text style={styles.testoEvidenza} numberOfLines={1}>
+            #{r.movimento.numero_progressivo ?? '—'}
+          </Text>
+        ),
+        mobile: 'title',
+        minWidth: 70,
+        weight: 1,
+      },
+      {
         key: 'data',
-        header: 'Prog. / Data',
+        header: 'Data',
         cell: (r) => (
           <View style={styles.cellaImpilata}>
-            <Text style={styles.testoEvidenza}>
-              #{r.movimento.numero_progressivo ?? '—'} · {formattaDataItaliana(r.movimento.data)}
+            <Text style={styles.testoPrimario} numberOfLines={1}>
+              {formattaDataItaliana(r.movimento.data)}
             </Text>
             {r.ritardoRegistrazione.inRitardo ? (
               <Badge
@@ -1207,9 +1230,8 @@ function AdminContabilitaContenuto() {
             ) : null}
           </View>
         ),
-        mobile: 'title',
-        minWidth: 150,
-        weight: 2,
+        minWidth: 120,
+        weight: 1,
       },
       {
         key: 'descrizione',
@@ -1274,24 +1296,6 @@ function AdminContabilitaContenuto() {
         minWidth: 130,
         weight: 2,
       },
-      {
-        key: 'azioni',
-        header: 'Azione',
-        align: 'end',
-        cell: (r) =>
-          r.movimento.storno_di_id ? (
-            <Text style={styles.testoSecondario}>Rettifica</Text>
-          ) : (
-            <Button
-              variant="secondary"
-              label="Storna"
-              icon="rotate-ccw"
-              onPress={() => apriModaleStorno(r)}
-            />
-          ),
-        minWidth: 130,
-        weight: 1,
-      },
     ],
     [],
   );
@@ -1350,24 +1354,6 @@ function AdminContabilitaContenuto() {
         cell: (p) => formattaCentsItaliano(p.totale_previsto_centesimi, true),
         minWidth: 140,
         weight: 2,
-      },
-      {
-        key: 'azione',
-        header: 'Azione',
-        align: 'end',
-        cell: (p) =>
-          p.stato === 'BOZZA' ? (
-            <Button
-              variant="secondary"
-              label="Approva"
-              icon="check"
-              onPress={() => apriModaleApprovaPreventivo(p)}
-            />
-          ) : (
-            <Text style={styles.testoSecondario}>Consolidato</Text>
-          ),
-        minWidth: 130,
-        weight: 1,
       },
     ],
     [],
@@ -1487,21 +1473,6 @@ function AdminContabilitaContenuto() {
         minWidth: 140,
         weight: 2,
       },
-      {
-        key: 'azione',
-        header: 'Dettaglio',
-        align: 'end',
-        cell: (b) => (
-          <Button
-            variant="secondary"
-            label="Dettaglio / Rettifica"
-            icon="eye"
-            onPress={() => void apriDettaglioBollettino(b)}
-          />
-        ),
-        minWidth: 170,
-        weight: 2,
-      },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [condominio?.id],
@@ -1574,31 +1545,6 @@ function AdminContabilitaContenuto() {
         align: 'end',
         cell: (s) => formattaCentsItaliano(s.record.importo_esigibile_centesimi, true),
         minWidth: 140,
-        weight: 2,
-      },
-      {
-        key: 'azione',
-        header: 'Azione',
-        align: 'end',
-        cell: (s) =>
-          s.record.stato === 'DA_AVVIARE' ? (
-            <Button
-              variant="secondary"
-              label="Avvia recupero"
-              icon="shield-alert"
-              onPress={() => void handleAggiornaStatoRecupero(s, 'AVVIATO')}
-            />
-          ) : s.record.stato !== 'CHIUSO' ? (
-            <Button
-              variant="secondary"
-              label="Chiudi"
-              icon="check"
-              onPress={() => void handleAggiornaStatoRecupero(s, 'CHIUSO')}
-            />
-          ) : (
-            <Text style={styles.testoSecondario}>Completato</Text>
-          ),
-        minWidth: 150,
         weight: 2,
       },
     ],
@@ -1770,7 +1716,7 @@ function AdminContabilitaContenuto() {
     () => [
       {
         key: 'registro',
-        label: 'Registro & Spese',
+        label: 'Registro',
         icon: 'file-text',
         content: (
           <Card title="Registro Cronologico di Contabilità (Art. 1130 n. 7 c.c.)">
@@ -1812,6 +1758,10 @@ function AdminContabilitaContenuto() {
               columns={colonneRegistro}
               rows={righeRegistroFiltrate}
               getRowKey={(r) => r.movimento.id}
+              onRowPress={(r) => {
+                setDettaglio({ tipo: 'movimento', riga: r });
+                setModaleAttiva('dettaglio-generico');
+              }}
               getRowLabel={(r) =>
                 `Movimento #${r.movimento.numero_progressivo ?? ''} ${r.movimento.descrizione}`
               }
@@ -1830,7 +1780,7 @@ function AdminContabilitaContenuto() {
       },
       {
         key: 'preventivi',
-        label: 'Preventivi & Rate',
+        label: 'Preventivi',
         icon: 'calculator',
         content: (
           <View style={styles.sezioneImpilata}>
@@ -1847,6 +1797,10 @@ function AdminContabilitaContenuto() {
                 columns={colonnePreventivi}
                 rows={preventivi}
                 getRowKey={(p) => p.id}
+                onRowPress={(p) => {
+                  setDettaglio({ tipo: 'preventivo', preventivo: p });
+                  setModaleAttiva('dettaglio-generico');
+                }}
                 getRowLabel={(p) => `Preventivo versione ${p.versione}`}
                 empty={{
                   title: 'Nessun preventivo presente',
@@ -1873,6 +1827,10 @@ function AdminContabilitaContenuto() {
                 columns={colonneRateTestata}
                 rows={rateTestate}
                 getRowKey={(t) => t.id}
+                onRowPress={(t) => {
+                  setDettaglio({ tipo: 'rata', rata: t });
+                  setModaleAttiva('dettaglio-generico');
+                }}
                 getRowLabel={(t) => t.descrizione}
                 empty={{
                   title: 'Nessuna rata emessa',
@@ -1890,7 +1848,7 @@ function AdminContabilitaContenuto() {
       },
       {
         key: 'bollettini',
-        label: 'Bollettini & Incassi',
+        label: 'Bollettini',
         icon: 'receipt',
         content: (
           <Card
@@ -1934,7 +1892,7 @@ function AdminContabilitaContenuto() {
       },
       {
         key: 'morosita',
-        label: 'Morosità & Recupero',
+        label: 'Morosità',
         icon: 'alert-triangle',
         content: (
           <View style={styles.sezioneImpilata}>
@@ -1959,6 +1917,10 @@ function AdminContabilitaContenuto() {
                 columns={colonneScadenziario}
                 rows={scadenziarioRecupero}
                 getRowKey={(s) => s.record.id}
+                onRowPress={(s) => {
+                  setDettaglio({ tipo: 'recupero', voce: s });
+                  setModaleAttiva('dettaglio-generico');
+                }}
                 getRowLabel={(s) =>
                   `Recupero credito unità ${mappaUnitaLabel.get(s.record.unita_id) ?? s.record.unita_id}`
                 }
@@ -1976,6 +1938,10 @@ function AdminContabilitaContenuto() {
                 columns={colonneDebitori}
                 rows={(analisiMorosita?.perSoggetto ?? []).filter((s) => s.totaleEsigibileCent > 0)}
                 getRowKey={(d) => d.soggettoKey}
+                onRowPress={(d) => {
+                  setDettaglio({ tipo: 'debitore', debitore: d });
+                  setModaleAttiva('dettaglio-generico');
+                }}
                 getRowLabel={(d) =>
                   `${d.nomeSoggetto} - ${formattaCentsItaliano(d.totaleEsigibileCent, true)}`
                 }
@@ -1991,7 +1957,7 @@ function AdminContabilitaContenuto() {
       },
       {
         key: 'rendiconto',
-        label: 'Rendiconto & Conguagli',
+        label: 'Rendiconto',
         icon: 'check-square',
         content: (
           <View style={styles.sezioneImpilata}>
@@ -2062,6 +2028,10 @@ function AdminContabilitaContenuto() {
                 columns={colonneConguagli}
                 rows={conguagli}
                 getRowKey={(c) => c.id}
+                onRowPress={(c) => {
+                  setDettaglio({ tipo: 'conguaglio', conguaglio: c });
+                  setModaleAttiva('dettaglio-generico');
+                }}
                 getRowLabel={(c) =>
                   `Conguaglio ${mappaUnitaLabel.get(c.unita_id) ?? c.unita_id}: ${formattaCentsItaliano(c.saldo_conguaglio_centesimi, true)}`
                 }
@@ -2107,6 +2077,192 @@ function AdminContabilitaContenuto() {
       statoDocumentiRendiconto,
     ],
   );
+
+  // Contenuto della modale "Dettaglio" aperta dal tocco su una riga di qualsiasi tabella
+  const contenutoDettaglio = ((): {
+    titolo: string;
+    descrizione: string;
+    campi: { etichetta: string; valore: string }[];
+    azioni: { label: string; icon: 'rotate-ccw' | 'check' | 'shield-alert'; onPress: () => void }[];
+  } => {
+    const vuoto = { titolo: 'Dettaglio', descrizione: '', campi: [], azioni: [] };
+    if (!dettaglio) return vuoto;
+    const chiudiEEsegui = (fn: () => void) => () => {
+      setModaleAttiva(null);
+      fn();
+    };
+    switch (dettaglio.tipo) {
+      case 'movimento': {
+        const { movimento: m, giustificativo } = dettaglio.riga;
+        const cent = m.importo_centesimi ?? Math.round(Number(m.importo ?? 0) * 100);
+        return {
+          titolo: `Movimento #${m.numero_progressivo ?? '—'}`,
+          descrizione: m.descrizione ?? 'Scrittura del registro cronologico di contabilità.',
+          campi: [
+            { etichetta: 'Numero', valore: `#${m.numero_progressivo ?? '—'}` },
+            { etichetta: 'Data', valore: formattaDataItaliana(m.data) },
+            {
+              etichetta: 'Natura',
+              valore: m.storno_di_id
+                ? 'Storno'
+                : m.tag_spesa === 'STRAORDINARIA'
+                  ? 'Straordinaria'
+                  : 'Ordinaria',
+            },
+            {
+              etichetta: 'Importo',
+              valore: `${m.segno === '+' ? '+ ' : '- '}${formattaCentsItaliano(cent, true)}`,
+            },
+            { etichetta: 'Fattura', valore: m.numero_fattura ?? '—' },
+            { etichetta: 'Giustificativo', valore: giustificativo.spesaCompleta ? 'Completo' : 'Incompleto' },
+          ],
+          azioni: m.storno_di_id
+            ? []
+            : [
+                {
+                  label: 'Storna movimento',
+                  icon: 'rotate-ccw',
+                  onPress: () => apriModaleStorno(dettaglio.riga),
+                },
+              ],
+        };
+      }
+      case 'preventivo': {
+        const p = dettaglio.preventivo;
+        return {
+          titolo: `Preventivo v.${p.versione}`,
+          descrizione: 'Dettaglio del preventivo di spesa.',
+          campi: [
+            { etichetta: 'Stato', valore: badgeStatoPreventivo(p.stato).label },
+            { etichetta: 'Totale previsto', valore: formattaCentsItaliano(p.totale_previsto_centesimi, true) },
+            { etichetta: 'Delibera', valore: p.delibera_approvazione ?? 'In attesa di approvazione assembleare' },
+            {
+              etichetta: 'Data approvazione',
+              valore: p.data_approvazione ? formattaDataItaliana(p.data_approvazione) : '—',
+            },
+            { etichetta: 'Creato il', valore: formattaDataItaliana(p.created_at.slice(0, 10)) },
+          ],
+          azioni:
+            p.stato === 'BOZZA'
+              ? [
+                  {
+                    label: 'Approva preventivo',
+                    icon: 'check',
+                    onPress: () => apriModaleApprovaPreventivo(p),
+                  },
+                ]
+              : [],
+        };
+      }
+      case 'rata': {
+        const t = dettaglio.rata;
+        const cent = rateDettagli
+          .filter((d) => d.rata_testata_id === t.id)
+          .reduce(
+            (acc, d) =>
+              acc + (d.importo_dovuto_centesimi ?? Math.round(Number(d.importo_dovuto ?? 0) * 100)),
+            0,
+          );
+        return {
+          titolo: t.numero_rata ? `Rata #${t.numero_rata}` : 'Rata',
+          descrizione: t.descrizione,
+          campi: [
+            { etichetta: 'Scadenza', valore: formattaDataItaliana(t.data_scadenza) },
+            { etichetta: 'Stato', valore: t.pubblicata ? 'Pubblicata' : 'In bozza' },
+            { etichetta: 'Importo rata', valore: formattaCentsItaliano(cent, true) },
+            {
+              etichetta: 'Emissione',
+              valore: t.emessa_con_override ? 'In acconto provvisorio' : 'Ordinaria',
+            },
+          ],
+          azioni: [],
+        };
+      }
+      case 'recupero': {
+        const s = dettaglio.voce;
+        const gg = s.valutazione.giorniMancantiAlLimite ?? 0;
+        const azioni: {
+          label: string;
+          icon: 'rotate-ccw' | 'check' | 'shield-alert';
+          onPress: () => void;
+        }[] = [];
+        if (s.record.stato === 'DA_AVVIARE') {
+          azioni.push({
+            label: 'Avvia recupero',
+            icon: 'shield-alert',
+            onPress: chiudiEEsegui(() => void handleAggiornaStatoRecupero(s, 'AVVIATO')),
+          });
+        } else if (s.record.stato !== 'CHIUSO') {
+          azioni.push({
+            label: 'Chiudi pratica',
+            icon: 'check',
+            onPress: chiudiEEsegui(() => void handleAggiornaStatoRecupero(s, 'CHIUSO')),
+          });
+        }
+        return {
+          titolo: 'Recupero crediti',
+          descrizione:
+            mappaUnitaLabel.get(s.record.unita_id) ?? `Unità ${s.record.unita_id.slice(0, 8)}`,
+          campi: [
+            { etichetta: 'Esigibile dal', valore: formattaDataItaliana(s.record.data_esigibilita) },
+            {
+              etichetta: 'Termine 6 mesi',
+              valore: `${formattaDataItaliana(s.valutazione.data_limite_azione)} (${
+                gg < 0 ? `scaduto da ${Math.abs(gg)}gg` : `${gg}gg residui`
+              })`,
+            },
+            { etichetta: 'Stato procedura', valore: badgeStatoRecupero(s.record.stato).label },
+            {
+              etichetta: 'Credito esigibile',
+              valore: formattaCentsItaliano(s.record.importo_esigibile_centesimi, true),
+            },
+          ],
+          azioni,
+        };
+      }
+      case 'debitore': {
+        const d = dettaglio.debitore;
+        const unita = d.unitaIds.map((id) => mappaUnitaLabel.get(id) ?? id.slice(0, 8)).join(', ');
+        return {
+          titolo: d.nomeSoggetto,
+          descrizione: 'Posizione debitoria del soggetto.',
+          campi: [
+            { etichetta: 'Unità', valore: unita || '—' },
+            { etichetta: 'Anzianità massima', valore: `${d.anzianitaMassimaGiorni} giorni` },
+            { etichetta: 'Posizioni aperte', valore: `${d.numeroCreditiAperti} rate` },
+            { etichetta: 'Morosità esigibile', valore: formattaCentsItaliano(d.totaleEsigibileCent, true) },
+          ],
+          azioni: [],
+        };
+      }
+      case 'conguaglio': {
+        const c = dettaglio.conguaglio;
+        return {
+          titolo: 'Conguaglio unità',
+          descrizione:
+            mappaUnitaLabel.get(c.unita_id) ?? `Unità ${c.unita_id.slice(0, 8)}`,
+          campi: [
+            {
+              etichetta: 'Periodo titolarità',
+              valore: `${formattaDataItaliana(c.periodo_da)} — ${formattaDataItaliana(c.periodo_a)}`,
+            },
+            { etichetta: 'Quota consuntivo', valore: formattaCentsItaliano(c.quota_consuntivo_centesimi, true) },
+            { etichetta: 'Rate versate', valore: formattaCentsItaliano(c.rate_versate_centesimi, true) },
+            {
+              etichetta: 'Saldo conguaglio',
+              valore:
+                c.saldo_conguaglio_centesimi > 0
+                  ? `Debito ${formattaCentsItaliano(c.saldo_conguaglio_centesimi, true)}`
+                  : c.saldo_conguaglio_centesimi < 0
+                    ? `Credito ${formattaCentsItaliano(Math.abs(c.saldo_conguaglio_centesimi), true)}`
+                    : formattaCentsItaliano(0, true),
+            },
+          ],
+          azioni: [],
+        };
+      }
+    }
+  })();
 
   return (
     <View style={styles.pagina}>
@@ -2808,6 +2964,42 @@ function AdminContabilitaContenuto() {
               />
             </View>
           ) : null}
+        </View>
+      </Modal>
+
+      {/* ====================================================================
+       * MODALE DETTAGLIO: aperta dal tocco su una riga di qualsiasi tabella
+       * ==================================================================== */}
+      <Modal
+        visible={modaleAttiva === 'dettaglio-generico'}
+        onClose={() => setModaleAttiva(null)}
+        title={contenutoDettaglio.titolo}
+        description={contenutoDettaglio.descrizione}
+        actions={
+          contenutoDettaglio.azioni[0] ? (
+            <ModalActions>
+              <Button variant="secondary" label="Chiudi" onPress={() => setModaleAttiva(null)} />
+              <Button
+                variant="primary"
+                label={contenutoDettaglio.azioni[0].label}
+                icon={contenutoDettaglio.azioni[0].icon}
+                onPress={contenutoDettaglio.azioni[0].onPress}
+              />
+            </ModalActions>
+          ) : (
+            <ModalActions>
+              <Button variant="secondary" label="Chiudi" onPress={() => setModaleAttiva(null)} />
+            </ModalActions>
+          )
+        }
+      >
+        <View style={styles.riepilogoBollettinoBox}>
+          {contenutoDettaglio.campi.map((campo) => (
+            <View key={campo.etichetta} style={styles.rigaVoceBollettino}>
+              <Text style={styles.testoSecondario}>{campo.etichetta}</Text>
+              <Text style={styles.testoEvidenza}>{campo.valore}</Text>
+            </View>
+          ))}
         </View>
       </Modal>
     </View>

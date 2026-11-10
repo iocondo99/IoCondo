@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
-import { homeDi, nomeVisibile, type Vista } from '@iocondo/data';
+import { destinazioneNotifica, homeDi, nomeVisibile, type Vista } from '@iocondo/data';
 import {
   Avatar,
   Dropdown,
@@ -20,7 +20,7 @@ import {
 import { BrandMark } from '@/components/Brand';
 import { useAuth } from '@/context/AuthContext';
 import { useProfilo } from '@/context/ProfiloContext';
-import { useNotifiche } from '@/hooks/useNotifiche';
+import { useNotifiche, type NotificaItemUI } from '@/hooks/useNotifiche';
 
 /**
  * Header (sez. 5.2). Desktop: ricerca, condominio, vista, notifiche e profilo. Tablet: senza ricerca e con
@@ -115,10 +115,26 @@ export function Header() {
 
       <NotificationPanel
         notifications={notifiche.elenco}
+        unreadCount={notifiche.totaleNonLette}
         loading={notifiche.caricamento}
         error={notifiche.errore}
         onRetry={notifiche.ricarica}
         onOpen={() => void notifiche.ricarica()}
+        onViewAll={() => router.push('/notifiche' as Href)}
+        onSelect={async (item) => {
+          const notificaItem = item as NotificaItemUI;
+          try {
+            await notifiche.segnaLetta(item.id);
+          } catch {
+            // Se fallisce l'aggiornamento sul server viene ripristinata la lista
+          }
+          if (notificaItem.raw && profilo.vista) {
+            const dest = destinazioneNotifica(notificaItem.raw, profilo.vista);
+            if (dest) {
+              router.push(dest as Href);
+            }
+          }
+        }}
         onMarkAllRead={async () => {
           try {
             await notifiche.segnaTutteLette();
