@@ -1,39 +1,60 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Icon, colors, radii, space, textStyle, useBreakpoint } from '@iocondo/ui';
+import { Image, StyleSheet, View } from 'react-native';
+import {
+  colors,
+  controlSizes,
+  dataSizes,
+  feedbackSizes,
+  radii,
+  space,
+} from '@iocondo/ui';
+import ioCondoLogo from '../images/ioCondoLogo.png';
 
-/** Nome e logo sono segnaposto: il logo definitivo arriverà dopo. */
-export const BRAND_NAME = 'Tu';
-const TAGLINE = 'La tua casa, più semplice';
+export const BRAND_NAME = 'ioCondo';
 
 interface BrandMarkProps {
-  /** `dark`: su sfondo navy (tessera bianca, testo bianco). `light`: su sfondo chiaro (tessera navy, testo navy). */
+  /** `dark`: su sfondo navy. `light`: su sfondo chiaro. */
   tone?: 'dark' | 'light';
   large?: boolean;
   /** Solo la tessera con l'icona (sidebar compressa). */
   compact?: boolean;
-  /** Senza slogan sotto il nome. */
+  /** Prop mantenuta per compatibilità con Header/Sidebar. */
   noTagline?: boolean;
 }
 
-export function BrandMark({ tone = 'dark', large = false, compact = false, noTagline = false }: BrandMarkProps) {
-  const { breakpoint } = useBreakpoint();
-  const dark = tone === 'dark';
+export function BrandMark({
+  large = false,
+  compact = false,
+  noTagline = false,
+}: BrandMarkProps) {
   return (
-    <View accessible role="img" aria-label={`${BRAND_NAME}, ${TAGLINE.toLowerCase()}`} style={styles.brand}>
-      <View style={[styles.mark, { backgroundColor: dark ? colors.surface : colors.brand.navy }]}>
-        <Icon name="building-2" size="card" color={dark ? colors.brand.navy : colors.text.inverse} />
-      </View>
-      {compact ? null : (
-        <View style={styles.text}>
-          <Text style={[textStyle(large ? 'h2' : 'h3', breakpoint), { color: dark ? colors.text.inverse : colors.brand.navy }]}>
-            {BRAND_NAME}
-          </Text>
-          {noTagline ? null : (
-            <Text style={[textStyle('secondary', breakpoint), { color: dark ? colors.tile.navy.background : colors.text.secondary }]}>
-              {TAGLINE}
-            </Text>
-          )}
+    <View
+      accessible
+      role="img"
+      aria-label={BRAND_NAME}
+      accessibilityLabel={BRAND_NAME}
+      style={styles.brand}
+    >
+      {compact ? (
+        <View style={styles.compactContainer}>
+          <Image
+            source={ioCondoLogo}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+            style={styles.logoCompactCrop}
+          />
+        </View>
+      ) : (
+        <View style={styles.fullContainer}>
+          <Image
+            source={ioCondoLogo}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+            style={[
+              styles.logo,
+              large ? styles.logoLarge : noTagline ? styles.logoHeader : styles.logoRegular,
+            ]}
+          />
         </View>
       )}
     </View>
@@ -41,14 +62,39 @@ export function BrandMark({ tone = 'dark', large = false, compact = false, noTag
 }
 
 const styles = StyleSheet.create({
-  brand: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
-  mark: {
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  fullContainer: {
+    flexShrink: 1,
+  },
+  logo: {
+    borderRadius: radii.control,
+    backgroundColor: colors.brand.navy,
+  },
+  logoRegular: {
+    width: controlSizes.menuMinWidth - space[8],
+    height: feedbackSizes.tile,
+  },
+  logoHeader: {
+    width: dataSizes.columnMinWidth + space[5],
+    height: space[10],
+  },
+  logoLarge: {
+    width: controlSizes.menuMinWidth,
+    height: dataSizes.rowMinHeight,
+  },
+  compactContainer: {
     width: space[10],
     height: space[10],
     flexShrink: 0,
     borderRadius: radii.control,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.brand.navy,
+    overflow: 'hidden',
   },
-  text: { flexShrink: 1 },
+  logoCompactCrop: {
+    width: dataSizes.columnMinWidth + space[5],
+    height: space[10],
+  },
 });
