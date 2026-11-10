@@ -412,7 +412,7 @@ function AdminInvitiContenuto() {
         title="Inviti residenti e personale"
         subtitle="Gestisci gli inviti inviati a condòmini e portieri per accedere all'app."
         breadcrumbs={[
-          { label: 'Home', href: '/admin/dashboard' },
+          { label: 'Home' },
           { label: 'Inviti' },
         ]}
         action={{

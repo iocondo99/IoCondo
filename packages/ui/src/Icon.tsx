@@ -1,3 +1,4 @@
+/// <reference path="./lucide-react-native.d.ts" />
 import React from 'react';
 import { View } from 'react-native';
 import {
@@ -80,6 +81,10 @@ import {
   ExternalLink,
   HardHat,
   Truck,
+  Wallet,
+  BadgePercent,
+  PiggyBank,
+  RotateCcw,
   type LucideIcon,
 } from 'lucide-react-native';
 import { colors, iconSizes, iconStrokeWidth, type IconSizeName } from './tokens';
@@ -166,6 +171,11 @@ export const iconMap = {
   image: LucideImage,
   table: LucideTable,
   file: File,
+  wallet: Wallet,
+  'badge-percent': BadgePercent,
+  'piggy-bank': PiggyBank,
+  'alert-triangle': TriangleAlert,
+  'rotate-ccw': RotateCcw,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof iconMap;

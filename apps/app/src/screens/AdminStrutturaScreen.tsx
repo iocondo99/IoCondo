@@ -9,8 +9,6 @@ import {
 } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import {
-  formatEuro,
-  formatDate,
   type StrutturaAdminData,
   type UnitaDettaglioView,
   type TabellaMillesimaleDettaglioView,
@@ -151,7 +149,7 @@ function AdminStrutturaContenuto() {
       const res = await services.struttura.caricaStrutturaCompleta(condominio.id);
       setDati(res);
       if (res.tabelle.length > 0 && !tabellaCSVSelezionataId) {
-        setTabellaCSVSelezionataId(res.tabelle[0].id);
+        setTabellaCSVSelezionataId(res.tabelle[0]!.id);
       }
       try {
         const condomini = await services.struttura.listCondominiDisponibili(condominio.id);
@@ -365,8 +363,8 @@ function AdminStrutturaContenuto() {
       try {
         const lista = await services.struttura.listCondominiDisponibili(condominio.id);
         setCondominiDisponibili(lista);
-        if (!unita.residenteAttivo && lista.length > 0 && !unita.residenteAttivo?.utenteId) {
-          setUtenteSelezionatoId(lista[0].id);
+        if (!unita.residenteAttivo && lista.length > 0) {
+          setUtenteSelezionatoId(lista[0]!.id);
         }
       } catch {
         // Fallback lista vuota
@@ -395,7 +393,7 @@ function AdminStrutturaContenuto() {
       await services.struttura.associaResidente({
         unitaId: unitaResidenteTarget.id,
         utenteId: utenteSelezionatoId,
-        tipoPossesso: tipoPossessoSelezionato,
+        tipoPossesso: tipoPossessoSelezionato === 'PROPRIETARIO' ? 'PROPRIETARIO' : 'INQUILINO',
         quotaPossesso: quotaNum,
         dataInizio: dataInizioInput.trim() || undefined,
         condominioId: condominio?.id,
@@ -420,12 +418,12 @@ function AdminStrutturaContenuto() {
   };
 
   const terminaAssegnazioneResidente = async () => {
-    if (!unitaResidenteTarget?.residenteAttivo?.anagraficaId) return;
+    if (!unitaResidenteTarget?.residenteAttivo?.id) return;
     setSalvataggioResidenteInCorso(true);
     setErroreFormResidente(null);
 
     try {
-      await services.struttura.rimuoviResidente(unitaResidenteTarget.residenteAttivo.anagraficaId);
+      await services.struttura.rimuoviResidente(unitaResidenteTarget.residenteAttivo.id);
       toast.show({
         message: `Assegnazione per Int. ${unitaResidenteTarget.interno} terminata con successo.`,
         tone: 'success',
@@ -509,7 +507,7 @@ function AdminStrutturaContenuto() {
 
     let infoResidente: {
       utenteId: string;
-      tipoPossesso: 'PROPRIETARIO' | 'INQUILINO' | 'USUFRUTTUARIO';
+      tipoPossesso: 'PROPRIETARIO' | 'INQUILINO';
       quotaPossesso: number;
       dataInizio?: string;
     } | null = null;
@@ -522,7 +520,7 @@ function AdminStrutturaContenuto() {
       }
       infoResidente = {
         utenteId: condominoUnitaId,
-        tipoPossesso: tipoPossessoUnita,
+        tipoPossesso: tipoPossessoUnita === 'PROPRIETARIO' ? 'PROPRIETARIO' : 'INQUILINO',
         quotaPossesso: quotaNum,
         dataInizio: dataInizioUnita.trim() || undefined,
       };
@@ -533,7 +531,7 @@ function AdminStrutturaContenuto() {
 
     try {
       if (unitaInModifica) {
-        await services.struttura.modificaUnita({
+        await services.struttura.modificaUnita(unitaInModifica.id, {
           id: unitaInModifica.id,
           palazzoId: palazzoSelezionatoId,
           scalaColonnaId: scalaSelezionataId || null,
@@ -710,7 +708,7 @@ function AdminStrutturaContenuto() {
           title="Struttura del Condominio"
           subtitle="Caricamento edifici, scale e tabelle millesimali..."
         />
-        <LoadingState label="Caricamento struttura condominiale in corso..." />
+        <LoadingState message="Caricamento struttura condominiale in corso..." />
       </View>
     );
   }
@@ -726,7 +724,7 @@ function AdminStrutturaContenuto() {
         <ErrorState
           title="Errore di caricamento della struttura"
           description="Impossibile recuperare i dati del condominio. Verifica la connessione e riprova."
-          action={{ label: 'Riprova', onPress: caricaDati }}
+          onRetry={caricaDati}
         />
       </View>
     );
@@ -786,7 +784,6 @@ function AdminStrutturaContenuto() {
               <Card
                 key={palazzo.id}
                 title={palazzo.nome}
-                description={palazzo.indirizzo || 'Nessun indirizzo specificato'}
                 action={{
                   label: '+ Nuova unità',
                   onPress: () => apriModaleNuovaUnita(palazzo.id),
@@ -829,7 +826,7 @@ function AdminStrutturaContenuto() {
                     <View key={scala.id || `gen-${idx}`} style={styles.sezioneScala}>
                       <View style={styles.intestazioneScala}>
                         <View style={styles.iconaScala}>
-                          <Icon name="layers" size="icon" color={colors.brand.navy} />
+                          <Icon name="layers" size="action" color={colors.brand.navy} />
                         </View>
                         <Text style={[textStyle('h4', breakpoint), styles.titoloScala]}>
                           {scala.nome}
@@ -943,7 +940,6 @@ function AdminStrutturaContenuto() {
                 <Card
                   key={tabella.id}
                   title={tabella.nome}
-                  description={`Ripartizione spese condominiali · Totale previsto: ${tabella.totalePrevisto} ‰`}
                   action={{
                     label: 'Importa CSV quote',
                     icon: 'upload',
@@ -1042,7 +1038,7 @@ function AdminStrutturaContenuto() {
       {/* 2. PageHeader */}
       <PageHeader
         title="Struttura del Condominio"
-        subtitle={`Gestione edifici, scale, unità immobiliari e ripartizione tabelle millesimali per ${condominio.nome}.`}
+        subtitle={`Gestione edifici, scale, unità immobiliari e ripartizione tabelle millesimali per ${condominio?.nome ?? ''}.`}
         action={{
           label: 'Importa millesimi CSV',
           icon: 'upload',
@@ -1554,23 +1550,29 @@ function AdminStrutturaContenuto() {
         description="Informazioni catastali, anagrafiche e residenti attivi."
         actions={
           <ModalActions>
-            <Button
-              variant="secondary"
-              label="Chiudi"
-              onPress={() => setUnitaDettaglio(null)}
-            />
-            {unitaDettaglio ? (
+            {[
               <Button
-                variant="primary"
-                label="Modifica dati"
-                icon="pencil"
-                onPress={() => {
-                  const target = unitaDettaglio;
-                  setUnitaDettaglio(null);
-                  apriModaleModificaUnita(target);
-                }}
-              />
-            ) : null}
+                key="close"
+                variant="secondary"
+                label="Chiudi"
+                onPress={() => setUnitaDettaglio(null)}
+              />,
+              ...(unitaDettaglio
+                ? [
+                    <Button
+                      key="edit"
+                      variant="primary"
+                      label="Modifica dati"
+                      icon="pencil"
+                      onPress={() => {
+                        const target = unitaDettaglio;
+                        setUnitaDettaglio(null);
+                        apriModaleModificaUnita(target);
+                      }}
+                    />,
+                  ]
+                : []),
+            ]}
           </ModalActions>
         }
       >
@@ -1896,7 +1898,7 @@ const styles = StyleSheet.create({
   iconaScala: {
     width: 28,
     height: 28,
-    borderRadius: radii.sm,
+    borderRadius: radii.badge,
     backgroundColor: colors.tile.navy.background,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1936,7 +1938,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tile.blue.background,
     paddingHorizontal: space[2],
     paddingVertical: space[1],
-    borderRadius: radii.sm,
+    borderRadius: radii.badge,
   },
   testoBadgeInterno: {
     color: colors.tile.blue.foreground,

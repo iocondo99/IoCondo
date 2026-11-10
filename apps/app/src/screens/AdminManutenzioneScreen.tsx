@@ -209,10 +209,10 @@ function AdminManutenzioneContenuto() {
       setUnitaDisponibili(unitaList);
 
       if (catList.length > 0 && !categoriaTicketInput) {
-        setCategoriaTicketInput(catList[0].id);
+        setCategoriaTicketInput(catList[0]!.id);
       }
       if (unitaList.length > 0 && !unitaTicketInput) {
-        setUnitaTicketInput(unitaList[0].id);
+        setUnitaTicketInput(unitaList[0]!.id);
       }
     } catch {
       setErrore(true);
@@ -646,7 +646,7 @@ function AdminManutenzioneContenuto() {
               accessibilityLabel={`Chiama ${row.telefono}`}
               style={styles.linkBottone}
             >
-              <Icon name="phone" size="indicator" color={colors.action.primary} />
+              <Icon name="phone" size="indicator" color={colors.action.default} />
               <Text style={styles.testoLink} numberOfLines={1}>
                 {row.telefono}
               </Text>
@@ -668,7 +668,7 @@ function AdminManutenzioneContenuto() {
               accessibilityLabel={`Invia email a ${row.email}`}
               style={styles.linkBottone}
             >
-              <Icon name="mail" size="indicator" color={colors.action.primary} />
+              <Icon name="mail" size="indicator" color={colors.action.default} />
               <Text style={styles.testoLink} numberOfLines={1}>
                 {row.email}
               </Text>
@@ -815,7 +815,7 @@ function AdminManutenzioneContenuto() {
         title="Manutenzione e Ticket"
         subtitle="Gestisci le segnalazioni di guasto, assegna i lavori con Magic Link e consulta la rubrica fornitori."
         breadcrumbs={[
-          { label: 'Home', href: '/admin/dashboard' as Href },
+          { label: 'Home' },
           { label: 'Manutenzione' },
         ]}
         action={{
@@ -1385,7 +1385,7 @@ const styles = StyleSheet.create({
   },
   testoLink: {
     fontSize: 13,
-    color: colors.action.primary,
+    color: colors.action.default,
     fontWeight: '500',
   },
   corpoModale: {
@@ -1402,9 +1402,9 @@ const styles = StyleSheet.create({
   sezioneIntervento: {
     backgroundColor: colors.background,
     padding: space[3],
-    borderRadius: radii.surface,
+    borderRadius: radii.card,
     borderWidth: borderWidths.thin,
-    borderColor: colors.border.subtle,
+    borderColor: colors.border,
     gap: space[3],
     marginTop: space[1],
   },
@@ -1414,7 +1414,7 @@ const styles = StyleSheet.create({
     color: colors.brand.navy,
   },
   boxMagicLink: {
-    backgroundColor: colors.tile.teal,
+    backgroundColor: colors.tile.teal.background,
     padding: space[3],
     borderRadius: radii.control,
     gap: space[2],
@@ -1443,9 +1443,9 @@ const styles = StyleSheet.create({
   bloccoInfoDettaglio: {
     backgroundColor: colors.background,
     padding: space[3],
-    borderRadius: radii.surface,
+    borderRadius: radii.card,
     borderWidth: borderWidths.thin,
-    borderColor: colors.border.subtle,
+    borderColor: colors.border,
     gap: space[2],
   },
   voceInfoDettaglio: {
@@ -1491,7 +1491,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: radii.control,
     borderLeftWidth: 3,
-    borderLeftColor: colors.action.primary,
+    borderLeftColor: colors.action.default,
     gap: space[1],
   },
   testataMessaggio: {

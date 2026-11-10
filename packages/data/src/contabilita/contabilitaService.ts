@@ -4780,6 +4780,23 @@ export function createContabilitaService(db: TypedSupabaseClient) {
     },
 
     /**
+     * Elenca i conguagli già calcolati per un esercizio contabile.
+     */
+    async listConguagliEsercizio(
+      condominioId: string,
+      esercizioId: string,
+    ): Promise<IConguaglioUnita[]> {
+      return unwrap(
+        await db
+          .from('conguagli_unita')
+          .select('*')
+          .eq('condominio_id', condominioId)
+          .eq('esercizio_id', esercizioId)
+          .order('created_at', { ascending: true }),
+      );
+    },
+
+    /**
      * Calcola e salva i conguagli per unità e gestione dell'esercizio: `quota consuntivo − rate versate`
      * (RC-L1, RC-L2, T5). I conguagli già regolati non vengono toccati.
      */
