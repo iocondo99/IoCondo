@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Href, useRouter } from 'expo-router';
+import { Href, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Badge,
   Button,
@@ -122,6 +122,8 @@ function CellaTitolo({ titolo }: { titolo: string }) {
 
 function AdminManutenzioneContenuto() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ dettaglioId?: string; id?: string }>();
+  const targetId = params.dettaglioId || params.id;
   const { condominio, profilo } = useProfilo();
   const toast = useToast();
 
@@ -224,6 +226,17 @@ function AdminManutenzioneContenuto() {
   React.useEffect(() => {
     void caricaDati();
   }, [caricaDati]);
+
+  // Apertura automatica del dettaglio ticket se richiesto da notifica o deep link
+  useEffect(() => {
+    if (!targetId || tickets.length === 0) return;
+    const tkt = tickets.find((t) => t.id === targetId);
+    if (tkt) {
+      setTicketDettaglio(tkt);
+      setNuovoMessaggioInput('');
+      setModaleDettagliAperta(true);
+    }
+  }, [targetId, tickets]);
 
   const statistiche = useMemo(() => {
     return calcolaStatisticheManutenzione(tickets, fornitori);

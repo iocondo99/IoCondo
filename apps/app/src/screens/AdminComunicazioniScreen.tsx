@@ -6,7 +6,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   calcolaStatisticheComunicazioni,
   filtraComunicazioni,
@@ -76,6 +76,8 @@ export function AdminComunicazioniScreen() {
 
 function AdminComunicazioniContenuto() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ dettaglioId?: string; id?: string }>();
+  const targetId = params.dettaglioId || params.id;
   const { condominio, profilo } = useProfilo();
   const { isMobile } = useBreakpoint();
   const toast = useToast();
@@ -139,6 +141,16 @@ function AdminComunicazioniContenuto() {
   useEffect(() => {
     caricaDati();
   }, [caricaDati]);
+
+  // Apertura automatica del dettaglio se richiesto da notifica o deep link
+  useEffect(() => {
+    if (!targetId || comunicazioni.length === 0) return;
+    const post = comunicazioni.find((c) => c.id === targetId);
+    if (post) {
+      setAvvisoDettaglio(post);
+      setModaleDettaglioAperta(true);
+    }
+  }, [targetId, comunicazioni]);
 
   // Statistiche e KPI riepilogativi (2 StatCard: attive e in evidenza)
   const statistiche = useMemo(() => calcolaStatisticheComunicazioni(comunicazioni), [comunicazioni]);

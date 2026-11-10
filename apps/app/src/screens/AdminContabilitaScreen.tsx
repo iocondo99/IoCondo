@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Alert,
   Badge,
@@ -208,6 +208,9 @@ function AdminContabilitaContenuto() {
   const router = useRouter();
   const { profilo, condominio } = useProfilo();
   const toast = useToast();
+  const params = useLocalSearchParams<{ tab?: string; dettaglioId?: string; id?: string }>();
+  const targetId = params.dettaglioId || params.id;
+  const targetTab = params.tab;
 
   // Stato caricamento e selezione esercizio
   const [caricamento, setCaricamento] = useState(true);
@@ -456,6 +459,13 @@ function AdminContabilitaContenuto() {
   useEffect(() => {
     void caricaDati();
   }, [caricaDati]);
+
+  // Seleziona la scheda richiesta se presente nei query params
+  useEffect(() => {
+    if (targetTab && ['registro', 'preventivi', 'bollettini', 'morosita', 'rendiconto'].includes(targetTab)) {
+      setSchedaAttiva(targetTab as TabKey);
+    }
+  }, [targetTab]);
 
   // Breadcrumb istituzionali richiesti: Home / Amministrazione / Contabilità
   const breadcrumbs: readonly BreadcrumbItem[] = useMemo(
@@ -1058,6 +1068,37 @@ function AdminContabilitaContenuto() {
     }
   };
 
+  // Apertura automatica dettaglio se richiesto da notifica
+  useEffect(() => {
+    if (!targetId) return;
+    const b = bollettini.find((item) => item.id === targetId);
+    if (b) {
+      setSchedaAttiva('bollettini');
+      void apriDettaglioBollettino(b);
+      return;
+    }
+    const m = registro.find((item) => item.movimento.id === targetId);
+    if (m) {
+      setSchedaAttiva('registro');
+      setDettaglio({ tipo: 'movimento', riga: m });
+      setModaleAttiva('dettaglio-generico');
+      return;
+    }
+    const p = preventivi.find((item) => item.id === targetId);
+    if (p) {
+      setSchedaAttiva('preventivi');
+      setDettaglio({ tipo: 'preventivo', preventivo: p });
+      setModaleAttiva('dettaglio-generico');
+      return;
+    }
+    const r = rateTestate.find((item) => item.id === targetId);
+    if (r) {
+      setSchedaAttiva('preventivi');
+      setDettaglio({ tipo: 'rata', rata: r });
+      setModaleAttiva('dettaglio-generico');
+    }
+  }, [targetId, bollettini, registro, preventivi, rateTestate]);
+
   const handleVerificaEEmettiBollettino = async () => {
     if (!condominio?.id || !bollettinoSelezionato || !profilo?.id) return;
     setOperazioneInCorso(true);
@@ -1225,7 +1266,7 @@ function AdminContabilitaContenuto() {
             {r.ritardoRegistrazione.inRitardo ? (
               <Badge
                 status="warning"
-                label={`${r.ritardoRegistrazione.giorniRitardo}gg (>30gg)`}
+                label={`${r.ritardoRegistrazione.giorniRitardo}gg`}
               />
             ) : null}
           </View>
@@ -2563,6 +2604,7 @@ function AdminContabilitaContenuto() {
         title="Nuovo preventivo"
         description="Definisci gli stanziamenti previsionali per le macro-categorie dell'esercizio."
         dismissible={!operazioneInCorso}
+        maxWidth={640}
         actions={
           <ModalActions>
             <Button
@@ -2584,27 +2626,22 @@ function AdminContabilitaContenuto() {
         <View style={styles.formModale}>
           {prevErroreForm ? <Alert tone="error" message={prevErroreForm} /> : null}
 
-          <View style={styles.rigaDoppia}>
-            <View style={styles.colInput}>
-              <Input
-                label="Manutenzione ordinaria e gestione (€)"
-                placeholder="4.800,00"
-                value={prevImportoOrdinarioEuro}
-                onChangeText={setPrevImportoOrdinarioEuro}
-              />
-            </View>
-            <View style={styles.colInput}>
-              <Input
-                label="Pulizia e igiene parti comuni (€)"
-                placeholder="3.200,00"
-                value={prevImportoPuliziaEuro}
-                onChangeText={setPrevImportoPuliziaEuro}
-              />
-            </View>
-          </View>
+          <Input
+            label="Manutenzione ordinaria e gestione (€)"
+            placeholder="4.800,00"
+            value={prevImportoOrdinarioEuro}
+            onChangeText={setPrevImportoOrdinarioEuro}
+          />
 
           <Input
-            label="Utenze ed energia elettrica parti comuni (€)"
+            label="Pulizia e igiene parti comuni (€)"
+            placeholder="3.200,00"
+            value={prevImportoPuliziaEuro}
+            onChangeText={setPrevImportoPuliziaEuro}
+          />
+
+          <Input
+            label="Utenze ed energia elettrica (€)"
             placeholder="2.000,00"
             value={prevImportoUtenzeEuro}
             onChangeText={setPrevImportoUtenzeEuro}
@@ -2878,6 +2915,7 @@ function AdminContabilitaContenuto() {
             : 'Dettaglio e gestione stato del bollettino.'
         }
         dismissible={!operazioneInCorso}
+        maxWidth={620}
         actions={
           <ModalActions>
             <Button
@@ -2935,8 +2973,8 @@ function AdminContabilitaContenuto() {
                 <View style={styles.listaRigheBollettino}>
                   {righeBollettinoSelezionato.map((riga) => (
                     <View key={riga.id} style={styles.rigaVoceBollettino}>
-                      <Text style={styles.testoPrimario}>{riga.descrizione}</Text>
-                      <Text style={styles.testoEvidenza}>
+                      <Text style={styles.nomeVoceBollettino}>{riga.descrizione}</Text>
+                      <Text style={styles.prezzoVoceBollettino}>
                         {formattaCentsItaliano(riga.importo_centesimi, true)}
                       </Text>
                     </View>
@@ -2951,16 +2989,18 @@ function AdminContabilitaContenuto() {
           bollettinoSelezionato.stato !== 'VERIFICATO' ? (
             <View style={styles.sezioneRettifica}>
               <Input
-                label="Nuovo importo totale per rettifica (€) *"
+                label="Nuovo importo rettificato\u00A0(€)"
                 placeholder="Es. 320,00"
                 value={rettificaNuovoTotaleEuro}
                 onChangeText={setRettificaNuovoTotaleEuro}
+                required
               />
               <Input
-                label="Motivo della rettifica (tracciato in Audit) *"
+                label="Motivo della rettifica (Audit)"
                 placeholder="Es. Ricalcolo quota per subentro o sgravio deliberato"
                 value={rettificaMotivo}
                 onChangeText={setRettificaMotivo}
+                required
               />
             </View>
           ) : null}
@@ -2975,6 +3015,7 @@ function AdminContabilitaContenuto() {
         onClose={() => setModaleAttiva(null)}
         title={contenutoDettaglio.titolo}
         description={contenutoDettaglio.descrizione}
+        maxWidth={620}
         actions={
           contenutoDettaglio.azioni[0] ? (
             <ModalActions>
@@ -2995,9 +3036,9 @@ function AdminContabilitaContenuto() {
       >
         <View style={styles.riepilogoBollettinoBox}>
           {contenutoDettaglio.campi.map((campo) => (
-            <View key={campo.etichetta} style={styles.rigaVoceBollettino}>
-              <Text style={styles.testoSecondario}>{campo.etichetta}</Text>
-              <Text style={styles.testoEvidenza}>{campo.valore}</Text>
+            <View key={campo.etichetta} style={styles.rigaDettaglioGenerico}>
+              <Text style={styles.etichettaDettaglio}>{campo.etichetta}</Text>
+              <Text style={styles.valoreDettaglio}>{campo.valore}</Text>
             </View>
           ))}
         </View>
@@ -3109,7 +3150,7 @@ const styles = StyleSheet.create({
   },
   colInput: {
     flex: 1,
-    minWidth: 180,
+    minWidth: 220,
   },
   riepilogoBollettinoBox: {
     padding: space[4],
@@ -3128,9 +3169,44 @@ const styles = StyleSheet.create({
   },
   rigaVoceBollettino: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: space[2],
+    gap: space[3],
+    paddingVertical: space[1],
+  },
+  nomeVoceBollettino: {
+    ...textStyle('body'),
+    color: colors.text.primary,
+    flex: 1,
+    flexShrink: 1,
+  },
+  prezzoVoceBollettino: {
+    ...textStyle('body'),
+    color: colors.text.primary,
+    fontWeight: '700',
+    flexShrink: 0,
+    minWidth: 140,
+    textAlign: 'right',
+  },
+  rigaDettaglioGenerico: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: space[3],
+    paddingVertical: space[1],
+  },
+  etichettaDettaglio: {
+    ...textStyle('secondary'),
+    color: colors.text.secondary,
+    width: 150,
+    flexShrink: 0,
+  },
+  valoreDettaglio: {
+    ...textStyle('body'),
+    color: colors.text.primary,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
   },
   sezioneRettifica: {
     gap: space[3],

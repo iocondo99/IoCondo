@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Badge,
   Button,
@@ -99,6 +99,8 @@ export function AdminDocumentiScreen() {
 
 function AdminDocumentiContenuto() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ dettaglioId?: string; id?: string }>();
+  const targetId = params.dettaglioId || params.id;
   const { condominio } = useProfilo();
   const toast = useToast();
   const { isMobile } = useBreakpoint();
@@ -186,6 +188,16 @@ function AdminDocumentiContenuto() {
   useEffect(() => {
     caricaDati();
   }, [caricaDati]);
+
+  // Apertura automatica del dettaglio documento se richiesto da notifica o deep link
+  useEffect(() => {
+    if (!targetId || documenti.length === 0) return;
+    const doc = documenti.find((d) => d.id === targetId);
+    if (doc) {
+      setDocumentoDettaglio(doc);
+      setModaleDettaglioAperta(true);
+    }
+  }, [targetId, documenti]);
 
   // Calcolo statistiche per le 3 StatCards
   const statistiche = useMemo(
