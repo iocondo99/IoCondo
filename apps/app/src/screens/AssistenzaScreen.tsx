@@ -39,9 +39,9 @@ const FAQ_ITEMS = [
   },
   {
     id: 'assemblee',
-    domanda: '3. Come partecipo a un’assemblea online o consulto il verbale?',
+    domanda: '3. Come partecipo a un’assemblea di persona o consulto il verbale?',
     risposta:
-      'Nella sezione Assemblee trovi l’elenco delle riunioni convocate con l’ordine del giorno. Quando l’assemblea è in corso puoi partecipare al collegamento video e votare sui singoli punti. A conclusione dell’assemblea, puoi scaricare il verbale approvato in formato PDF protetto.',
+      'Nella sezione Assemblee trovi l’elenco delle riunioni convocate con data, orario, luogo e ordine del giorno dettagliato. Le assemblee si svolgono di persona. Al termine della riunione potrai consultare e scaricare il verbale ufficiale approvato in formato PDF protetto.',
   },
   {
     id: 'ascensore',

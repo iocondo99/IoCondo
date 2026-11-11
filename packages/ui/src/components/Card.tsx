@@ -16,13 +16,15 @@ export interface CardAction {
 
 export interface CardProps {
   title?: string;
+  /** Livello semantico del titolo (2 per sezioni principali, 3 per sottosezioni). Predefinito: 2. */
+  headingLevel?: 2 | 3 | 4;
   /** Azione nell'intestazione, a destra del titolo (es. "Vedi tutte"). */
   action?: CardAction;
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
-export function Card({ title, action, children, style }: CardProps) {
+export function Card({ title, headingLevel = 2, action, children, style }: CardProps) {
   const { isMobile } = useBreakpoint();
   const titleStyle = useTextStyle('h3');
   const hasHeader = Boolean(title || action);
@@ -32,7 +34,7 @@ export function Card({ title, action, children, style }: CardProps) {
       {hasHeader ? (
         <View style={styles.header}>
           {title ? (
-            <Text accessibilityRole="header" aria-level={3} style={[titleStyle, styles.title]}>
+            <Text accessibilityRole="header" aria-level={headingLevel} style={[titleStyle, styles.title]}>
               {title}
             </Text>
           ) : (

@@ -107,6 +107,7 @@ export function Button({
   popup,
   expanded = false,
 }: ButtonProps) {
+  const [isFocused, setIsFocused] = useState(false);
   const [pending, setPending] = useState(false);
   // Il lock sul ref impedisce il doppio invio anche prima del re-render.
   const locked = useRef(false);
@@ -151,6 +152,8 @@ export function Button({
       aria-expanded={popup ? expanded : undefined}
       disabled={disabled}
       onPress={handlePress}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
       style={({ hovered, pressed, focused }: PressState) => {
         const p = paletteFor(variant, { hovered: !!hovered, pressed, disabled });
         const style: ViewStyle[] = [
@@ -161,7 +164,7 @@ export function Button({
         if (transition) style.push(transition);
         const cursor = cursorStyle(disabled);
         if (cursor) style.push(cursor);
-        const ring = focusStyle(!!focused);
+        const ring = focusStyle(isFocused || !!focused);
         if (ring) style.push(ring);
         return style;
       }}

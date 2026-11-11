@@ -94,6 +94,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: borderWidths.thin,
     borderTopColor: colors.border,
+    zIndex: 100,
+    elevation: 8,
   },
   elemento: {
     flex: 1,

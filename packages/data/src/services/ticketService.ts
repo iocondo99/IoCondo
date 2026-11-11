@@ -28,8 +28,9 @@ export function createTicketService(db: TypedSupabaseClient) {
     },
 
     /** Ticket visibili all'utente (suoi, della sua unita', o delle aree comuni per il portiere). */
-    async listMiei(opts: { soloMiei?: boolean } = {}): Promise<ITicketTestata[]> {
+    async listMiei(opts: { soloMiei?: boolean; condominioId?: string } = {}): Promise<ITicketTestata[]> {
       let q = db.from('ticket_testata').select('*');
+      if (opts.condominioId) q = q.eq('condominio_id', opts.condominioId);
       if (opts.soloMiei) q = q.eq('segnalatore_id', await getCurrentUserId(db));
       return unwrap(await q.order('created_at', { ascending: false }));
     },

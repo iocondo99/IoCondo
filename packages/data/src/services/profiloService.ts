@@ -42,7 +42,13 @@ function assertOk(res: { error: { message: string } | null }): void {
 export function createProfiloService(db: TypedSupabaseClient) {
   return {
     async carica(userId: string, emailSessione: string | null): Promise<ProfiloUtente> {
-      const utente = unwrapMaybe(await db.from('utenti').select('*').eq('id', userId).maybeSingle());
+      const utente = unwrapMaybe(
+        await db
+          .from('utenti')
+          .select('id, email, nome_cognome, telefono, avatar_url, is_superadmin')
+          .eq('id', userId)
+          .maybeSingle(),
+      );
       const ruoli = unwrap(await db.from('ruoli_piattaforma').select('*'));
       const righe = unwrap(await db.from('utente_entita_ruolo').select('*').eq('utente_id', userId));
 
