@@ -176,7 +176,7 @@ export function createStrutturaService(db: TypedSupabaseClient) {
               data_inizio,
               data_fine,
               quota_possesso,
-              utente:utenti (
+              utente:utenti!anagrafiche_unita_utente_id_fkey (
                 id,
                 nome_cognome,
                 telefono

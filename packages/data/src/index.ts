@@ -4,6 +4,7 @@ export * from './auth/authMessages';
 export * from './profilo/profiloLogic';
 export * from './profilo/profiloFormLogic';
 export * from './profilo/navigazione';
+export * from './profilo/notificheLogic';
 export * from './home/homeLogic';
 export * from './inviti/invitiLogic';
 export * from './pagamenti/pagamentiLogic';

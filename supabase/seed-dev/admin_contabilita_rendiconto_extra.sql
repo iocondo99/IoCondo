@@ -161,7 +161,7 @@ begin
     c_condominio,
     'CHIUSURA_ESERCIZIO',
     'esercizi_contabili',
-    c_esercizio_2022::text,
+    c_esercizio_2022,
     'Chiusura esercizio 2022: approvazione rendiconto entro il 2023-06-29 (art. 1130 n. 10 c.c.)',
     jsonb_build_object('stato_modello', 'APERTO'),
     jsonb_build_object(

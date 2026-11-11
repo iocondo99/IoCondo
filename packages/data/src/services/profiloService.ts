@@ -110,6 +110,41 @@ export function createProfiloService(db: TypedSupabaseClient) {
       assertOk(await db.from('notifiche').update({ letta: true }).eq('utente_id', userId).eq('letta', false));
     },
 
+    /**
+     * Non lette dell'utente (le più recenti, al massimo `limite`) con il totale reale: il contatore della
+     * campanella non si ferma al numero di righe caricate.
+     */
+    async listMieNonLette(userId: string, limite: number): Promise<{ righe: INotifica[]; totale: number }> {
+      const res = await db
+        .from('notifiche')
+        .select('*', { count: 'exact' })
+        .eq('utente_id', userId)
+        .eq('letta', false)
+        .order('created_at', { ascending: false })
+        .limit(limite);
+      if (res.error) throw new Error(res.error.message);
+      const righe = (res.data ?? []) as INotifica[];
+      return { righe, totale: res.count ?? righe.length };
+    },
+
+    /** Una pagina dell'archivio notifiche (pagina notifiche): tutte oppure solo le non lette. */
+    async listMieNotifichePagina(
+      userId: string,
+      opzioni: { soloNonLette: boolean; da: number; limite: number },
+    ): Promise<{ righe: INotifica[]; totale: number }> {
+      let query = db
+        .from('notifiche')
+        .select('*', { count: 'exact' })
+        .eq('utente_id', userId)
+        .order('created_at', { ascending: false })
+        .range(opzioni.da, opzioni.da + opzioni.limite - 1);
+      if (opzioni.soloNonLette) query = query.eq('letta', false);
+      const res = await query;
+      if (res.error) throw new Error(res.error.message);
+      const righe = (res.data ?? []) as INotifica[];
+      return { righe, totale: res.count ?? righe.length };
+    },
+
     async segnaNotificaLetta(userId: string, id: string): Promise<void> {
       assertOk(await db.from('notifiche').update({ letta: true }).eq('utente_id', userId).eq('id', id));
     },

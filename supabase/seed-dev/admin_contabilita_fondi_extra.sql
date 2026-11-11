@@ -629,7 +629,7 @@ begin
       c_condominio,
       'CREAZIONE_FONDO_CONDOMINIALE',
       'fondi',
-      c_fondo_speciale_t7::text,
+      c_fondo_speciale_t7,
       'Costituzione Fondo Speciale Lavori Straordinari Facciata pari all''intero importo dei lavori (60.000,00 €, art. 1135 c. 1 n. 4 c.c., T7)',
       null,
       jsonb_build_object(
@@ -647,7 +647,7 @@ begin
       c_condominio,
       'OVERRIDE_VINCOLO_DESTINAZIONE_FONDO',
       'movimenti_fondo',
-      c_mf_cassa_override::text,
+      c_mf_cassa_override,
       'Intervento urgente di messa in sicurezza cornicione autorizzato con prelievo dal Fondo Cassa (escluso compenso amministratore ex RC-J4)',
       jsonb_build_object(
         'fondo_id', c_fondo_cassa,

@@ -258,7 +258,7 @@ export function createAssembleeAdminService(db: TypedSupabaseClient) {
               unita_id,
               utente_id,
               tipo_possesso,
-              utenti (
+              utenti!anagrafiche_unita_utente_id_fkey (
                 id,
                 nome_cognome
               )

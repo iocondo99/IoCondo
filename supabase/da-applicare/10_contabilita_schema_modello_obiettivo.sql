@@ -143,7 +143,7 @@ alter table public.movimenti_contabili
     add column if not exists voce_spesa_id                uuid,
     add column if not exists numero_progressivo           integer,
     add column if not exists data_registrazione           date not null default current_date,
-    add column if not exists importo_centesimi            bigint not null default 0 check (importo_centesimi > 0),
+    add column if not exists importo_centesimi            bigint not null default 0 check (importo_centesimi >= 0),
     add column if not exists tag_spesa                    text not null default 'ORDINARIA' check (tag_spesa in ('ORDINARIA','STRAORDINARIA')),
     add column if not exists competenza_da                date,
     add column if not exists competenza_a                 date,
@@ -244,7 +244,7 @@ create index if not exists idx_saldi_autore     on public.saldi_pregressi (autor
 -- 1.11 Pagamenti rate (`pagamenti_rate`): centesimi interi, pagatore terzo (inquilino/altro), CRO, valuta e storno (RC-F1..F4, T18)
 alter table public.pagamenti_rate
     add column if not exists condominio_id      uuid references public.condomini (id) on delete restrict,
-    add column if not exists importo_centesimi  bigint not null default 0 check (importo_centesimi > 0),
+    add column if not exists importo_centesimi  bigint not null default 0 check (importo_centesimi >= 0),
     add column if not exists pagatore_nome      text,
     add column if not exists pagatore_utente_id uuid references public.utenti (id) on delete set null,
     add column if not exists riferimento_cro    text,

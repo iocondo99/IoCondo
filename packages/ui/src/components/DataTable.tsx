@@ -17,7 +17,7 @@ import {
   tableMinWidth,
   type SortState,
 } from '../dataTableMath';
-import { borderWidths, colors, dataSizes, radii, space } from '../tokens';
+import { borderWidths, colors, dataSizes, focusRingSize, radii, space } from '../tokens';
 import { Skeleton } from './Skeleton';
 import {
   CellValue,
@@ -93,9 +93,11 @@ export function DataTable<T>({
     columns.map((column) => column.minWidth ?? dataSizes.columnMinWidth),
     actionsWidth,
   );
-  const tableWidth = Math.max(frameWidth, minWidth);
+  // La larghezza interna del frame esclude lo spessore del bordo (1px per lato) per non debordare
+  const innerFrameWidth = Math.max(0, frameWidth - borderWidths.thin * 2);
+  const tableWidth = Math.max(innerFrameWidth, minWidth);
   // Lo scorrimento serve solo se le colonne non stanno nel riquadro.
-  const overflowing = frameWidth > 0 && minWidth > frameWidth;
+  const overflowing = innerFrameWidth > 0 && minWidth > innerFrameWidth;
 
   const feedback = (
     <DataViewFeedback error={error} onRetry={onRetry} empty={empty} rows={rows} loading={loading} />
@@ -129,7 +131,8 @@ export function DataTable<T>({
         keyboardShouldPersistTaps="handled"
         onFocus={(event) => setScrollFocused(event.target === event.currentTarget)}
         onBlur={() => setScrollFocused(false)}
-        style={insetFocusStyle(scrollFocused)}
+        style={[{ width: '100%', alignSelf: 'stretch' }, insetFocusStyle(scrollFocused)]}
+        contentContainerStyle={{ minWidth: '100%' }}
         {...scrollProps}
       >
         <View
@@ -138,7 +141,7 @@ export function DataTable<T>({
           accessibilityLabel={label}
           aria-rowcount={rows.length + 1}
           aria-busy={loading}
-          style={{ width: tableWidth }}
+          style={{ width: tableWidth, minWidth: '100%' }}
         >
           <View role="row" style={[styles.row, styles.headerRow]}>
             {columns.map((column) => (
@@ -280,6 +283,7 @@ function BodyRow<T>({
   actions?: ReturnType<NonNullable<DataViewProps<T>['rowActions']>>;
 }) {
   const transition = useColorTransition();
+  const innerRadius = radii.card - borderWidths.thin;
   const cells = (
     <>
       {columns.map((column) => (
@@ -297,7 +301,16 @@ function BodyRow<T>({
 
   if (!onPress) {
     return (
-      <View role="row" aria-rowindex={rowIndex} style={[styles.row, styles.bodyRow, !last && styles.rowDivider]}>
+      <View
+        role="row"
+        aria-rowindex={rowIndex}
+        style={[
+          styles.row,
+          styles.bodyRow,
+          !last && styles.rowDivider,
+          last ? { borderBottomLeftRadius: innerRadius, borderBottomRightRadius: innerRadius } : null,
+        ]}
+      >
         {cells}
       </View>
     );
@@ -317,13 +330,28 @@ function BodyRow<T>({
           styles.row,
           styles.bodyRow,
           ...(last ? [] : [styles.rowDivider]),
-          { backgroundColor: pressed ? colors.border : hovered ? colors.background : colors.surface },
+          {
+            backgroundColor: pressed ? colors.border : hovered ? colors.background : colors.surface,
+            borderBottomLeftRadius: last ? innerRadius : 0,
+            borderBottomRightRadius: last ? innerRadius : 0,
+          },
         ];
         if (transition) style.push(transition);
         const cursor = cursorStyle(false);
         if (cursor) style.push(cursor);
-        const ring = insetFocusStyle(!!focused);
-        if (ring) style.push(ring);
+
+        // Su web l'anello di focus usa boxShadow inset con i raggi di curvatura della riga/tabella,
+        // per evitare che outline tagli gli angoli arrotondati o i bordi esterni del frame.
+        if (focused) {
+          if (Platform.OS === 'web') {
+            style.push({
+              boxShadow: `inset 0 0 0 ${focusRingSize.width}px ${colors.focus}`,
+              outlineStyle: 'none',
+            } as unknown as ViewStyle);
+          } else {
+            style.push({ borderColor: colors.focus });
+          }
+        }
         return style;
       }}
     >

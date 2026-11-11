@@ -111,10 +111,14 @@ begin
     select id into v_admin_id from public.utenti limit 1;
   end if;
 
-  select id into v_tipo_appartamento from public.tipologie_unita where codice = 'APPARTAMENTO' limit 1;
+  if v_admin_id is null then
+    raise exception 'Nessun utente trovato in public.utenti. Eseguire prima 01_dati_prova.sql.';
+  end if;
+
+  select id into v_tipo_appartamento from public.tipologie_unita where descrizione = 'Appartamento' limit 1;
   if v_tipo_appartamento is null then
-    insert into public.tipologie_unita (codice, descrizione)
-    values ('APPARTAMENTO', 'Appartamento')
+    insert into public.tipologie_unita (descrizione)
+    values ('Appartamento')
     returning id into v_tipo_appartamento;
   end if;
 
@@ -122,10 +126,11 @@ begin
   -- 1. STRUTTURA BASE GARANTITA (CONDOMINIO, PALAZZI, UNITA', ESERCIZIO, GESTIONI)
   -- ===========================================================================
   insert into public.condomini (
-    id, nome, tipo, codice_fiscale, indirizzo, citta, cap, provincia, iban_principale
+    id, admin_id, nome, tipo, codice_fiscale, indirizzo, citta, cap, provincia, iban_principale
   )
   values (
     c_condominio,
+    v_admin_id,
     'Condominio di Prova',
     'CONDOMINIO',
     '97543210158',
@@ -138,26 +143,26 @@ begin
   on conflict (id) do update
   set iban_principale = excluded.iban_principale;
 
-  insert into public.palazzi (id, condominio_id, nome_edificio, indirizzo)
+  insert into public.palazzi (id, condominio_id, nome_identificativo, indirizzo)
   values
     (c_palazzo_a, c_condominio, 'Palazzo A (Principale)', 'Via Giuseppe Garibaldi 42 - Corpo A'),
     (c_palazzo_b, c_condominio, 'Palazzo B (Interno Cortile)', 'Via Giuseppe Garibaldi 42 - Corpo B')
   on conflict (id) do nothing;
 
-  insert into public.scale_colonne (id, palazzo_id, identificativo_scala)
+  insert into public.scale_colonne (id, palazzo_id, tipo, nome)
   values
-    (c_scala_a,       c_palazzo_a, 'Scala A'),
-    (c_scala_unica_b, c_palazzo_b, 'Scala Unica B')
+    (c_scala_a,       c_palazzo_a, 'SCALA', 'Scala A'),
+    (c_scala_unica_b, c_palazzo_b, 'SCALA', 'Scala Unica B')
   on conflict (id) do nothing;
 
   insert into public.unita_immobiliari (
     id, palazzo_id, scala_colonna_id, tipologia_id, interno, piano, mq, foglio_catastale, particella, subalterno
   )
   values
-    (c_u1_a, c_palazzo_a, c_scala_a,       v_tipo_appartamento, '1', '1',  85.00, '114', '220', '1'),
-    (c_u2_a, c_palazzo_a, c_scala_a,       v_tipo_appartamento, '2', '2', 110.00, '114', '220', '2'),
-    (c_u3_a, c_palazzo_a, c_scala_a,       v_tipo_appartamento, '3', '3',  95.00, '114', '220', '3'),
-    (c_u1_b, c_palazzo_b, c_scala_unica_b, v_tipo_appartamento, '1', 'T',  78.00, '114', '221', '1')
+    (c_u1_a, c_palazzo_a, c_scala_a,       v_tipo_appartamento, '1', 1,  85.00, '114', '220', '1'),
+    (c_u2_a, c_palazzo_a, c_scala_a,       v_tipo_appartamento, '2', 2, 110.00, '114', '220', '2'),
+    (c_u3_a, c_palazzo_a, c_scala_a,       v_tipo_appartamento, '3', 3,  95.00, '114', '220', '3'),
+    (c_u1_b, c_palazzo_b, c_scala_unica_b, v_tipo_appartamento, '1', 0,  78.00, '114', '221', '1')
   on conflict (id) do nothing;
 
   insert into public.esercizi_contabili (
@@ -272,7 +277,7 @@ begin
     ),
     -- Preventivo Straordinario v1: BOZZA non ancora approvato (per test blocco/override RC-D4, T16)
     (
-      c_prev_straord_bozza, c_condominio, c_esercizio_corr, c_gest_straord_or_null.id,
+      c_prev_straord_bozza, c_condominio, c_esercizio_corr, c_gest_straordinaria,
       1, 'BOZZA',
       500000, -- 5.000,00 €
       null,
@@ -281,7 +286,6 @@ begin
       'Preventivo in bozza per lavori urgenti: emissione rate consentita solo con override tracciato in audit (RC-D4, T16).',
       v_admin_id
     )
-  from (select c_gest_straordinaria as id) as c_gest_straord_or_null
   on conflict (id) do update
   set stato = excluded.stato,
       totale_previsto_centesimi = excluded.totale_previsto_centesimi,
@@ -597,7 +601,7 @@ begin
   values
     (
       c_audit_prev_v2, v_admin_id, c_condominio,
-      'APPROVAZIONE_PREVENTIVO', 'preventivi', c_prev_ord_v2::text,
+      'APPROVAZIONE_PREVENTIVO', 'preventivi', c_prev_ord_v2,
       'Approvazione preventivo ordinario v2 con passaggio automatico di v1 a SUPERATO (RC-D2, RC-D5)',
       jsonb_build_object('stato', 'BOZZA', 'precedente_id', c_prev_ord_v1, 'precedente_stato', 'APPROVATO'),
       jsonb_build_object('stato', 'APPROVATO', 'versione', 2, 'totale_previsto_centesimi', 1000000, 'precedente_stato', 'SUPERATO'),
@@ -605,7 +609,7 @@ begin
     ),
     (
       c_audit_override_t16, v_admin_id, c_condominio,
-      'OVERRIDE_EMISSIONE_RATE_PREVENTIVO_NON_APPROVATO', 'rate_testata', c_rata_test_str_ovr::text,
+      'OVERRIDE_EMISSIONE_RATE_PREVENTIVO_NON_APPROVATO', 'rate_testata', c_rata_test_str_ovr,
       'Emissione anticipata urgente per copertura acconto fornitore messa in sicurezza (Delibera Consiglio n. 2/' || v_anno_corrente || ')',
       jsonb_build_object('stato_preventivo', 'BOZZA', 'emissione_consentita_default', false),
       jsonb_build_object('emessa_con_override', true, 'preventivo_id', c_prev_straord_bozza),
@@ -613,7 +617,7 @@ begin
     ),
     (
       c_audit_rettif_t11, v_admin_id, c_condominio,
-      'RETTIFICA_BOLLETTINO_PER_SOSTITUZIONE', 'bollettini', c_boll_n13_rettif::text,
+      'RETTIFICA_BOLLETTINO_PER_SOSTITUZIONE', 'bollettini', c_boll_n13_rettif,
       'Rettifica Bollettino n. 12 (250,00 €) con creazione Bollettino n. 13 (230,00 €), trascinamento incasso parziale 100,00 € e saldo residuo 130,00 € (T11, RC-E4)',
       jsonb_build_object('bollettino_originale_id', c_boll_n12_annullato, 'numero_progressivo_originale', 12, 'totale_originale_centesimi', 25000, 'importo_pagato_originale_centesimi', 10000),
       jsonb_build_object('bollettino_originale_stato', 'ANNULLATO', 'nuovo_bollettino_id', c_boll_n13_rettif, 'nuovo_numero_progressivo', 13, 'sostituisce_id', c_boll_n12_annullato, 'nuovo_totale_centesimi', 23000, 'incassi_trascinati_centesimi', 10000, 'saldo_residuo_centesimi', 13000),

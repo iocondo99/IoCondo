@@ -32,6 +32,8 @@ export interface ModalProps {
   closeLabel?: string;
   /** Elemento che riceve il focus all'apertura. Se manca, il focus va alla finestra. */
   initialFocusRef?: React.RefObject<unknown>;
+  /** Larghezza massima personalizzata della finestra (default: 560px da token). */
+  maxWidth?: number;
 }
 
 // Una sola modale alla volta (sez. 13): la prima che si apre tiene il posto, le altre non vengono mostrate.
@@ -68,6 +70,7 @@ export function Modal({
   dismissible = true,
   closeLabel = 'Chiudi',
   initialFocusRef,
+  maxWidth,
 }: ModalProps) {
   const open = useModalSlot(visible);
   const { isMobile } = useBreakpoint();
@@ -123,7 +126,12 @@ export function Modal({
           ref={cardRef}
           tabIndex={-1}
           accessibilityViewIsModal
-          style={[styles.card, { padding: isMobile ? space[4] : space[6] }, noOutline]}
+          style={[
+            styles.card,
+            { padding: isMobile ? space[4] : space[6] },
+            maxWidth ? { maxWidth } : null,
+            noOutline,
+          ]}
         >
           <View style={styles.header}>
             <View style={styles.titleGroup}>

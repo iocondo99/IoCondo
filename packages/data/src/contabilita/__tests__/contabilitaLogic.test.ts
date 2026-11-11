@@ -508,7 +508,7 @@ describe('Motore di calcolo contabile puro (Sezione 10)', () => {
           dataScadenza: '2026-03-31',
           importoDovuto: 250,
           importoPagato: 100,
-          stato: 'PARZIALE',
+          stato: 'RITARDO',
         },
         {
           id: 'rd-2',
@@ -516,7 +516,7 @@ describe('Motore di calcolo contabile puro (Sezione 10)', () => {
           dataScadenza: '2026-12-31',
           importoDovuto: 250,
           importoPagato: 0,
-          stato: 'NON_PAGATA',
+          stato: 'DA_PAGARE',
         },
       ],
       '2026-11-10',

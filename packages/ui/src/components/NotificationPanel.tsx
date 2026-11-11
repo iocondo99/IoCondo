@@ -63,14 +63,22 @@ export interface NotificationPanelProps {
   onOpen?: () => void;
   /** Nome del pulsante e del pannello. */
   label?: string;
+  /** Totale reale delle non lette, se l'elenco passato ne contiene solo una parte. Se manca si contano quelle passate. */
+  unreadCount?: number;
+  /** Quante non lette mostra il pannello al massimo; le altre si raggiungono con "Vedi altri". */
+  maxItems?: number;
+  /** Apre la pagina con tutte le notifiche. Se manca il pulsante in fondo non compare. */
+  onViewAll?: () => void;
 }
 
 const COUNTER_MAX = 99;
+const DEFAULT_MAX_ITEMS = 10;
 
 /**
  * Campanella con contatore delle notifiche non lette e pannello a comparsa. Da tablet in su il
  * pannello sta sotto il pulsante; su smartphone è un foglio dal basso. Come Dropdown e Modal vive
  * in un Modal di React Native: intrappola il focus, Escape lo chiude e il focus torna alla campanella.
+ * Il pannello mostra solo le non lette (una notifica letta sparisce) e al massimo `maxItems`.
  * Ogni notifica dice anche a parole se è letta o no: il colore non è l'unico segnale.
  */
 export function NotificationPanel({
@@ -82,6 +90,9 @@ export function NotificationPanel({
   onRetry,
   onOpen,
   label = 'Notifiche',
+  unreadCount,
+  maxItems = DEFAULT_MAX_ITEMS,
+  onViewAll,
 }: NotificationPanelProps) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<Placement | null>(null);
@@ -92,7 +103,10 @@ export function NotificationPanel({
   const screen = useWindowDimensions();
   const counterStyle = useTextStyle('label');
 
-  const unread = notifications.filter((item) => !item.read).length;
+  const unreadItems = notifications.filter((item) => !item.read);
+  const shown = unreadItems.slice(0, maxItems);
+  const unread = Math.max(unreadCount ?? unreadItems.length, unreadItems.length);
+  const hidden = Math.max(0, unread - shown.length);
   const buttonLabel = unread > 0 ? `${label}, ${unread} non ${unread === 1 ? 'letta' : 'lette'}` : `${label}, nessuna nuova`;
 
   const close = () => {
@@ -142,6 +156,13 @@ export function NotificationPanel({
     setOpen(false);
     onSelect?.(item);
   };
+
+  const viewAll = onViewAll
+    ? () => {
+        setOpen(false);
+        onViewAll();
+      }
+    : undefined;
 
   return (
     <>
@@ -198,13 +219,15 @@ export function NotificationPanel({
             >
               <PanelContent
                 label={label}
-                notifications={notifications}
+                notifications={shown}
                 unread={unread}
+                hidden={hidden}
                 loading={loading}
                 error={error}
                 onRetry={onRetry}
                 onMarkAllRead={onMarkAllRead}
                 onSelect={onSelect ? select : undefined}
+                onViewAll={viewAll}
                 onClose={close}
               />
             </View>
@@ -219,21 +242,25 @@ function PanelContent({
   label,
   notifications,
   unread,
+  hidden,
   loading,
   error,
   onRetry,
   onMarkAllRead,
   onSelect,
+  onViewAll,
   onClose,
 }: {
   label: string;
   notifications: readonly NotificationItem[];
   unread: number;
+  hidden: number;
   loading: boolean;
   error: boolean;
   onRetry?: () => void | Promise<unknown>;
   onMarkAllRead: () => void | Promise<unknown>;
   onSelect?: (notification: NotificationItem) => void;
+  onViewAll?: () => void;
   onClose: () => void;
 }) {
   const titleStyle = useTextStyle('h4');
@@ -279,7 +306,7 @@ function PanelContent({
       ) : notifications.length === 0 ? (
         <EmptyState
           icon="bell"
-          title="Non hai nuove notifiche"
+          title="Non hai notifiche da leggere"
           description="Quando arriva qualcosa di nuovo, lo trovi qui."
         />
       ) : (
@@ -296,6 +323,16 @@ function PanelContent({
           </View>
         </ScrollView>
       )}
+      {onViewAll && !loading && !error ? (
+        <View style={styles.footer}>
+          <Button
+            variant="text"
+            label={hidden > 0 ? `Vedi altri (${hidden})` : 'Tutte le notifiche'}
+            icon="arrow-right"
+            onPress={onViewAll}
+          />
+        </View>
+      ) : null}
     </>
   );
 }
@@ -440,6 +477,13 @@ const styles = StyleSheet.create({
   // Il riquadro scorrevole ritaglia l'anello di focus delle righe: lo tiene dentro il margine interno.
   list: { flexShrink: 1, maxHeight: dataSizes.notificationListMaxHeight, padding: focusRingInset },
   loading: { padding: space[4], gap: space[4] },
+  footer: {
+    alignItems: 'flex-start',
+    paddingHorizontal: space[2],
+    paddingVertical: space[1],
+    borderTopWidth: borderWidths.thin,
+    borderTopColor: colors.border,
+  },
   skeletonRow: { gap: space[2] },
   row: {
     flexDirection: 'row',
