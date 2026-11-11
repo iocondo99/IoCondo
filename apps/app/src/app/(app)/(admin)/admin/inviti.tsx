@@ -1,6 +1,7 @@
-import React from "react";
-import { InvitiScreen } from "@/screens/InvitiScreen";
+import React from 'react';
+import { AdminInvitiScreen } from '@/screens/AdminInvitiScreen';
 
 export default function InvitiPage() {
-  return <InvitiScreen />;
+  return <AdminInvitiScreen />;
 }
+

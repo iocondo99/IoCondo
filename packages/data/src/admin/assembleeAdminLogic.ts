@@ -703,6 +703,12 @@ export function validaNuovaAssemblea(input: {
 
   if (!input.dataSecondaConvocazione || input.dataSecondaConvocazione.trim().length === 0) {
     errori.dataSecondaConvocazione = 'Inserisci la data e l’ora della 2ª convocazione.';
+  } else if (input.dataPrimaConvocazione && input.dataPrimaConvocazione.trim().length > 0) {
+    const t1 = new Date(input.dataPrimaConvocazione).getTime();
+    const t2 = new Date(input.dataSecondaConvocazione).getTime();
+    if (!Number.isNaN(t1) && !Number.isNaN(t2) && t2 <= t1) {
+      errori.dataSecondaConvocazione = 'La 2ª convocazione deve essere successiva alla 1ª convocazione.';
+    }
   }
 
   if (input.modalita === 'ONLINE' || input.modalita === 'IBRIDA') {

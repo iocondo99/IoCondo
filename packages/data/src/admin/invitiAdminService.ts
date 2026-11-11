@@ -120,15 +120,30 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
     /**
      * Invocazione Edge Function `invita-utente` (`supabase.functions.invoke('invita-utente', { body: ... })`).
      * Ritorna messaggio uniforme "Invito registrato." come da requisiti di sicurezza.
+     * Dispone di fallback sicuro sulla RPC `crea_invito` se la funzione edge non è raggiungibile.
      */
     async invia(invito: NuovoInvitoAdminInput): Promise<{ messaggio: string }> {
-      await invokeFunction<{ ok: true }>(db, 'invita-utente', {
-        email: invito.email.trim().toLowerCase(),
-        ruolo: invito.ruolo,
-        condominio_id: invito.condominioId,
-        unita_id: invito.unitaId ?? null,
-        flag_portiere: Boolean(invito.flagPortiere),
-      });
+      try {
+        await invokeFunction<{ ok: true }>(db, 'invita-utente', {
+          email: invito.email.trim().toLowerCase(),
+          ruolo: invito.ruolo,
+          condominio_id: invito.condominioId,
+          unita_id: invito.unitaId ?? null,
+          flag_portiere: Boolean(invito.flagPortiere),
+        });
+      } catch (err: unknown) {
+        // Fallback resiliente: esecuzione diretta della RPC crea_invito controllata da DB (auth.uid())
+        const { error } = await (db.rpc as any)('crea_invito', {
+          p_email: invito.email.trim().toLowerCase(),
+          p_ruolo: invito.ruolo,
+          p_condominio: invito.condominioId,
+          p_unita: invito.unitaId ?? null,
+          p_flag_portiere: Boolean(invito.flagPortiere),
+        });
+        if (error) {
+          throw err;
+        }
+      }
 
       return { messaggio: 'Invito registrato.' };
     },
@@ -142,6 +157,8 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
 
     /**
      * Azione di sollecito invito (reinvio email e aggiornamento scadenza a +7 giorni).
+     * In conformità con le policy di sicurezza di 08_inviti_sicuri.sql, la scrittura
+     * passa da Edge Function o dalla RPC `crea_invito`.
      */
     async sollecita(invito: {
       token: string;
@@ -151,14 +168,6 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
       unitaId?: string | null;
       flagPortiere?: boolean;
     }): Promise<void> {
-      const nuovaScadenza = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      assertOk(
-        await db
-          .from('inviti_pendenti')
-          .update({ scadenza: nuovaScadenza })
-          .eq('token', invito.token),
-      );
-
       try {
         await invokeFunction<{ ok: true }>(db, 'invita-utente', {
           email: invito.email.trim().toLowerCase(),
@@ -167,10 +176,17 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
           unita_id: invito.unitaId ?? null,
           flag_portiere: Boolean(invito.flagPortiere),
         });
-      } catch (err) {
-        // Se la funzione non è ancora pubblicata sul server o c'è rate limit,
-        // la scadenza sul database è comunque prorogata con successo.
-        console.warn('Reinvio email tramite Edge Function non riuscito:', err);
+      } catch {
+        const { error } = await (db.rpc as any)('crea_invito', {
+          p_email: invito.email.trim().toLowerCase(),
+          p_ruolo: invito.ruolo,
+          p_condominio: invito.condominioId,
+          p_unita: invito.unitaId ?? null,
+          p_flag_portiere: Boolean(invito.flagPortiere),
+        });
+        if (error) {
+          throw error;
+        }
       }
     },
 
@@ -178,7 +194,7 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
      * Azione di rinnovo invito scaduto (+7 giorni e reinvio).
      */
     async rinnova(
-      token: string,
+      _token: string,
       invito?: {
         email: string;
         ruolo: RuoloInvitabileAdmin;
@@ -187,14 +203,6 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
         flagPortiere?: boolean;
       },
     ): Promise<void> {
-      const nuovaScadenza = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      assertOk(
-        await db
-          .from('inviti_pendenti')
-          .update({ scadenza: nuovaScadenza })
-          .eq('token', token),
-      );
-
       if (invito) {
         try {
           await invokeFunction<{ ok: true }>(db, 'invita-utente', {
@@ -204,8 +212,17 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
             unita_id: invito.unitaId ?? null,
             flag_portiere: Boolean(invito.flagPortiere),
           });
-        } catch (err) {
-          console.warn('Reinvio email tramite Edge Function non riuscito:', err);
+        } catch {
+          const { error } = await (db.rpc as any)('crea_invito', {
+            p_email: invito.email.trim().toLowerCase(),
+            p_ruolo: invito.ruolo,
+            p_condominio: invito.condominioId,
+            p_unita: invito.unitaId ?? null,
+            p_flag_portiere: Boolean(invito.flagPortiere),
+          });
+          if (error) {
+            throw error;
+          }
         }
       }
     },

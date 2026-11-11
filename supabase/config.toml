@@ -431,6 +431,6 @@ verify_jwt = false
 
 
 
-# Invito di una persona a un condominio: serve il JWT di un utente; permessi e ruoli li decide il database (crea_invito)
+# Invito di una persona a un condominio: autenticato internamente da requireUser(req) per non bloccare preflight CORS OPTIONS
 [functions.invita-utente]
-verify_jwt = true
+verify_jwt = false

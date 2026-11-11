@@ -687,53 +687,56 @@ function AdminDocumentiContenuto() {
             const isAttiva = cartellaSelezionataId === c.id;
             const isFocused = focusedCartellaId === c.id;
             return (
-              <Pressable
+              <View
                 key={c.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Cartella ${c.nomeCartella}, ${c.conteggioDocumenti} documenti`}
-                accessibilityState={{ selected: isAttiva }}
-                onPress={() => setCartellaSelezionataId(c.id)}
-                onFocus={() => setFocusedCartellaId(c.id)}
-                onBlur={() => setFocusedCartellaId((prev) => (prev === c.id ? null : prev))}
-                style={({ hovered }) => [
+                style={[
                   styles.cardCartella,
                   isAttiva && styles.cardCartellaAttiva,
-                  hovered && styles.cardCartellaHover,
-                  isFocused && focusRing,
                 ]}
               >
-                <View style={styles.iconaCartellaWrap}>
-                  <Icon
-                    name={isAttiva ? 'folder-open' : 'folder'}
-                    size="card"
-                    color={isAttiva ? colors.brand.navy : colors.action.default}
-                  />
-                </View>
-                <View style={styles.infoCartella}>
-                  <Text style={styles.nomeCartella} numberOfLines={1}>
-                    {c.nomeCartella}
-                  </Text>
-                  <Text style={styles.conteggioCartella}>
-                    {c.conteggioDocumenti}{' '}
-                    {c.conteggioDocumenti === 1 ? 'documento' : 'documenti'}
-                  </Text>
-                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Cartella ${c.nomeCartella}, ${c.conteggioDocumenti} documenti`}
+                  accessibilityState={{ selected: isAttiva }}
+                  onPress={() => setCartellaSelezionataId(c.id)}
+                  onFocus={() => setFocusedCartellaId(c.id)}
+                  onBlur={() => setFocusedCartellaId((prev) => (prev === c.id ? null : prev))}
+                  style={({ hovered }) => [
+                    styles.areaSelezioneCartella,
+                    hovered && styles.cardCartellaHover,
+                    isFocused && focusRing,
+                  ]}
+                >
+                  <View style={styles.iconaCartellaWrap}>
+                    <Icon
+                      name={isAttiva ? 'folder-open' : 'folder'}
+                      size="card"
+                      color={isAttiva ? colors.brand.navy : colors.action.default}
+                    />
+                  </View>
+                  <View style={styles.infoCartella}>
+                    <Text style={styles.nomeCartella} numberOfLines={1}>
+                      {c.nomeCartella}
+                    </Text>
+                    <Text style={styles.conteggioCartella}>
+                      {c.conteggioDocumenti}{' '}
+                      {c.conteggioDocumenti === 1 ? 'documento' : 'documenti'}
+                    </Text>
+                  </View>
+                </Pressable>
 
-                {/* Se vuota, mostra pulsante rapido di eliminazione */}
+                {/* Se vuota, mostra pulsante rapido di eliminazione come elemento fratello (non annidato) per standard W3C */}
                 {c.conteggioDocumenti === 0 ? (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Elimina cartella vuota ${c.nomeCartella}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setCartellaDaEliminare(c);
-                    }}
+                    onPress={() => setCartellaDaEliminare(c)}
                     style={styles.pulsanteEliminaCartella}
                   >
                     <Icon name="trash-2" size="indicator" color={colors.semantic.error.foreground} />
                   </Pressable>
                 ) : null}
-              </Pressable>
+              </View>
             );
           })}
         </View>
@@ -1176,6 +1179,13 @@ const styles = StyleSheet.create({
   conteggioCartella: {
     fontSize: 12,
     color: colors.text.secondary,
+  },
+  areaSelezioneCartella: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    borderRadius: radii.card,
   },
   pulsanteEliminaCartella: {
     padding: space[1],

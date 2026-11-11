@@ -325,22 +325,25 @@ export function createDocumentiAdminService(db: TypedSupabaseClient) {
           return { ok: false, errore: `Errore durante il caricamento del file: ${uploadError.message}` };
         }
 
-        // 2. Inserimento record metadati
-        const rigaDoc = unwrap(
-          await db
-            .from('documenti_metadata')
-            .insert({
-              cartella_id: params.cartellaId,
-              unita_id: params.unitaId || null,
-              url_storage: storagePath,
-              nome_file: params.nomeFile,
-              tipo_mime: params.tipoMime || null,
-            })
-            .select('id')
-            .single(),
-        );
+        // 2. Inserimento record metadati con ID deterministico per evitare clausola RETURNING/SELECT
+        // bloccata da RLS prima del commit della riga
+        const newDocId = crypto.randomUUID();
+        const { error: insertError } = await db
+          .from('documenti_metadata')
+          .insert({
+            id: newDocId,
+            cartella_id: params.cartellaId,
+            unita_id: params.unitaId || null,
+            url_storage: storagePath,
+            nome_file: params.nomeFile,
+            tipo_mime: params.tipoMime || null,
+          });
 
-        return { ok: true, documentoId: rigaDoc.id };
+        if (insertError) {
+          return { ok: false, errore: `Errore durante il salvataggio dei metadati: ${insertError.message}` };
+        }
+
+        return { ok: true, documentoId: newDocId };
       } catch (err: any) {
         return { ok: false, errore: err?.message || 'Errore imprevisto durante il salvataggio del documento.' };
       }
