@@ -97,7 +97,6 @@ type DettaglioSelezionato =
   | { tipo: 'conguaglio'; conguaglio: IConguaglioUnita };
 
 const OPZIONI_FILTRO_REGISTRO: readonly FilterOption[] = [
-  { value: 'TUTTI', label: 'Tutti i movimenti' },
   { value: 'USCITE', label: 'Spese (-)' },
   { value: 'ENTRATE', label: 'Entrate (+)' },
   { value: 'STRAORDINARIA', label: 'Straordinarie' },
@@ -240,7 +239,7 @@ function AdminContabilitaContenuto() {
 
   // Filtri scheda Registro & Spese
   const [ricercaRegistro, setRicercaRegistro] = useState('');
-  const [filtroChipRegistro, setFiltroChipRegistro] = useState<readonly string[]>(['TUTTI']);
+  const [filtroChipRegistro, setFiltroChipRegistro] = useState<readonly string[]>([]);
   const [filtroDataDa, setFiltroDataDa] = useState('');
   const [filtroDataA, setFiltroDataA] = useState('');
 
@@ -294,6 +293,7 @@ function AdminContabilitaContenuto() {
   const [ratePubblicaSubito, setRatePubblicaSubito] = useState<boolean>(true);
   const [rateOverrideBozza, setRateOverrideBozza] = useState<boolean>(false);
   const [rateMotivoOverride, setRateMotivoOverride] = useState<string>('');
+  const [rateDeliberaOverride, setRateDeliberaOverride] = useState<string>('');
   const [rateErroreForm, setRateErroreForm] = useState<string | null>(null);
 
   // Stato Form Modale 3: "Registra incasso"
@@ -544,7 +544,7 @@ function AdminContabilitaContenuto() {
 
   // Filtro righe del Registro Contabile
   const righeRegistroFiltrate = useMemo(() => {
-    const chip = filtroChipRegistro[0] ?? 'TUTTI';
+    const chip = filtroChipRegistro[0] ?? '';
     const query = ricercaRegistro.trim().toLowerCase();
 
     return registro.filter((item) => {
@@ -706,7 +706,7 @@ function AdminContabilitaContenuto() {
   };
 
   const handleConfermaRegistraSpesa = async () => {
-    if (!condominio?.id || !esercizioAttivo?.id) return;
+    if (operazioneInCorso || !condominio?.id || !esercizioAttivo?.id) return;
     if (!spesaDescrizione.trim()) {
       setSpesaErroreForm('Inserisci una descrizione chiara della spesa.');
       return;
@@ -771,7 +771,7 @@ function AdminContabilitaContenuto() {
   };
 
   const handleConfermaStorno = async () => {
-    if (!condominio?.id || !movimentoDaStornare) return;
+    if (operazioneInCorso || !condominio?.id || !movimentoDaStornare) return;
     if (!motivoStornoInput.trim()) {
       setErroreStornoInput('Il motivo dello storno è obbligatorio per la traccia di revisione.');
       return;
@@ -813,7 +813,7 @@ function AdminContabilitaContenuto() {
   };
 
   const handleConfermaNuovoPreventivo = async () => {
-    if (!condominio?.id || !esercizioAttivo?.id) return;
+    if (operazioneInCorso || !condominio?.id || !esercizioAttivo?.id) return;
     setPrevErroreForm(null);
 
     try {
@@ -893,7 +893,7 @@ function AdminContabilitaContenuto() {
   };
 
   const handleConfermaApprovaPreventivo = async () => {
-    if (!condominio?.id || !preventivoDaApprovare) return;
+    if (operazioneInCorso || !condominio?.id || !preventivoDaApprovare) return;
     if (!deliberaPrevInput.trim()) {
       setErroreApprovaPrev('Inserisci gli estremi della delibera assembleare di approvazione.');
       return;
@@ -929,16 +929,34 @@ function AdminContabilitaContenuto() {
     if (preventivi.length > 0 && !ratePreventivoId) {
       setRatePreventivoId(preventivi[0]?.id ?? '');
     }
+    setRateOverrideBozza(false);
+    setRateMotivoOverride('');
+    setRateDeliberaOverride('');
     setRateErroreForm(null);
     setModaleAttiva('emetti-rate');
   };
 
   const handleConfermaEmettiRate = async () => {
-    if (!condominio?.id || !esercizioAttivo?.id) return;
+    if (operazioneInCorso || !condominio?.id || !esercizioAttivo?.id) return;
     const prevId = ratePreventivoId || preventivi[0]?.id;
     if (!prevId) {
       setRateErroreForm('Crea almeno un preventivo prima di generare il piano rate.');
       return;
+    }
+
+    if (rateOverrideBozza) {
+      if (rateMotivoOverride.trim().length < 3) {
+        setRateErroreForm(
+          'Specificare una motivazione di almeno 3 caratteri per l’emissione in acconto provvisorio (RC-D4, T16).',
+        );
+        return;
+      }
+      if (rateDeliberaOverride.trim().length < 2) {
+        setRateErroreForm(
+          'Specificare gli estremi della delibera assembleare di riferimento (almeno 2 caratteri, RC-D4, T16).',
+        );
+        return;
+      }
     }
 
     const numRate = Math.max(1, Math.min(12, parseInt(rateNumeroScadenze, 10) || 4));
@@ -970,6 +988,7 @@ function AdminContabilitaContenuto() {
         scadenzeRate,
         emessaConOverride: rateOverrideBozza,
         motivoOverride: rateOverrideBozza ? rateMotivoOverride.trim() : null,
+        deliberaOverride: rateOverrideBozza ? rateDeliberaOverride.trim() : null,
         pubblicaSubitoRate: ratePubblicaSubito,
         autoreId: profilo?.id ?? null,
       });
@@ -994,13 +1013,14 @@ function AdminContabilitaContenuto() {
     setIncassoDataValuta(oggiIso());
     setIncassoCro('');
     setIncassoCausale('');
+    setIncassoOrdine('FIFO');
     setIncassoDaTerzo(false);
     setIncassoErroreForm(null);
     setModaleAttiva('registra-incasso');
   };
 
   const handleConfermaRegistraIncasso = async () => {
-    if (!condominio?.id) return;
+    if (operazioneInCorso || !condominio?.id) return;
     if (!incassoPagatoreNome.trim()) {
       setIncassoErroreForm('Indica il nominativo del soggetto pagatore.');
       return;
@@ -1100,7 +1120,7 @@ function AdminContabilitaContenuto() {
   }, [targetId, bollettini, registro, preventivi, rateTestate]);
 
   const handleVerificaEEmettiBollettino = async () => {
-    if (!condominio?.id || !bollettinoSelezionato || !profilo?.id) return;
+    if (operazioneInCorso || !condominio?.id || !bollettinoSelezionato || !profilo?.id) return;
     setOperazioneInCorso(true);
     setRettificaErrore(null);
     try {
@@ -1132,16 +1152,20 @@ function AdminContabilitaContenuto() {
   };
 
   const handleRettificaBollettino = async () => {
-    if (!condominio?.id || !bollettinoSelezionato) return;
-    if (!rettificaMotivo.trim()) {
-      setRettificaErrore('Specifica il motivo della rettifica del bollettino emesso.');
+    if (operazioneInCorso || !condominio?.id || !bollettinoSelezionato) return;
+    if (rettificaMotivo.trim().length < 3) {
+      setRettificaErrore('Specifica una motivazione valida di almeno 3 caratteri per la rettifica (RC-E4, RC-N5).');
       return;
     }
     let nuovoTotaleCent = 0;
     try {
       nuovoTotaleCent = euroToCents(rettificaNuovoTotaleEuro);
     } catch {
-      setRettificaErrore('Inserisci un nuovo importo totale valido.');
+      setRettificaErrore('Inserisci un nuovo importo totale valido in Euro (es. 230,00).');
+      return;
+    }
+    if (nuovoTotaleCent <= 0) {
+      setRettificaErrore('L’importo totale del bollettino rettificato deve essere maggiore di zero (RC-E4).');
       return;
     }
 
@@ -1174,7 +1198,7 @@ function AdminContabilitaContenuto() {
     voce: VoceScadenziarioRecuperoRow,
     nuovoStato: 'AVVIATO' | 'CHIUSO',
   ) => {
-    if (!condominio?.id) return;
+    if (operazioneInCorso || !condominio?.id) return;
     setOperazioneInCorso(true);
     try {
       await services.contabilita.aggiornaStatoScadenziarioRecuperoCredito({
@@ -1786,11 +1810,19 @@ function AdminContabilitaContenuto() {
                   />
                 </View>
               </View>
+              {filtroDataDa && filtroDataA && filtroDataDa > filtroDataA ? (
+                <Alert
+                  tone="warning"
+                  title="Intervallo date invertito"
+                  message="La data iniziale è successiva alla data finale. Nessun movimento può rientrare in questo intervallo."
+                />
+              ) : null}
               <FilterChips
                 label="Filtra movimenti per tipologia"
+                allLabel="Tutti i movimenti"
                 options={OPZIONI_FILTRO_REGISTRO}
                 value={filtroChipRegistro}
-                onChange={(val) => setFiltroChipRegistro(val.length > 0 ? val : ['TUTTI'])}
+                onChange={setFiltroChipRegistro}
               />
             </View>
 
@@ -2785,12 +2817,20 @@ function AdminContabilitaContenuto() {
           />
 
           {rateOverrideBozza ? (
-            <Input
-              label="Motivazione emissione in acconto provvisorio *"
-              placeholder="Es. Continuità erogazione servizi essenziali in attesa di assemblea"
-              value={rateMotivoOverride}
-              onChangeText={setRateMotivoOverride}
-            />
+            <>
+              <Input
+                label="Motivazione emissione in acconto provvisorio *"
+                placeholder="Es. Continuità erogazione servizi essenziali in attesa di assemblea"
+                value={rateMotivoOverride}
+                onChangeText={setRateMotivoOverride}
+              />
+              <Input
+                label="Estremi delibera assembleare *"
+                placeholder="Es. Delibera assemblea del 15/01/2026 punto 2"
+                value={rateDeliberaOverride}
+                onChangeText={setRateDeliberaOverride}
+              />
+            </>
           ) : null}
         </View>
       </Modal>

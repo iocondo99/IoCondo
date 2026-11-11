@@ -3635,9 +3635,53 @@ export function createContabilitaService(db: TypedSupabaseClient) {
             .eq('condominio_id', input.condominioId),
         );
 
+        // Risoluzione nominativi anagrafici dei soggetti debitori (RC-G1, RC-G4)
+        const mappaNomiSoggetti = new Map<string, string>();
+        const soggettiRows = unwrap(
+          await db
+            .from('soggetti_contabili')
+            .select('id, utente_id, nome_denominazione')
+            .eq('condominio_id', input.condominioId),
+        );
+        for (const s of soggettiRows ?? []) {
+          if (s.id && s.nome_denominazione) mappaNomiSoggetti.set(`SOGG:${s.id}`, s.nome_denominazione);
+          if (s.utente_id && s.nome_denominazione) mappaNomiSoggetti.set(`UTENTE:${s.utente_id}`, s.nome_denominazione);
+        }
+
+        const utenteIdsMancanti = new Set<string>();
+        for (const sp of saldiRows) {
+          if (sp.utente_id && !mappaNomiSoggetti.has(`UTENTE:${sp.utente_id}`)) utenteIdsMancanti.add(sp.utente_id);
+          if (sp.obbligato_in_solido_utente_id && !mappaNomiSoggetti.has(`UTENTE:${sp.obbligato_in_solido_utente_id}`)) {
+            utenteIdsMancanti.add(sp.obbligato_in_solido_utente_id);
+          }
+        }
+        for (const rd of rateRows) {
+          if (rd.utente_id && !mappaNomiSoggetti.has(`UTENTE:${rd.utente_id}`)) utenteIdsMancanti.add(rd.utente_id);
+          if (rd.obbligato_in_solido_utente_id && !mappaNomiSoggetti.has(`UTENTE:${rd.obbligato_in_solido_utente_id}`)) {
+            utenteIdsMancanti.add(rd.obbligato_in_solido_utente_id);
+          }
+        }
+
+        if (utenteIdsMancanti.size > 0) {
+          const { data: utentiRows } = await db
+            .from('utenti')
+            .select('id, nome_cognome')
+            .in('id', Array.from(utenteIdsMancanti));
+          for (const u of utentiRows ?? []) {
+            if (u.id && u.nome_cognome) mappaNomiSoggetti.set(`UTENTE:${u.id}`, u.nome_cognome.trim());
+          }
+        }
+
         const annoFallback = Number((input.dataRiferimento ?? dataOggiIso()).slice(0, 4));
 
         for (const sp of saldiRows) {
+          const nomeSoggetto =
+            (sp.soggetto_id ? mappaNomiSoggetti.get(`SOGG:${sp.soggetto_id}`) : null) ??
+            (sp.utente_id ? mappaNomiSoggetti.get(`UTENTE:${sp.utente_id}`) : null) ??
+            null;
+          const nomeObbligato = sp.obbligato_in_solido_utente_id
+            ? mappaNomiSoggetti.get(`UTENTE:${sp.obbligato_in_solido_utente_id}`) ?? null
+            : null;
           crediti.push({
             id: sp.id,
             tipoCredito: 'SALDO_PREGRESSO',
@@ -3647,7 +3691,9 @@ export function createContabilitaService(db: TypedSupabaseClient) {
             gestioneId: sp.gestione_id ?? null,
             utenteId: sp.utente_id,
             soggettoId: sp.soggetto_id ?? null,
+            nomeSoggetto,
             obbligatoInSolidoUtenteId: sp.obbligato_in_solido_utente_id ?? null,
+            nomeObbligatoInSolido: nomeObbligato,
             importoDovutoCent: sp.importo_centesimi ?? Math.round(sp.importo * 100),
             importoPagatoCent: sp.importo_pagato_centesimi ?? 0,
             dataEsigibilita: sp.data_esigibilita ?? sp.created_at.slice(0, 10),
@@ -3656,6 +3702,13 @@ export function createContabilitaService(db: TypedSupabaseClient) {
         }
 
         for (const rd of rateRows) {
+          const nomeSoggetto =
+            (rd.soggetto_id ? mappaNomiSoggetti.get(`SOGG:${rd.soggetto_id}`) : null) ??
+            (rd.utente_id ? mappaNomiSoggetti.get(`UTENTE:${rd.utente_id}`) : null) ??
+            null;
+          const nomeObbligato = rd.obbligato_in_solido_utente_id
+            ? mappaNomiSoggetti.get(`UTENTE:${rd.obbligato_in_solido_utente_id}`) ?? null
+            : null;
           crediti.push({
             id: rd.id,
             tipoCredito: 'RATA',
@@ -3666,7 +3719,9 @@ export function createContabilitaService(db: TypedSupabaseClient) {
               : annoFallback,
             utenteId: rd.utente_id,
             soggettoId: rd.soggetto_id ?? null,
+            nomeSoggetto,
             obbligatoInSolidoUtenteId: rd.obbligato_in_solido_utente_id ?? null,
+            nomeObbligatoInSolido: nomeObbligato,
             importoDovutoCent:
               rd.importo_dovuto_centesimi ?? Math.round(rd.importo_dovuto * 100),
             importoPagatoCent:
