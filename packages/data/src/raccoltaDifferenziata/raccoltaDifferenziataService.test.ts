@@ -72,7 +72,14 @@ function creaMockDb(iniziali: IRaccoltaDifferenziata[] = []) {
                       error: { message: 'Not found', code: 'PGRST116' },
                     });
                   }
-                  const aggiornato = { ...righe[idx]!, ...payload };
+                  const esistente = righe[idx];
+                  if (!esistente) {
+                    return Promise.resolve({
+                      data: null,
+                      error: { message: 'Not found', code: 'PGRST116' },
+                    });
+                  }
+                  const aggiornato = { ...esistente, ...payload };
                   righe[idx] = aggiornato;
                   return Promise.resolve({ data: aggiornato, error: null });
                 },
@@ -90,7 +97,7 @@ function creaMockDb(iniziali: IRaccoltaDifferenziata[] = []) {
             },
             then(resolve: (res: { data: null; error: null }) => void) {
               for (let i = righe.length - 1; i >= 0; i -= 1) {
-                if (filtri.every(([c, v]) => righe[i]![c as keyof IRaccoltaDifferenziata] === v)) {
+                if (filtri.every(([c, v]) => righe[i]?.[c as keyof IRaccoltaDifferenziata] === v)) {
                   righe.splice(i, 1);
                 }
               }

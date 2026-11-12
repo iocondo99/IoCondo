@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, type AppStateStatus, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import type { IRaccoltaDifferenziata } from '@iocondo/shared-types';
@@ -71,8 +71,9 @@ function RaccoltaDifferenziataContenuto() {
   const { profilo, condominio } = useProfilo();
   const { breakpoint, isMobile } = useBreakpoint();
 
-  const utenteId = profilo!.id;
-  const condominioId = condominio!.id;
+  const utenteId = profilo?.id ?? '';
+  const condominioId = condominio?.id ?? '';
+  const condominioNome = condominio?.nome ?? '';
   const chiave = `${utenteId}|${condominioId}`;
 
   const { blocco, ricarica } = useBlocco(
@@ -155,7 +156,7 @@ function RaccoltaDifferenziataContenuto() {
         header: 'Tipologia rifiuto',
         weight: 1.6,
         minWidth: 180,
-        mobile: 'badge',
+        mobile: 'status',
         cell: (r) => <Badge status="success" label={r.tipo_rifiuto} />,
       },
       {
@@ -163,7 +164,6 @@ function RaccoltaDifferenziataContenuto() {
         header: 'Note e orari di esposizione',
         weight: 2.2,
         minWidth: 220,
-        mobile: 'subtitle',
         cell: (r) => (
           <Text style={[textStyle('secondary', breakpoint), styles.testoSecondario]}>
             {r.note?.trim() ? r.note : 'Nessuna nota aggiuntiva'}
@@ -178,7 +178,7 @@ function RaccoltaDifferenziataContenuto() {
     <View style={styles.pagina}>
       <PageHeader
         title="Raccolta differenziata"
-        subtitle={`Calendario settimanale dei ritiri — ${condominio!.nome}`}
+        subtitle={`Calendario settimanale dei ritiri — ${condominioNome}`}
       />
 
       {blocco.stato === 'caricamento' ? (
@@ -218,7 +218,7 @@ function RaccoltaDifferenziataContenuto() {
           </View>
 
           {/* Calendario settimanale completo con ricerca e filtro per giorno */}
-          <Card title="Calendario settimanale" subtitle="Filtra per giorno o cerca un rifiuto">
+          <Card title="Calendario settimanale">
             <View style={styles.controlli}>
               <SearchBar
                 value={ricerca}
@@ -236,12 +236,16 @@ function RaccoltaDifferenziataContenuto() {
 
             <View style={styles.tabellaWrap}>
               <ResponsiveDataView
-                data={turniFiltrati}
+                label="Calendario settimanale raccolta differenziata"
+                rows={turniFiltrati}
                 columns={colonne}
-                keyExtractor={(r) => r.id}
-                emptyTitle="Nessun turno trovato"
-                emptyDescription="Prova a cambiare il giorno selezionato o i termini di ricerca."
-                emptyIcon="calendar-days"
+                getRowKey={(r) => r.id}
+                getRowLabel={(r) => `${nomeGiornoSettimana(r.giorno_settimana)} — ${r.tipo_rifiuto}`}
+                empty={{
+                  title: 'Nessun turno trovato',
+                  description: 'Prova a cambiare il giorno selezionato o i termini di ricerca.',
+                  icon: 'calendar-days',
+                }}
               />
             </View>
           </Card>

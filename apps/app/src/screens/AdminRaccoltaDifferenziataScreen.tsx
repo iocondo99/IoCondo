@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, Text, type TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { IRaccoltaDifferenziata } from '@iocondo/shared-types';
 import {
@@ -87,7 +87,8 @@ function AdminRaccoltaDifferenziataContenuto() {
   const { breakpoint, isMobile } = useBreakpoint();
   const toast = useToast();
 
-  const condominioId = condominio!.id;
+  const condominioId = condominio?.id ?? '';
+  const condominioNome = condominio?.nome ?? '';
 
   const [turni, setTurni] = useState<IRaccoltaDifferenziata[]>([]);
   const [caricamento, setCaricamento] = useState(true);
@@ -256,7 +257,7 @@ function AdminRaccoltaDifferenziataContenuto() {
         header: 'Tipologia rifiuto',
         weight: 1.5,
         minWidth: 170,
-        mobile: 'badge',
+        mobile: 'status',
         cell: (r) => <Badge status="success" label={r.tipo_rifiuto} />,
       },
       {
@@ -264,7 +265,6 @@ function AdminRaccoltaDifferenziataContenuto() {
         header: 'Note e orari di esposizione',
         weight: 2,
         minWidth: 200,
-        mobile: 'subtitle',
         cell: (r) => (
           <Text style={[textStyle('secondary', breakpoint), styles.testoSecondario]}>
             {r.note?.trim() ? r.note : 'Nessuna nota aggiuntiva'}
@@ -303,7 +303,7 @@ function AdminRaccoltaDifferenziataContenuto() {
     <View style={styles.pagina}>
       <PageHeader
         title="Raccolta differenziata"
-        subtitle={`Gestisci i giorni e gli orari di esposizione dei rifiuti — ${condominio!.nome}`}
+        subtitle={`Gestisci i giorni e gli orari di esposizione dei rifiuti — ${condominioNome}`}
         breadcrumbs={[
           { label: 'Home', onPress: () => router.push('/admin/dashboard') },
           { label: 'Amministrazione' },
@@ -370,10 +370,7 @@ function AdminRaccoltaDifferenziataContenuto() {
       ) : null}
 
       {!caricamento && !errore && turni.length > 0 ? (
-        <Card
-          title="Calendario settimanale dei ritiri"
-          subtitle="Visualizza, modifica o elimina i turni del condominio"
-        >
+        <Card title="Calendario settimanale dei ritiri">
           <View style={styles.controlli}>
             <SearchBar
               value={ricerca}
@@ -391,12 +388,16 @@ function AdminRaccoltaDifferenziataContenuto() {
 
           <View style={styles.tabellaWrap}>
             <ResponsiveDataView
-              data={turniFiltrati}
+              label="Gestione turni raccolta differenziata"
+              rows={turniFiltrati}
               columns={colonne}
-              keyExtractor={(r) => r.id}
-              emptyTitle="Nessun turno trovato"
-              emptyDescription="Prova a cambiare il giorno selezionato o i termini di ricerca."
-              emptyIcon="calendar-days"
+              getRowKey={(r) => r.id}
+              getRowLabel={(r) => `${nomeGiornoSettimana(r.giorno_settimana)} — ${r.tipo_rifiuto}`}
+              empty={{
+                title: 'Nessun turno trovato',
+                description: 'Prova a cambiare il giorno selezionato o i termini di ricerca.',
+                icon: 'calendar-days',
+              }}
             />
           </View>
         </Card>
@@ -434,7 +435,7 @@ function AdminRaccoltaDifferenziataContenuto() {
           ) : null}
 
           <Input
-            ref={tipoInputRef}
+            inputRef={tipoInputRef}
             label="Tipo di rifiuto"
             required
             value={tipoInput}
@@ -446,7 +447,7 @@ function AdminRaccoltaDifferenziataContenuto() {
             }}
             placeholder="Es. Carta e cartone, Umido / Organico, Plastica e metalli"
             error={erroriForm.tipo_rifiuto}
-            editable={!salvataggioInCorso}
+            disabled={salvataggioInCorso}
           />
 
           <Select
@@ -477,7 +478,7 @@ function AdminRaccoltaDifferenziataContenuto() {
             placeholder="Es. Esporre entro le 7:00 nel cortile interno"
             helperText="Facoltativo. Massimo 300 caratteri."
             error={erroriForm.note}
-            editable={!salvataggioInCorso}
+            disabled={salvataggioInCorso}
           />
         </View>
       </Modal>
