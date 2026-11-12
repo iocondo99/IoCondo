@@ -10,6 +10,7 @@ import {
 import {
   Alert,
   Button,
+  Icon,
   Input,
   PageHeader,
   borderWidths,
@@ -111,7 +112,7 @@ export function LoginScreen() {
   return (
     <AuthShell>
       <PageHeader
-        title={isLogin ? 'Accedi' : 'Reimposta la password'}
+        title={isLogin ? 'Accedi a ioCondo' : 'Reimposta la password'}
         subtitle={
           resetSent
             ? undefined
@@ -121,7 +122,7 @@ export function LoginScreen() {
         }
       />
 
-      <View role="form" aria-label={isLogin ? 'Accesso' : 'Reimposta la password'} style={styles.form}>
+      <View role="form" aria-label={isLogin ? 'Accesso a ioCondo' : 'Reimposta la password'} style={styles.form}>
         {notice || (isLogin && sessionExpired) ? (
           <View ref={noticeRef} tabIndex={-1} style={[styles.notice, noOutline]}>
             {failure ? (
@@ -138,6 +139,7 @@ export function LoginScreen() {
           <>
             <Input
               label="Email"
+              leading={<Icon name="mail" size="action" color={colors.text.muted} />}
               value={email}
               onChangeText={setEmail}
               onBlur={() => setTouched((current) => ({ ...current, email: true }))}
@@ -156,6 +158,7 @@ export function LoginScreen() {
               <Input
                 label="Password"
                 variant="password"
+                leading={<Icon name="lock" size="action" color={colors.text.muted} />}
                 value={password}
                 onChangeText={setPassword}
                 onBlur={() => setTouched((current) => ({ ...current, password: true }))}
@@ -175,9 +178,11 @@ export function LoginScreen() {
             ) : null}
 
             <Button
-              label={isLogin ? 'Accedi' : 'Invia istruzioni'}
+              label={isLogin ? "Accedi all'account" : 'Invia istruzioni'}
               loadingLabel={isLogin ? 'Accesso in corso…' : 'Invio in corso…'}
               loading={busy}
+              icon={isLogin ? 'log-in' : 'arrow-right'}
+              iconPosition="end"
               fullWidth
               onPress={submit}
             />

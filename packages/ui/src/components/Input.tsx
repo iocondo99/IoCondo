@@ -40,6 +40,8 @@ export interface FieldProps
   disabled?: boolean;
   /** Riferimento al campo di testo, per portarci il focus (es. dopo un errore di validazione). */
   inputRef?: React.Ref<React.ComponentRef<typeof TextInput>>;
+  /** Icona o elemento visivo in testa al campo (es. icona email). */
+  leading?: React.ReactNode;
 }
 
 export interface InputProps extends FieldProps {
@@ -65,6 +67,7 @@ export function BaseField({
   minHeight = touchTarget.comfortable,
   secureTextEntry,
   trailing,
+  leading,
   onBlur,
   inputRef: externalRef,
   ...inputProps
@@ -110,6 +113,7 @@ export function BaseField({
         {required ? <Text style={styles.required}> (obbligatorio)</Text> : null}
       </Text>
       <View style={containerStyle}>
+        {leading ? <View style={styles.leading}>{leading}</View> : null}
         <TextInput
           {...inputProps}
           ref={(node) => {
@@ -208,6 +212,11 @@ const styles = StyleSheet.create({
     borderWidth: borderWidths.thin,
     borderRadius: radii.control,
     paddingLeft: space[3],
+  },
+  leading: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingRight: space[2],
   },
   input: {
     flex: 1,

@@ -56,6 +56,7 @@ declare module 'lucide-react-native' {
   export const LayoutDashboard: LucideIcon;
   export const Leaf: LucideIcon;
   export const Lock: LucideIcon;
+  export const LogIn: LucideIcon;
   export const LogOut: LucideIcon;
   export const Mail: LucideIcon;
   export const MailPlus: LucideIcon;
@@ -82,7 +83,10 @@ declare module 'lucide-react-native' {
   export const Share2: LucideIcon;
   export const Shield: LucideIcon;
   export const ShieldAlert: LucideIcon;
+  export const ShieldCheck: LucideIcon;
   export const SlidersHorizontal: LucideIcon;
+  export const Smartphone: LucideIcon;
+  export const Sparkles: LucideIcon;
   export const Square: LucideIcon;
   export const Table: LucideIcon;
   export const Trash2: LucideIcon;
