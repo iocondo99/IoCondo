@@ -3,7 +3,7 @@
   "version": 2,
   "framework": null,
   "installCommand": "npm install",
-  "buildCommand": "cd apps/app && npx expo export -p web --output-dir ../../dist",
+  "buildCommand": "if [ -d apps/app ]; then cd apps/app && npx expo export -p web --output-dir ../../dist; else npx expo export -p web --output-dir dist; fi",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
