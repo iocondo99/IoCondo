@@ -3,7 +3,7 @@
   "version": 2,
   "framework": null,
   "installCommand": "npm install",
-  "buildCommand": "npx turbo run build --filter=@iocondo/app && node -e \"const fs=require('fs');fs.rmSync('dist',{recursive:true,force:true});fs.cpSync('apps/app/dist','dist',{recursive:true})\"",
+  "buildCommand": "cd apps/app && npx expo export -p web --output-dir ../../dist",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
