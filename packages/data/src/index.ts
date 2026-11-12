@@ -39,6 +39,8 @@ export * from './contabilita/oneriAccessoriLogic';
 export * from './contabilita/fondiLogic';
 export * from './contabilita/rendicontoLogic';
 export * from './contabilita/contabilitaService';
+export * from './raccoltaDifferenziata/raccoltaDifferenziataLogic';
+export * from './raccoltaDifferenziata/raccoltaDifferenziataService';
 
 // Risoluzione ambiguità esportazioni duplicate
 export { formattaDataItaliana } from './admin/invitiAdminLogic';

@@ -25,6 +25,7 @@ import { createManutenzioneService } from '../admin/manutenzioneService';
 import { createDocumentiAdminService } from '../admin/documentiAdminService';
 import { createAssembleeAdminService } from '../admin/assembleeAdminService';
 import { createContabilitaService } from '../contabilita/contabilitaService';
+import { createRaccoltaDifferenziataService } from '../raccoltaDifferenziata/raccoltaDifferenziataService';
 
 /** Compone tutti i service su un client dato: il client lo crea l'app (nessun singleton qui). */
 export function createServices(db: TypedSupabaseClient) {
@@ -40,6 +41,7 @@ export function createServices(db: TypedSupabaseClient) {
     documentiAdmin: createDocumentiAdminService(db),
     assembleeAdmin: createAssembleeAdminService(db),
     contabilita: createContabilitaService(db),
+    raccoltaDifferenziata: createRaccoltaDifferenziataService(db),
     rate: createRateService(db),
     pagamenti: createPagamentiService(db),
     spese: createSpeseService(db),
@@ -85,4 +87,5 @@ export * from '../admin/manutenzioneService';
 export * from '../admin/documentiAdminService';
 export * from '../admin/assembleeAdminService';
 export * from '../contabilita/contabilitaService';
+export * from '../raccoltaDifferenziata/raccoltaDifferenziataService';
 export * from './ticketService';

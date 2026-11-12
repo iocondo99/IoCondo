@@ -41,6 +41,7 @@ const ADMIN: readonly INavVoce[] = [
   voce('comunicazioni', 'Comunicazioni', 'message-circle', '/admin/comunicazioni'),
   voce('documenti', 'Documenti', 'file-text', '/admin/documenti'),
   voce('assemblee', 'Assemblee', 'users', '/admin/assemblee'),
+  voce('raccolta-differenziata', 'Raccolta differenziata', 'calendar-days', '/admin/raccolta-differenziata'),
   voce('impostazioni', 'Impostazioni', 'settings', '/admin/impostazioni'),
   voce('assistenza', 'Assistenza', 'circle-help', '/admin/assistenza'),
 ];
@@ -59,6 +60,7 @@ function residente({ ruoli, moduli }: ContestoNavigazione): INavVoce[] {
     voce('documenti', 'Documenti', 'file-text', '/documenti'),
     (moduli.abilita_bacheca || moduli.abilita_chat) && voce('comunicazioni', 'Comunicazioni', 'message-circle', '/comunicazioni'),
     voce('assemblee', 'Assemblee', 'users', '/assemblee'),
+    voce('raccolta-differenziata', 'Raccolta differenziata', 'calendar-days', '/raccolta-differenziata'),
     condomino && moduli.abilita_ticket && voce('segnalazioni', 'Segnalazioni', 'wrench', '/segnalazioni'),
     portiere && moduli.abilita_pacchi && voce('pacchi', 'Registro pacchi', 'package', '/pacchi'),
     portiere && moduli.abilita_ticket && voce('ticket-aree-comuni', 'Ticket aree comuni', 'triangle-alert', '/ticket-aree-comuni'),

@@ -1229,6 +1229,42 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
   5. `supabase/seed-dev/admin_contabilita_registro_extra_pulizia.sql`.
   **Risultato atteso:** tutti i dati di test contabili aggiunti dagli script `*_extra.sql` vengono rimossi in modo sicuro senza alterare i dati base del condominio.
 
+---
+
+## O. Raccolta Differenziata (Condòmino e Amministratore)
+
+### O1 — Caricamento dati di prova
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/raccolta_differenziata_extra.sql` (dopo `01_dati_prova.sql`).
+  **Risultato atteso:** vengono inseriti 7 turni settimanali idempotenti per il `Condominio di Prova` senza errori né duplicati.
+
+### O2 — Consultazione lato Condòmino / Portiere (`/raccolta-differenziata`)
+
+- [ ] **Cosa fare:** accedere come utente con ruolo `CONDOMINO` (o `PORTIERE`), aprire la voce `Raccolta differenziata` dal menu e verificare la schermata.
+  **Risultato atteso:** compaiono i due riquadri "Oggi" e "Domani" con i rifiuti da esporre e le relative note/orari, seguiti dal calendario settimanale completo con ricerca testuale e filtri per giorno (`Lun`–`Dom`). Non compare alcun pulsante di aggiunta, modifica o eliminazione.
+
+- [ ] **Cosa fare:** cambiare condominio dal selettore nell'header (se l'utente appartiene a più condomini).
+  **Risultato atteso:** il calendario si ricarica automaticamente mostrando solo i turni del condominio selezionato (o lo stato vuoto se non configurato).
+
+### O3 — Gestione CRUD lato Amministratore (`/admin/raccolta-differenziata`)
+
+- [ ] **Cosa fare:** passare alla vista `Amministratore`, aprire `Raccolta differenziata` dal menu, cliccare su `"Nuovo turno"`, provare a inviare il form vuoto e poi compilare `Tipo di rifiuto`, `Giorno della settimana` e `Note`, quindi salvare.
+  **Risultato atteso:** con i campi obbligatori mancanti vengono mostrati gli errori in italiano senza inviare richieste; al salvataggio valido compare il `Toast` di conferma e il turno appare nella tabella/lista ordinato per giorno.
+
+- [ ] **Cosa fare:** cliccare `"Modifica"` su un turno esistente, cambiare giorno o note e salvare; poi cliccare `"Elimina"` su un turno di prova e confermare nel `ConfirmDialog`.
+  **Risultato atteso:** la modifica aggiorna immediatamente la riga e mostra il `Toast`; l'eliminazione richiede conferma esplicita, rimuove la riga dal DB e dalla lista e resta persistente al ricaricamento della pagina.
+
+### O4 — Isolamento RLS
+
+- [ ] **Cosa fare:** accedere con un utente `CONDOMINO` non `ADMIN` e provare a navigare manualmente a `/admin/raccolta-differenziata`; inoltre verificare da console/API che un `CONDOMINO` non possa eseguire `INSERT`, `UPDATE` o `DELETE` su `raccolta_differenziata`, né leggere turni di un condominio a cui non appartiene.
+  **Risultato atteso:** la guardia client mostra `NonAutorizzato` su `/admin/raccolta-differenziata` e le policy RLS (`has_cond_access` / `is_admin_of`) bloccano qualsiasi lettura cross-condominio o scrittura non autorizzata.
+
+### O5 — Ripristino dati di prova
+
+- [ ] **Cosa fare:** al termine delle verifiche eseguire `supabase/seed-dev/raccolta_differenziata_extra_pulizia.sql` nel SQL Editor.
+  **Risultato atteso:** i 7 turni di prova vengono rimossi senza toccare altri dati del condominio.
+
+
 
 
 
