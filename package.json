@@ -25,7 +25,7 @@
     "functions:serve": "supabase functions serve",
     "functions:deploy": "supabase functions deploy",
     "clean": "turbo run clean && node -e \"require('fs').rmSync('node_modules',{recursive:true,force:true})\"",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.6",
