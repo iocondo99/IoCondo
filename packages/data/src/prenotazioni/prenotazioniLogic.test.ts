@@ -242,3 +242,104 @@ test('filtraPrenotazioni, ordinaPrenotazioni e statistichePrenotazioni', () => {
     spaziGratuiti: 1,
   });
 });
+
+test('casi limite: orari uguali inizio === fine, cavallo di mezzanotte e tariffa decimale 7,50 €', () => {
+  const now = new Date('2026-11-20T08:00:00Z');
+  const risorsaPaddle: IRisorsaPrenotabile = {
+    id: 'ris-paddle',
+    condominio_id: 'cond-1',
+    nome: 'Campo Paddle',
+    tariffa_oraria: 7.5,
+    max_ore: 4,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  };
+
+  // 1. Orari uguali: data_inizio === data_fine
+  const uguali = validaPrenotazione(
+    {
+      risorsa_id: 'ris-paddle',
+      data_inizio: '2026-11-20T10:00:00Z',
+      data_fine: '2026-11-20T10:00:00Z',
+    },
+    risorsaPaddle,
+    [],
+    now,
+  );
+  assert.equal(uguali.ok, false);
+  if (!uguali.ok) {
+    assert.equal(uguali.errori.data_fine, 'L’orario di fine deve essere successivo all’orario di inizio.');
+  }
+  assert.equal(calcolaCostoPrenotazione(7.5, '2026-11-20T10:00:00Z', '2026-11-20T10:00:00Z'), 0);
+
+  // 2. Data fine anteriore alla data inizio
+  const invertiti = validaPrenotazione(
+    {
+      risorsa_id: 'ris-paddle',
+      data_inizio: '2026-11-20T12:00:00Z',
+      data_fine: '2026-11-20T10:00:00Z',
+    },
+    risorsaPaddle,
+    [],
+    now,
+  );
+  assert.equal(invertiti.ok, false);
+  if (!invertiti.ok) {
+    assert.equal(invertiti.errori.data_fine, 'L’orario di fine deve essere successivo all’orario di inizio.');
+  }
+
+  // 3. Tariffa con decimali (7,50 €)
+  const risorsaValidata = validaRisorsaPrenotabile({
+    nome: 'Campo Paddle',
+    tariffa_oraria: '7,50',
+    max_ore: '4',
+  });
+  assert.equal(risorsaValidata.ok, true);
+  if (risorsaValidata.ok) {
+    assert.equal(risorsaValidata.dati.tariffa_oraria, 7.5);
+  }
+  assert.equal(formattaTariffaOraria(7.5), '7,50 €/ora');
+
+  // Calcolo costo per 1 ora e mezza: 1.5 * 7.50 = 11.25 €
+  const costo1h30 = calcolaCostoPrenotazione(7.5, '2026-11-20T10:00:00Z', '2026-11-20T11:30:00Z');
+  assert.equal(costo1h30, 11.25);
+  assert.equal(formattaCostoPrenotazione(costo1h30), '11,25 €');
+
+  // 4. Prenotazione a cavallo di mezzanotte: dalle 23:00 alle 01:00 del giorno successivo (2 ore)
+  const aCavallo = validaPrenotazione(
+    {
+      risorsa_id: 'ris-paddle',
+      data_inizio: '2026-11-20T23:00:00Z',
+      data_fine: '2026-11-21T01:00:00Z',
+    },
+    risorsaPaddle,
+    [],
+    now,
+  );
+  assert.equal(aCavallo.ok, true);
+  if (aCavallo.ok) {
+    assert.equal(aCavallo.dati.costo_addebitato, 15); // 2h * 7.5 = 15.00 €
+  }
+
+  // Sovrapposizione a cavallo di mezzanotte
+  assert.equal(
+    intervalliSiSovrappongono(
+      '2026-11-20T23:00:00Z',
+      '2026-11-21T01:00:00Z',
+      '2026-11-21T00:30:00Z',
+      '2026-11-21T02:00:00Z',
+    ),
+    true,
+  );
+  // Adiacente a cavallo di mezzanotte (nessuna sovrapposizione)
+  assert.equal(
+    intervalliSiSovrappongono(
+      '2026-11-20T23:00:00Z',
+      '2026-11-21T01:00:00Z',
+      '2026-11-21T01:00:00Z',
+      '2026-11-21T02:00:00Z',
+    ),
+    false,
+  );
+});
+

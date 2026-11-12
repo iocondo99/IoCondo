@@ -157,3 +157,29 @@ test('validazione form turno raccolta', () => {
     },
   });
 });
+
+test('casi limite validazione note e lunghezza tipo rifiuto', () => {
+  // Note vuote stringa vs note con soli spazi -> entrambe convertite a null
+  const noteVuote = validaTurnoRaccolta({ tipo_rifiuto: 'Plastica', giorno_settimana: 3, note: '' });
+  assert.equal(noteVuote.ok, true);
+  if (noteVuote.ok) assert.equal(noteVuote.dati.note, null);
+
+  const noteSpazi = validaTurnoRaccolta({ tipo_rifiuto: 'Plastica', giorno_settimana: 3, note: '    \t\n  ' });
+  assert.equal(noteSpazi.ok, true);
+  if (noteSpazi.ok) assert.equal(noteSpazi.dati.note, null);
+
+  const noteNull = validaTurnoRaccolta({ tipo_rifiuto: 'Plastica', giorno_settimana: 3, note: null });
+  assert.equal(noteNull.ok, true);
+  if (noteNull.ok) assert.equal(noteNull.dati.note, null);
+
+  // Limiti esatti caratteri tipo_rifiuto: min 2, max 80
+  const min2 = validaTurnoRaccolta({ tipo_rifiuto: 'AB', giorno_settimana: 1 });
+  assert.equal(min2.ok, true);
+
+  const max80 = validaTurnoRaccolta({ tipo_rifiuto: 'A'.repeat(80), giorno_settimana: 1 });
+  assert.equal(max80.ok, true);
+
+  const oltre80 = validaTurnoRaccolta({ tipo_rifiuto: 'A'.repeat(81), giorno_settimana: 1 });
+  assert.equal(oltre80.ok, false);
+});
+
