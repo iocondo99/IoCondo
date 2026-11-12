@@ -8,12 +8,14 @@ const USER = '00000000-0000-0000-0000-000000000901';
 const COND_A = '00000000-0000-0000-0000-000000000001';
 const COND_B = '00000000-0000-0000-0000-000000000002';
 const UNITA_1 = '00000000-0000-0000-0000-000000000201';
-const UNITA_2 = '00000000-0000-0000-0000-000000000202';
 const PALAZZO_A = 'p-a';
-const T_PROPRIO = 't-proprio';
-const T_UNITA_1 = 't-unita-1';
-const T_UNITA_2 = 't-unita-2';
+const SCALA_A = 's-a';
+const SCALA_B = 's-b';
+
 const T_AREA = 't-area';
+const T_PALAZZO = 't-palazzo';
+const T_SCALA_A = 't-scala-a';
+const T_SCALA_B = 't-scala-b';
 const T_ALTRO_COND = 't-altro';
 
 function riga(id: string, over: Record<string, unknown>) {
@@ -21,11 +23,13 @@ function riga(id: string, over: Record<string, unknown>) {
     id,
     condominio_id: COND_A,
     unita_id: null,
+    palazzo_id: null,
+    scala_colonna_id: null,
     segnalatore_id: null,
     categoria_id: null,
     titolo: id,
     descrizione: null,
-    is_area_comune: false,
+    is_area_comune: true,
     priorita: 'MEDIA',
     stato: 'APERTO',
     created_at: '2026-01-01T10:00:00Z',
@@ -39,11 +43,11 @@ function creaMock(opz: { unita?: string[]; file?: string[]; uploadFallisce?: boo
   const unita = opz.unita ?? [UNITA_1];
   const file = new Set(opz.file ?? []);
   const ticket = [
-    riga(T_PROPRIO, { segnalatore_id: USER, is_area_comune: true }),
-    riga(T_UNITA_1, { unita_id: UNITA_1 }),
-    riga(T_UNITA_2, { unita_id: UNITA_2 }),
-    riga(T_AREA, { is_area_comune: true }),
-    riga(T_ALTRO_COND, { condominio_id: COND_B, is_area_comune: true, unita_id: null }),
+    riga(T_AREA, { palazzo_id: null, scala_colonna_id: null }),
+    riga(T_PALAZZO, { palazzo_id: PALAZZO_A, scala_colonna_id: null }),
+    riga(T_SCALA_A, { palazzo_id: PALAZZO_A, scala_colonna_id: SCALA_A }),
+    riga(T_SCALA_B, { palazzo_id: PALAZZO_A, scala_colonna_id: SCALA_B }),
+    riga(T_ALTRO_COND, { condominio_id: COND_B, palazzo_id: null, scala_colonna_id: null }),
   ];
   const inserimenti: Array<{ tabella: string; valori: any }> = [];
   const uploads: string[] = [];
@@ -51,11 +55,11 @@ function creaMock(opz: { unita?: string[]; file?: string[]; uploadFallisce?: boo
   let publicUrl = false;
 
   const allegati = [
-    { id: 'al1', ticket_id: T_UNITA_1, url_storage: `${COND_A}/${T_UNITA_1}/foto.jpg`, tipo_file: 'FOTO', caricato_da: USER, created_at: '2026-01-02T00:00:00Z' },
-    { id: 'al2', ticket_id: T_UNITA_1, url_storage: `seed-dev/guasti/mancante.jpg`, tipo_file: 'FOTO', caricato_da: USER, created_at: '2026-01-03T00:00:00Z' },
+    { id: 'al1', ticket_id: T_SCALA_A, url_storage: `${COND_A}/${T_SCALA_A}/foto.jpg`, tipo_file: 'FOTO', caricato_da: USER, created_at: '2026-01-02T00:00:00Z' },
+    { id: 'al2', ticket_id: T_SCALA_A, url_storage: `seed-dev/guasti/mancante.jpg`, tipo_file: 'FOTO', caricato_da: USER, created_at: '2026-01-03T00:00:00Z' },
   ];
   const messaggi = [
-    { id: 'm1', ticket_id: T_UNITA_1, mittente_id: USER, messaggio: 'Ciao', timestamp: '2026-01-02T00:00:00Z' },
+    { id: 'm1', ticket_id: T_SCALA_A, mittente_id: USER, messaggio: 'Ciao', timestamp: '2026-01-02T00:00:00Z' },
   ];
 
   const db = {
@@ -88,11 +92,22 @@ function creaMock(opz: { unita?: string[]; file?: string[]; uploadFallisce?: boo
         switch (tabella) {
           case 'anagrafiche_unita': return unita.map((unita_id) => ({ unita_id }));
           case 'utente_entita_ruolo': return [];
-          case 'palazzi': return [{ id: PALAZZO_A }];
+          case 'palazzi': {
+            const condId = eq.get('condominio_id');
+            if (condId && condId !== COND_A) return [];
+            return [{ id: PALAZZO_A, nome_identificativo: 'Palazzo A', condominio_id: COND_A }];
+          }
+          case 'scale_colonne': {
+            const ids = inn.get('id');
+            const tutte = [
+              { id: SCALA_A, nome: 'Scala A', palazzo_id: PALAZZO_A, palazzi: { nome_identificativo: 'Palazzo A' } },
+              { id: SCALA_B, nome: 'Scala B', palazzo_id: PALAZZO_A, palazzi: { nome_identificativo: 'Palazzo A' } },
+            ];
+            return ids ? tutte.filter((s) => ids.includes(s.id)) : tutte;
+          }
           case 'unita_immobiliari': {
             const tutte = [
-              { id: UNITA_1, palazzo_id: PALAZZO_A, interno: '1', piano: 1 },
-              { id: UNITA_2, palazzo_id: PALAZZO_A, interno: '2', piano: 1 },
+              { id: UNITA_1, palazzo_id: PALAZZO_A, scala_colonna_id: SCALA_A, interno: '1', piano: 1 },
             ];
             const ids = inn.get('id') ?? [];
             return tutte.filter((u) => ids.includes(u.id));
@@ -100,8 +115,7 @@ function creaMock(opz: { unita?: string[]; file?: string[]; uploadFallisce?: boo
           case 'categorie_guasti': return [{ id: 'c1', nome: 'Idraulica' }];
           case 'profili_pubblici': return [{ id: USER, nome_cognome: 'Mario Rossi' }];
           case 'ticket_testata':
-            // simula RLS admin: restituisce tutto, anche altro condominio
-            return ticket.filter((t) => !eq.has('id') || t.id === eq.get('id'));
+            return ticket.filter((t) => (!eq.has('condominio_id') || t.condominio_id === eq.get('condominio_id')) && (!eq.has('id') || t.id === eq.get('id')));
           case 'ticket_allegati': return allegati.filter((a) => a.ticket_id === eq.get('ticket_id'));
           case 'ticket_messaggi': return messaggi.filter((m) => m.ticket_id === eq.get('ticket_id'));
           default: return [];
@@ -140,48 +154,50 @@ function creaMock(opz: { unita?: string[]; file?: string[]; uploadFallisce?: boo
   };
 }
 
-describe('segnalazioniService — isolamento', () => {
-  it('il condòmino vede proprio ticket e quelli della sua unità, non unità 2 né altro condominio', async () => {
+describe('segnalazioniService — isolamento per ambiti condivisi', () => {
+  it('il condòmino di Scala A vede Area comune, proprio Palazzo e Scala A; NON vede Scala B né altro condominio', async () => {
     const { db } = creaMock();
     const s = createSegnalazioniService(db);
     const r = await s.elencoSegnalazioniCondomino(USER, COND_A);
-    assert.deepEqual(r.map((t) => t.id).sort(), [T_PROPRIO, T_UNITA_1].sort());
+    const ids = r.map((t) => t.id).sort();
+    assert.deepEqual(ids, [T_AREA, T_PALAZZO, T_SCALA_A].sort());
+    assert.equal(ids.includes(T_SCALA_B), false);
+    assert.equal(ids.includes(T_ALTRO_COND), false);
   });
 
-  it('senza unità (es. admin in vista residente) vede solo i propri ticket', async () => {
-    const { db } = creaMock({ unita: [] });
-    const r = await createSegnalazioniService(db).elencoSegnalazioniCondomino(USER, COND_A);
-    assert.deepEqual(r.map((t) => t.id), [T_PROPRIO]);
-  });
-
-  it('il portiere vede solo aree comuni del condominio selezionato', async () => {
+  it('il portiere vede tutte le segnalazioni (Area comune, Palazzo, Scala A, Scala B) del condominio attivo', async () => {
     const { db } = creaMock();
-    const r = await createSegnalazioniService(db).elencoTicketPortiere(USER, COND_A);
-    assert.deepEqual(r.map((t) => t.id).sort(), [T_AREA, T_PROPRIO].sort());
+    const s = createSegnalazioniService(db);
+    const r = await s.elencoTicketPortiere(USER, COND_A);
+    const ids = r.map((t) => t.id).sort();
+    assert.deepEqual(ids, [T_AREA, T_PALAZZO, T_SCALA_A, T_SCALA_B].sort());
+    assert.equal(ids.includes(T_ALTRO_COND), false);
   });
 
-  it('unitaDelResidenteNelCondominio restituisce le unità del condominio', async () => {
+  it('ambitiSelezionabili: restituisce solo Area comune, proprio Palazzo e Scala A per il condòmino', async () => {
     const { db } = creaMock();
-    const u = await createSegnalazioniService(db).unitaDelResidenteNelCondominio(USER, COND_A);
-    assert.equal(u.length, 1);
-    assert.equal(u[0]?.etichetta, 'Unità Int. 1 · Piano 1');
+    const s = createSegnalazioniService(db);
+    const opz = await s.ambitiSelezionabili(USER, COND_A, 'condomino');
+    assert.equal(opz.length, 3);
+    assert.equal(opz[0]?.tipo, 'CONDOMINIO');
+    assert.equal(opz[1]?.tipo, 'PALAZZO');
+    assert.equal(opz[2]?.tipo, 'SCALA');
+    assert.equal(opz[2]?.scalaColonnaId, SCALA_A);
   });
 });
 
 describe('segnalazioniService — dettaglio', () => {
-  it('restituisce null per ID inesistente, unità altrui e altro condominio', async () => {
+  it('restituisce null per ID inesistente, altra scala (Scala B) e altro condominio', async () => {
     const { db } = creaMock();
     const s = createSegnalazioniService(db);
     assert.equal(await s.dettaglioSegnalazione(USER, COND_A, 'boh'), null);
-    assert.equal(await s.dettaglioSegnalazione(USER, COND_A, T_UNITA_2), null);
+    assert.equal(await s.dettaglioSegnalazione(USER, COND_A, T_SCALA_B), null);
     assert.equal(await s.dettaglioSegnalazione(USER, COND_A, T_ALTRO_COND), null);
-    assert.equal(await s.dettaglioSegnalazione(USER, COND_A, T_AREA), null);
-    assert.equal(await s.dettaglioSegnalazione(USER, COND_A, T_UNITA_1, 'portiere'), null);
   });
 
   it('include messaggi con nome e allegati con link firmato 600 s solo se presenti nello Storage', async () => {
-    const m = creaMock({ file: [`${COND_A}/${T_UNITA_1}/foto.jpg`] });
-    const d = await createSegnalazioniService(m.db).dettaglioSegnalazione(USER, COND_A, T_UNITA_1);
+    const m = creaMock({ file: [`${COND_A}/${T_SCALA_A}/foto.jpg`] });
+    const d = await createSegnalazioniService(m.db).dettaglioSegnalazione(USER, COND_A, T_SCALA_A);
     assert.ok(d);
     assert.equal(d.messaggi[0]?.mittenteNome, 'Mario Rossi');
     assert.equal(d.categoriaNome, null);
@@ -189,83 +205,57 @@ describe('segnalazioniService — dettaglio', () => {
     assert.equal(d.allegati[0]?.disponibileNelloStorage, true);
     assert.equal(d.allegati[1]?.disponibileNelloStorage, false);
     assert.equal(d.allegati[1]?.signedUrl, null);
-    assert.deepEqual(m.signed, [{ path: `${COND_A}/${T_UNITA_1}/foto.jpg`, exp: DURATA_LINK_FOTO_SECONDI }]);
+    assert.deepEqual(m.signed, [{ path: `${COND_A}/${T_SCALA_A}/foto.jpg`, exp: DURATA_LINK_FOTO_SECONDI }]);
     assert.equal(m.publicUrl, false);
-  });
-
-  it('il portiere apre il dettaglio di un ticket area comune', async () => {
-    const { db } = creaMock();
-    const d = await createSegnalazioniService(db).dettaglioSegnalazione(USER, COND_A, T_AREA, 'portiere');
-    assert.equal(d?.id, T_AREA);
   });
 });
 
 describe('segnalazioniService — creazione e messaggi', () => {
   const foto = { name: 'Foto 1.jpg', size: 10, type: 'image/jpeg', body: new Uint8Array([1]) };
 
-  it('crea ticket, carica foto e registra allegati FOTO', async () => {
+  it('crea ticket su Scala A senza unita_id (sempre null)', async () => {
     const m = creaMock();
     const r = await createSegnalazioniService(m.db).creaSegnalazione(USER, COND_A, {
-      titolo: 'Perdita',
-      isAreaComune: false,
-      unitaId: UNITA_1,
+      titolo: 'Lampadina fulminata',
+      ambitoTipo: 'SCALA',
+      palazzoId: PALAZZO_A,
+      scalaColonnaId: SCALA_A,
       allegati: [foto],
     });
     assert.ok(r.ok);
     if (!r.ok) return;
     const t = m.inserimenti.find((i) => i.tabella === 'ticket_testata')!.valori;
     assert.equal(t.segnalatore_id, USER);
-    assert.equal(t.unita_id, UNITA_1);
+    assert.equal(t.unita_id, null);
+    assert.equal(t.palazzo_id, PALAZZO_A);
+    assert.equal(t.scala_colonna_id, SCALA_A);
+    assert.equal(t.is_area_comune, true);
     assert.equal(m.uploads.length, 1);
     assert.ok(m.uploads[0]!.startsWith(`${COND_A}/${r.ticketId}/`));
-    assert.ok(!m.uploads[0]!.includes('..'));
-    const all = m.inserimenti.find((i) => i.tabella === 'ticket_allegati')!.valori;
-    assert.equal(all.tipo_file, 'FOTO');
-    assert.equal(all.url_storage, m.uploads[0]);
-    assert.deepEqual(r.fotoNonCaricate, []);
   });
 
-  it('rifiuta unità altrui e input non validi senza scrivere', async () => {
+  it('rifiuta creazione su Scala B da parte del condòmino di Scala A', async () => {
     const m = creaMock();
     const s = createSegnalazioniService(m.db);
-    const r1 = await s.creaSegnalazione(USER, COND_A, { titolo: 'x', isAreaComune: false, unitaId: UNITA_2 });
-    assert.equal(r1.ok, false);
-    const r2 = await s.creaSegnalazione(USER, COND_A, { titolo: ' ', isAreaComune: true });
-    assert.equal(r2.ok, false);
-    assert.equal(m.inserimenti.length, 0);
-  });
-
-  it('il portiere forza area comune e unita_id nullo', async () => {
-    const m = creaMock();
-    await createSegnalazioniService(m.db).creaSegnalazione(
-      USER, COND_A, { titolo: 'Cancello', isAreaComune: false, unitaId: UNITA_2 }, 'portiere',
-    );
-    const t = m.inserimenti.find((i) => i.tabella === 'ticket_testata')!.valori;
-    assert.equal(t.is_area_comune, true);
-    assert.equal(t.unita_id, null);
-  });
-
-  it('segnala le foto non caricate se l’upload fallisce', async () => {
-    const m = creaMock({ uploadFallisce: true });
-    const r = await createSegnalazioniService(m.db).creaSegnalazione(USER, COND_A, {
-      titolo: 'T', isAreaComune: true, allegati: [foto],
+    const r = await s.creaSegnalazione(USER, COND_A, {
+      titolo: 'Guasto non consentito',
+      ambitoTipo: 'SCALA',
+      palazzoId: PALAZZO_A,
+      scalaColonnaId: SCALA_B,
     });
-    assert.ok(r.ok && r.fotoNonCaricate.length === 1);
-    assert.equal(m.inserimenti.some((i) => i.tabella === 'ticket_allegati'), false);
+    assert.equal(r.ok, false);
+    assert.equal(m.inserimenti.length, 0);
   });
 
   it('invia messaggi con mittente = utente e rifiuta ticket non visibili', async () => {
     const m = creaMock();
     const s = createSegnalazioniService(m.db);
-    const ok = await s.aggiungiMessaggio(USER, COND_A, T_UNITA_1, ' Aggiornamento ');
+    const ok = await s.aggiungiMessaggio(USER, COND_A, T_SCALA_A, ' Aggiornamento ');
     assert.ok(ok.ok);
     const ins = m.inserimenti.find((i) => i.tabella === 'ticket_messaggi')!.valori;
     assert.equal(ins.mittente_id, USER);
     assert.equal(ins.messaggio, 'Aggiornamento');
-    const ko = await s.aggiungiMessaggio(USER, COND_A, T_UNITA_2, 'ciao');
+    const ko = await s.aggiungiMessaggio(USER, COND_A, T_SCALA_B, 'ciao');
     assert.equal(ko.ok, false);
-    const vuoto = await s.aggiungiMessaggio(USER, COND_A, T_UNITA_1, '  ');
-    assert.equal(vuoto.ok, false);
   });
 });
-

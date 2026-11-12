@@ -178,7 +178,7 @@ export function ElencoSegnalazioni(props: Props) {
       {
         key: 'ambito',
         header: 'Ambito',
-        cell: (s) => s.etichettaAmbito,
+        cell: (s) => <Badge status="neutral" label={s.etichettaAmbito} icon="map-pin" />,
         weight: 2,
         minWidth: 140,
         mobileLabel: 'Ambito',
@@ -240,7 +240,16 @@ export function ElencoSegnalazioni(props: Props) {
       ) : null}
 
       <View style={styles.schede}>
-        {scheda('file-text', 'Totale segnalazioni', riepilogo.totale, `${riepilogo.areeComuni} su aree comuni`)}
+        {scheda(
+          'file-text',
+          'Totale segnalazioni',
+          riepilogo.totale,
+          riepilogo.totale === 0
+            ? 'Nessuna segnalazione'
+            : riepilogo.areeComuni === riepilogo.totale
+              ? 'Su parti comuni del condominio'
+              : `${riepilogo.areeComuni} su condominio intero`,
+        )}
         {scheda('circle-alert', 'Aperte', riepilogo.aperte, 'In attesa di essere prese in carico')}
         {scheda('wrench', 'In lavorazione', riepilogo.inLavorazione, 'Intervento in corso')}
         {scheda('circle-check', 'Risolte', riepilogo.risolte, 'Chiuse dall’amministratore')}
@@ -277,8 +286,8 @@ export function ElencoSegnalazioni(props: Props) {
                 <SearchBar
                   value={filtri.ricerca}
                   onChangeText={(ricerca) => cambiaFiltri({ ricerca })}
-                  label="Cerca per titolo o categoria"
-                  placeholder="Cerca una segnalazione…"
+                  label="Cerca per titolo, categoria o ambito"
+                  placeholder="Cerca per titolo, categoria o scala…"
                   showLabel
                 />
                 <FilterChips

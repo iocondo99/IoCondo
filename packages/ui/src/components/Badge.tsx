@@ -82,20 +82,23 @@ export interface BadgeProps {
   status: BadgeStatus;
   /** Etichetta specifica (es. "Unità Int. 1") al posto di quella predefinita dello stato. */
   label?: string;
+  /** Icona specifica opzionale al posto di quella predefinita dello stato. */
+  icon?: IconName;
 }
 
-export function Badge({ status, label }: BadgeProps) {
+export function Badge({ status, label, icon }: BadgeProps) {
   const spec = badgeStatuses[status] ?? badgeStatuses.neutral;
   const tone = tones[spec.tone] ?? tones.neutral;
   const textStyle = useTextStyle('label');
   const text = label?.trim() || spec.label;
+  const iconName = icon ?? spec.icon;
   return (
     <View
       accessible
       accessibilityLabel={text}
       style={[styles.badge, { backgroundColor: tone.background, borderColor: tone.foreground }]}
     >
-      <Icon name={spec.icon} size="indicator" color={tone.foreground} />
+      <Icon name={iconName} size="indicator" color={tone.foreground} />
       <Text style={[textStyle, { color: tone.foreground }]}>{text}</Text>
     </View>
   );

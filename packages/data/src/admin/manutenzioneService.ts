@@ -8,7 +8,16 @@ import {
   type StatoTicket,
   type TicketAdminRaw,
   type TicketAdminView,
-} from './manutenzioneLogic';
+  type TipoAmbitoAdmin,
+} from './manutenzioneLogic.ts';
+
+export interface OpzioneAmbitoManutenzione {
+  id: string;
+  tipo: TipoAmbitoAdmin;
+  label: string;
+  palazzoId: string | null;
+  scalaColonnaId: string | null;
+}
 
 export interface OpzioneUnitaManutenzione {
   id: string;
@@ -28,6 +37,9 @@ export interface InputNuovoTicketAdmin {
   descrizione?: string | null;
   categoriaId?: string | null;
   priorita?: PrioritaTicket;
+  ambitoTipo?: TipoAmbitoAdmin;
+  palazzoId?: string | null;
+  scalaColonnaId?: string | null;
   isAreaComune?: boolean;
   unitaId?: string | null;
   segnalatoreId?: string | null;
@@ -65,6 +77,9 @@ export interface InputModificaTicketAdmin {
   categoriaId?: string | null;
   priorita?: PrioritaTicket;
   stato?: StatoTicket;
+  ambitoTipo?: TipoAmbitoAdmin;
+  palazzoId?: string | null;
+  scalaColonnaId?: string | null;
   isAreaComune?: boolean;
   unitaId?: string | null;
   fornitoreId?: string | null;
@@ -83,12 +98,13 @@ function generaTokenSicuro(): string {
 
 /**
  * Servizio per la gestione di Manutenzione, Ticket e Fornitori lato Amministratore (Passo 5).
+ * Modello basato esclusivamente su ambiti condivisi (Condominio / Palazzo / Scala).
  */
 export function createManutenzioneService(db: TypedSupabaseClient) {
   return {
     /**
      * Lettura completa di tutti i ticket del condominio attivo, con join su categorie,
-     * unità immobiliari, palazzi, interventi, fornitori, allegati e messaggi.
+     * palazzi, scale/colonne, interventi, fornitori, allegati e messaggi.
      */
     async listTickets(condominioId: string): Promise<TicketAdminView[]> {
       const res = unwrap(
@@ -97,6 +113,8 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
           .select(`
             id,
             condominio_id,
+            palazzo_id,
+            scala_colonna_id,
             unita_id,
             segnalatore_id,
             categoria_id,
@@ -108,6 +126,15 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
             created_at,
             updated_at,
             closed_at,
+            palazzi (
+              id,
+              nome_identificativo
+            ),
+            scale_colonne (
+              id,
+              nome,
+              palazzo_id
+            ),
             categorie_guasti (
               id,
               nome
@@ -175,6 +202,65 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
     },
 
     /**
+     * Elenco ambiti condivisi disponibili nel condominio per creazione e modifica ticket.
+     */
+    async listAmbiti(condominioId: string): Promise<OpzioneAmbitoManutenzione[]> {
+      const opzioni: OpzioneAmbitoManutenzione[] = [
+        {
+          id: 'condominio',
+          tipo: 'CONDOMINIO',
+          label: 'Area comune del condominio (visibile a tutti)',
+          palazzoId: null,
+          scalaColonnaId: null,
+        },
+      ];
+
+      const palazziRes = unwrap(
+        await db
+          .from('palazzi')
+          .select('id, nome_identificativo')
+          .eq('condominio_id', condominioId)
+          .order('nome_identificativo', { ascending: true }),
+      );
+
+      const palazzi = palazziRes ?? [];
+      const palazziMap = new Map<string, string>();
+      for (const p of palazzi) {
+        palazziMap.set(p.id, p.nome_identificativo);
+        opzioni.push({
+          id: `palazzo:${p.id}`,
+          tipo: 'PALAZZO',
+          label: `Palazzo ${p.nome_identificativo}`,
+          palazzoId: p.id,
+          scalaColonnaId: null,
+        });
+      }
+
+      if (palazzi.length > 0) {
+        const palIds = palazzi.map((p) => p.id);
+        const scaleRes = unwrap(
+          await db
+            .from('scale_colonne')
+            .select('id, nome, palazzo_id')
+            .in('palazzo_id', palIds)
+            .order('nome', { ascending: true }),
+        );
+        for (const s of scaleRes ?? []) {
+          const pNome = palazziMap.get(s.palazzo_id) ?? 'Palazzo';
+          opzioni.push({
+            id: `scala:${s.palazzo_id}:${s.id}`,
+            tipo: 'SCALA',
+            label: `Palazzo ${pNome} · Scala ${s.nome}`,
+            palazzoId: s.palazzo_id,
+            scalaColonnaId: s.id,
+          });
+        }
+      }
+
+      return opzioni;
+    },
+
+    /**
      * Rubrica fornitori convenzionati dell'amministratore.
      */
     async listFornitori(adminId?: string): Promise<FornitoreAdminView[]> {
@@ -223,7 +309,7 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
     },
 
     /**
-     * Elenco unità immobiliari del condominio per selezione guasto su unità privata.
+     * Elenco unità immobiliari (retrocompatibile per vecchie visualizzazioni).
      */
     async listUnita(condominioId: string): Promise<OpzioneUnitaManutenzione[]> {
       const res = unwrap(
@@ -259,18 +345,32 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
     },
 
     /**
-     * Creazione nuovo ticket da parte dell'amministratore (aperto/urgente in area comune o per conto di un'unità).
+     * Creazione nuovo ticket da parte dell'amministratore su ambito condiviso (Condominio, Palazzo o Scala).
+     * Non assegna mai unita_id (nessun ticket privato 1-a-1).
      */
     async createTicket(input: InputNuovoTicketAdmin): Promise<{ id: string }> {
-      const isAreaComune = Boolean(input.isAreaComune);
+      let palazzoId: string | null = null;
+      let scalaColonnaId: string | null = null;
+
+      const tipo = input.ambitoTipo || (input.scalaColonnaId ? 'SCALA' : (input.palazzoId ? 'PALAZZO' : 'CONDOMINIO'));
+      if (tipo === 'SCALA') {
+        palazzoId = input.palazzoId ?? null;
+        scalaColonnaId = input.scalaColonnaId ?? null;
+      } else if (tipo === 'PALAZZO') {
+        palazzoId = input.palazzoId ?? null;
+        scalaColonnaId = null;
+      }
+
       const payload: TablesInsert<'ticket_testata'> = {
         condominio_id: input.condominioId,
+        palazzo_id: palazzoId,
+        scala_colonna_id: scalaColonnaId,
+        unita_id: null,
         titolo: input.titolo.trim(),
         descrizione: input.descrizione?.trim() || null,
         categoria_id: input.categoriaId || null,
         priorita: input.priorita || 'MEDIA',
-        is_area_comune: isAreaComune,
-        unita_id: isAreaComune ? null : input.unitaId || null,
+        is_area_comune: true,
         segnalatore_id: input.segnalatoreId || null,
         stato: 'APERTO',
       };
@@ -294,7 +394,6 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
       urlMagico: string;
       dataScadenza: string;
     }> {
-      // 1. Inserisci intervento
       const interventoPayload: TablesInsert<'ticket_interventi'> = {
         ticket_id: input.ticketId,
         fornitore_id: input.fornitoreId,
@@ -306,7 +405,6 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
         await db.from('ticket_interventi').insert(interventoPayload).select('id').single(),
       );
 
-      // 2. Genera token Magic Link
       const token = generaTokenSicuro();
       const giorni = input.giorniValidita ?? 14;
       const scadenza = new Date(Date.now() + giorni * 86_400_000).toISOString();
@@ -321,7 +419,6 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
 
       unwrap(await db.from('fornitori_tokens').insert(tokenPayload).select('token').single());
 
-      // 3. Aggiorna stato ticket a LAVORAZIONE
       assertOk(
         await db
           .from('ticket_testata')
@@ -343,7 +440,6 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
      * 2. Registra consuntivo spesa e note sull'ultimo intervento associato
      */
     async chiudiTicket(input: InputChiudiTicket): Promise<void> {
-      // 1. Aggiorna ticket
       assertOk(
         await db
           .from('ticket_testata')
@@ -355,7 +451,6 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
           .eq('id', input.ticketId),
       );
 
-      // 2. Se è stato inserito un consuntivo, aggiorna l'ultimo intervento
       if (input.importoConsuntivo !== undefined || input.noteFornitore) {
         const ultimiInterventi = unwrap(
           await db
@@ -388,18 +483,31 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
     },
 
     /**
-     * Modifica generale di un ticket esistente (titolo, priorità, stato, ubicazione, fornitore/intervento).
+     * Modifica generale di un ticket esistente (titolo, priorità, stato, ambito, fornitore/intervento).
      */
     async updateTicket(input: InputModificaTicketAdmin): Promise<{ urlMagico?: string }> {
-      const isAreaComune = Boolean(input.isAreaComune);
+      let palazzoId: string | null = null;
+      let scalaColonnaId: string | null = null;
+
+      const tipo = input.ambitoTipo || (input.scalaColonnaId ? 'SCALA' : (input.palazzoId ? 'PALAZZO' : 'CONDOMINIO'));
+      if (tipo === 'SCALA') {
+        palazzoId = input.palazzoId ?? null;
+        scalaColonnaId = input.scalaColonnaId ?? null;
+      } else if (tipo === 'PALAZZO') {
+        palazzoId = input.palazzoId ?? null;
+        scalaColonnaId = null;
+      }
+
       const patch: TablesUpdate<'ticket_testata'> = {
         titolo: input.titolo.trim(),
         descrizione: input.descrizione?.trim() || null,
         categoria_id: input.categoriaId || null,
         priorita: input.priorita || 'MEDIA',
         stato: input.stato || 'APERTO',
-        is_area_comune: isAreaComune,
-        unita_id: isAreaComune ? null : input.unitaId || null,
+        is_area_comune: true,
+        palazzo_id: palazzoId,
+        scala_colonna_id: scalaColonnaId,
+        unita_id: null,
         updated_at: new Date().toISOString(),
       };
       if (input.stato === 'RISOLTO') {
@@ -412,7 +520,6 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
 
       let resUrlMagico: string | undefined;
 
-      // Gestione Fornitore / Intervento
       if (input.fornitoreId) {
         const ultimiInterventi = unwrap(
           await db
@@ -436,7 +543,6 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
           }
           assertOk(await db.from('ticket_interventi').update(patchInt).eq('id', intId));
 
-          // Recupera token esistente se presente
           const tokens = unwrap(
             await db
               .from('fornitori_tokens')
@@ -460,7 +566,6 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
             resUrlMagico = urlMagico;
           }
         } else {
-          // Crea nuovo intervento
           const resInt = unwrap(
             await db
               .from('ticket_interventi')
@@ -507,4 +612,3 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
 }
 
 export type ManutenzioneService = ReturnType<typeof createManutenzioneService>;
-

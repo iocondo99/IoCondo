@@ -31,6 +31,83 @@ export const SUGGERIMENTI_TIPI_RIFIUTO: readonly string[] = [
   'Indifferenziato',
 ] as const;
 
+export type CategoriaRifiuto =
+  | 'organico'
+  | 'carta'
+  | 'plastica'
+  | 'vetro'
+  | 'sfalci'
+  | 'indifferenziato'
+  | 'altro';
+
+export type IconaRifiuto = 'apple' | 'newspaper' | 'recycle' | 'wine' | 'leaf' | 'trash-2';
+
+export interface MetadatiTipoRifiuto {
+  readonly categoria: CategoriaRifiuto;
+  readonly icona: IconaRifiuto;
+  readonly tono: 'warning' | 'info' | 'success' | 'neutral';
+}
+
+/**
+ * Associa a ciascuna tipologia di rifiuto l'icona Lucide e il tono visivo più appropriato.
+ */
+export function metadatiTipoRifiuto(tipo: string | null | undefined): MetadatiTipoRifiuto {
+  const norm = (tipo ?? '').toLowerCase().trim();
+  if (
+    norm.includes('umid') ||
+    norm.includes('organ') ||
+    norm.includes('bio') ||
+    norm.includes('compost') ||
+    norm.includes('aliment')
+  ) {
+    return { categoria: 'organico', icona: 'apple', tono: 'warning' };
+  }
+  if (
+    norm.includes('cart') ||
+    norm.includes('giorn') ||
+    norm.includes('scatol')
+  ) {
+    return { categoria: 'carta', icona: 'newspaper', tono: 'info' };
+  }
+  if (
+    norm.includes('plast') ||
+    norm.includes('metall') ||
+    norm.includes('allumin') ||
+    norm.includes('lattin') ||
+    norm.includes('tetra') ||
+    norm.includes('imballag')
+  ) {
+    return { categoria: 'plastica', icona: 'recycle', tono: 'warning' };
+  }
+  if (
+    norm.includes('vetr') ||
+    norm.includes('bottigl')
+  ) {
+    return { categoria: 'vetro', icona: 'wine', tono: 'success' };
+  }
+  if (
+    norm.includes('sfalc') ||
+    norm.includes('potat') ||
+    norm.includes('verd') ||
+    norm.includes('giardin') ||
+    norm.includes('ramagl') ||
+    norm.includes('fogli')
+  ) {
+    return { categoria: 'sfalci', icona: 'leaf', tono: 'success' };
+  }
+  if (
+    norm.includes('indifferenziat') ||
+    norm.includes('secco') ||
+    norm.includes('rsu') ||
+    norm.includes('non ricicl') ||
+    norm.includes('residuo') ||
+    norm.includes('misto')
+  ) {
+    return { categoria: 'indifferenziato', icona: 'trash-2', tono: 'neutral' };
+  }
+  return { categoria: 'altro', icona: 'trash-2', tono: 'neutral' };
+}
+
 export interface InputTurnoRaccolta {
   tipo_rifiuto: string;
   giorno_settimana: number | null | undefined;

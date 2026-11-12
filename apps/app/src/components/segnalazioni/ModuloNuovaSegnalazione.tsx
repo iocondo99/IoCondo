@@ -8,6 +8,7 @@ import {
   MAX_LUNGHEZZA_TITOLO_TICKET,
   validaInputNuovaSegnalazione,
   type ModalitaSegnalazioni,
+  type OpzioneAmbitoTicket,
   type PrioritaTicket,
 } from '@iocondo/data';
 import {
@@ -31,8 +32,6 @@ import { useBlocco } from '@/hooks/useBlocco';
 import { services } from '@/services';
 
 const NESSUNA_CATEGORIA = 'nessuna';
-const AREA_COMUNE = 'area-comune';
-const PREFISSO_UNITA = 'unita:';
 
 const OPZIONI_PRIORITA: readonly SelectOption[] = [
   { value: 'BASSA', label: 'Bassa' },
@@ -51,7 +50,7 @@ interface Props {
   onCreata: (ticketId: string, fotoNonCaricate: string[]) => void;
 }
 
-/** Modulo di apertura di una nuova segnalazione (condòmino) o ticket su area comune (portiere). */
+/** Modulo di apertura di una segnalazione su ambito condiviso (condominio, palazzo o scala). */
 export function ModuloNuovaSegnalazione(props: Props) {
   const { visible, onClose, modalita, utenteId, condominioId, onCreata } = props;
   const { breakpoint } = useBreakpoint();
@@ -59,13 +58,11 @@ export function ModuloNuovaSegnalazione(props: Props) {
 
   const { blocco } = useBlocco(
     async () => {
-      const [categorie, unita] = await Promise.all([
+      const [categorie, ambiti] = await Promise.all([
         services.segnalazioni.elencoCategorie(),
-        inCondomino
-          ? services.segnalazioni.unitaDelResidenteNelCondominio(utenteId, condominioId)
-          : Promise.resolve([]),
+        services.segnalazioni.ambitiSelezionabili(utenteId, condominioId, modalita),
       ]);
-      return { categorie, unita };
+      return { categorie, ambiti };
     },
     `${utenteId}|${condominioId}|${modalita}`,
     visible,
@@ -108,15 +105,11 @@ export function ModuloNuovaSegnalazione(props: Props) {
   );
 
   const opzioniAmbito: SelectOption[] = useMemo(
-    () => [
-      ...(dati?.unita ?? []).map((u) => ({ value: `${PREFISSO_UNITA}${u.id}`, label: u.etichetta })),
-      { value: AREA_COMUNE, label: 'Area comune' },
-    ],
+    () => (dati?.ambiti ?? []).map((a) => ({ value: a.id, label: a.etichetta })),
     [dati],
   );
 
-  const ambitoCorrente =
-    ambito ?? (dati ? (dati.unita[0] ? `${PREFISSO_UNITA}${dati.unita[0].id}` : AREA_COMUNE) : null);
+  const ambitoCorrente = ambito ?? dati?.ambiti[0]?.id ?? 'condominio';
 
   const elementiFoto: FileUploadItem[] = foto.map((f) => ({
     id: f.id,
@@ -134,23 +127,23 @@ export function ModuloNuovaSegnalazione(props: Props) {
   const invia = useCallback(async () => {
     if (invio) return;
     setErroreInvio(null);
-    const isAreaComune = !inCondomino || ambitoCorrente === AREA_COMUNE;
-    const unitaId =
-      !isAreaComune && ambitoCorrente?.startsWith(PREFISSO_UNITA)
-        ? ambitoCorrente.slice(PREFISSO_UNITA.length)
-        : null;
-    const unitaIds = (dati?.unita ?? []).map((u) => u.id);
+
+    const ambitoSelezionato: OpzioneAmbitoTicket | undefined = (dati?.ambiti ?? []).find(
+      (a) => a.id === ambitoCorrente,
+    );
 
     const input = {
       titolo,
       descrizione,
       categoriaId: categoria === NESSUNA_CATEGORIA ? null : categoria,
-      isAreaComune,
-      unitaId,
+      ambitoTipo: ambitoSelezionato?.tipo ?? 'CONDOMINIO',
+      palazzoId: ambitoSelezionato?.palazzoId ?? null,
+      scalaColonnaId: ambitoSelezionato?.scalaColonnaId ?? null,
       priorita: priorita as PrioritaTicket,
       allegati: foto.map((f) => ({ name: f.name, size: f.size, type: f.type })),
     };
-    const validazione = validaInputNuovaSegnalazione(input, unitaIds, modalita);
+
+    const validazione = validaInputNuovaSegnalazione(input, dati?.ambiti, modalita);
     if (!validazione.valido) {
       setErrori(validazione.errori as Record<string, string>);
       setErroriFoto(validazione.errori.allegati);
@@ -186,13 +179,25 @@ export function ModuloNuovaSegnalazione(props: Props) {
       }
       onCreata(esito.ticketId, esito.fotoNonCaricate);
     } catch {
-      setErroreInvio('Non è stato possibile inviare la segnalazione. Controlla la connessione e riprova.');
+      setErroreInvio(
+        'Non è stato possibile inviare la segnalazione. Controlla la connessione e riprova.',
+      );
     } finally {
       setInvio(false);
     }
   }, [
-    ambitoCorrente, categoria, condominioId, dati, descrizione, foto, inCondomino, invio,
-    modalita, onCreata, priorita, titolo, utenteId,
+    ambitoCorrente,
+    categoria,
+    condominioId,
+    dati,
+    descrizione,
+    foto,
+    invio,
+    modalita,
+    onCreata,
+    priorita,
+    titolo,
+    utenteId,
   ]);
 
   return (
@@ -201,11 +206,7 @@ export function ModuloNuovaSegnalazione(props: Props) {
       onClose={onClose}
       dismissible={!invio}
       title={inCondomino ? 'Nuova segnalazione' : 'Nuovo ticket su area comune'}
-      description={
-        inCondomino
-          ? 'Descrivi il problema: l’amministratore la riceverà e potrà aggiornarti.'
-          : 'Il ticket sarà registrato come area comune del condominio.'
-      }
+      description="Segnala un guasto o problema su parti comuni o sulla tua scala per informare l'amministrazione e i vicini interessati."
       initialFocusRef={titoloRef}
       actions={
         <ModalActions>
@@ -222,45 +223,47 @@ export function ModuloNuovaSegnalazione(props: Props) {
     >
       <View style={styles.campi}>
         {blocco.stato === 'errore' ? (
-          <Alert tone="error" message="Non è stato possibile caricare categorie e unità. Chiudi e riprova." />
+          <Alert
+            tone="error"
+            message="Non è stato possibile caricare le categorie e gli ambiti. Chiudi e riprova."
+          />
         ) : null}
         {erroreInvio ? <Alert tone="error" message={erroreInvio} /> : null}
         <Input
-          label="Titolo"
+          label="Titolo del guasto"
           required
           value={titolo}
           onChangeText={setTitolo}
-          placeholder="Es. Perdita d’acqua nel corridoio"
+          placeholder="Es. Scalino scheggiato, cancello carraio bloccato"
           maxLength={MAX_LUNGHEZZA_TITOLO_TICKET}
           error={errori.titolo}
           inputRef={titoloRef}
         />
         <Textarea
-          label="Descrizione"
+          label="Descrizione del problema"
           value={descrizione}
           onChangeText={setDescrizione}
-          placeholder="Racconta cosa è successo e dove"
+          placeholder="Descrivi cosa è successo e dove si trova con precisione"
           maxLength={MAX_LUNGHEZZA_DESCRIZIONE_TICKET}
           error={errori.descrizione}
         />
         <Select
-          label="Categoria"
+          label="Categoria del guasto"
           options={opzioniCategoria}
           value={categoria}
           onChange={setCategoria}
           disabled={!dati}
         />
-        {inCondomino ? (
-          <Select
-            label="Dove si trova il problema"
-            required
-            options={opzioniAmbito}
-            value={ambitoCorrente}
-            onChange={setAmbito}
-            disabled={!dati}
-            error={errori.ambito}
-          />
-        ) : null}
+        <Select
+          label="Dove si trova il guasto (Ambito)"
+          required
+          options={opzioniAmbito}
+          value={ambitoCorrente}
+          onChange={setAmbito}
+          disabled={!dati}
+          error={errori.ambito}
+          helperText="La segnalazione sarà visibile ai condòmini dell'area o scala interessata per evitare segnalazioni duplicate."
+        />
         <Select
           label="Priorità"
           options={OPZIONI_PRIORITA}
@@ -282,7 +285,7 @@ export function ModuloNuovaSegnalazione(props: Props) {
           disabled={invio}
         />
         <Text style={[textStyle('secondary', breakpoint), styles.nota]}>
-          Il cambio di stato e l’assegnazione dell’intervento sono gestiti dall’amministratore.
+          Il cambio di stato e l’eventuale assegnazione del fornitore sono gestiti dall’amministratore.
         </Text>
       </View>
     </Modal>
@@ -293,4 +296,3 @@ const styles = StyleSheet.create({
   campi: { gap: space[4], paddingBottom: space[2] },
   nota: { color: colors.text.secondary },
 });
-

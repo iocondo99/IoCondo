@@ -175,3 +175,36 @@ test('condominiService.setFeatureToggles: messaggio chiaro in caso di colonna DB
     /migrazione 11 su Supabase/,
   );
 });
+
+test('condominiService.resetPalazzoOverride: elimina correttamente la riga di override del palazzo', async () => {
+  let tableChiamata = '';
+  let filtriApplicati: Record<string, string> = {};
+
+  const fakeDb = {
+    from(table: string) {
+      tableChiamata = table;
+      return {
+        delete() {
+          return {
+            eq(col1: string, val1: string) {
+              filtriApplicati[col1] = val1;
+              return {
+                eq(col2: string, val2: string) {
+                  filtriApplicati[col2] = val2;
+                  return Promise.resolve({ error: null });
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const service = createCondominiService(fakeDb as any);
+  await service.resetPalazzoOverride('cond-123', 'palazzo-xyz');
+
+  assert.equal(tableChiamata, 'configurazioni_condominio');
+  assert.equal(filtriApplicati.condominio_id, 'cond-123');
+  assert.equal(filtriApplicati.palazzo_id, 'palazzo-xyz');
+});

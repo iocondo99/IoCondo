@@ -2,8 +2,9 @@
 -- PULIZIA DEI DATI EXTRA PER SEGNALAZIONI  (annulla segnalazioni_extra.sql)
 -- =============================================================================
 -- Da eseguire A MANO dal SQL Editor di Supabase. NON viene eseguito dall'agente.
--- Rimuove solo ticket, messaggi, allegati, righe di log storico e il condominio isolato creati da
+-- Rimuove solo ticket, messaggi, allegati e il condominio isolato creati da
 -- `segnalazioni_extra.sql` (prefisso d0000000-0000-4000-8000-0000000006..).
+-- Ripristina scala_colonna_id a null per unita_1 e unita_2 e rimuove le scale di prova.
 -- Le categorie guasti (Idraulica, Elettrica, ...) restano: sono dati di riferimento condivisi.
 -- Non tocca i dati degli altri seed.
 -- =============================================================================
@@ -27,7 +28,7 @@ declare
     'd0000000-0000-4000-8000-000000000691'
   ]::uuid[];
 begin
-  -- 1. Righe di log storico scritte dal trigger trg_log_storico_ticket
+  -- 1. Righe di log storico eventuali
   delete from public.log_storico_immobile
   where tipo_evento = 'GUASTO'
     and descrizione in (
@@ -41,7 +42,16 @@ begin
   -- 3. Ticket
   delete from public.ticket_testata where id = any (v_ticket_ids);
 
-  -- 4. Condominio isolato di prova (solo se non contiene altri dati)
+  -- 4. Ripristino unita_immobiliari
+  update public.unita_immobiliari
+  set scala_colonna_id = null
+  where id in ('d0000000-0000-4000-8000-000000000011', 'd0000000-0000-4000-8000-000000000012');
+
+  -- 5. Rimozione scale di prova
+  delete from public.scale_colonne
+  where id in ('d0000000-0000-4000-8000-000000000021', 'd0000000-0000-4000-8000-000000000022');
+
+  -- 6. Condominio isolato di prova (solo se non contiene altri dati)
   delete from public.condomini c
   where c.id = 'd0000000-0000-4000-8000-000000000690'
     and not exists (select 1 from public.ticket_testata t where t.condominio_id = c.id)
@@ -50,4 +60,3 @@ begin
   raise notice 'Dati extra Segnalazioni rimossi.';
 end
 $pulizia_segnalazioni$;
-

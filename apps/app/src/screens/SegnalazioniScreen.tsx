@@ -29,7 +29,7 @@ export function SegnalazioniScreen() {
       rotta="/segnalazioni"
       etichettaAzione="Nuova segnalazione"
       etichettaTabella="Segnalazioni del condominio"
-      vuotoDescrizione="Quando aprirai una segnalazione, o ne verrà aperta una per la tua unità, la troverai qui."
+      vuotoDescrizione="Quando verrà aperta una segnalazione su parti comuni del condominio o della tua scala, la troverai qui."
     />
   );
 }

@@ -6,7 +6,7 @@ import {
   GIORNI_SETTIMANA,
   badgeGiornoRelativo,
   contestoGiorniRaccolta,
-  filtraTurniRaccolta,
+  metadatiTipoRifiuto,
   nomeGiornoSettimana,
   turniDelGiorno,
 } from '@iocondo/data';
@@ -20,7 +20,6 @@ import {
   LoadingState,
   NonAutorizzato,
   PageHeader,
-  ResponsiveDataView,
   SearchBar,
   borderWidths,
   colors,
@@ -28,7 +27,6 @@ import {
   space,
   textStyle,
   useBreakpoint,
-  type DataColumn,
   type FilterOption,
 } from '@iocondo/ui';
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
@@ -125,54 +123,41 @@ function RaccoltaDifferenziataContenuto() {
     [turni, contesto.domani],
   );
 
-  const turniFiltrati = useMemo(() => {
+  const giorniDaMostrare = useMemo(() => {
     const giornoNum = giornoFiltro[0] ? Number(giornoFiltro[0]) : null;
-    return filtraTurniRaccolta(turni, { giorno: giornoNum, ricerca });
-  }, [turni, giornoFiltro, ricerca]);
+    const listaGiorni =
+      giornoNum !== null
+        ? GIORNI_SETTIMANA.filter((g) => g.numero === giornoNum)
+        : GIORNI_SETTIMANA;
 
-  const colonne: readonly DataColumn<IRaccoltaDifferenziata>[] = useMemo(
-    () => [
-      {
-        key: 'giorno',
-        header: 'Giorno',
-        weight: 1.4,
-        minWidth: 160,
-        mobile: 'title',
-        cell: (r) => {
-          const relativo = badgeGiornoRelativo(r.giorno_settimana, adesso);
-          return (
-            <View style={styles.cellaGiorno}>
-              <Text style={[textStyle('h4', breakpoint), styles.testoPrimario]}>
-                {nomeGiornoSettimana(r.giorno_settimana)}
-              </Text>
-              {relativo === 'oggi' ? <Badge status="in-corso" label="Oggi" /> : null}
-              {relativo === 'domani' ? <Badge status="info" label="Domani" /> : null}
-            </View>
-          );
-        },
-      },
-      {
-        key: 'tipo',
-        header: 'Tipologia rifiuto',
-        weight: 1.6,
-        minWidth: 180,
-        mobile: 'status',
-        cell: (r) => <Badge status="success" label={r.tipo_rifiuto} />,
-      },
-      {
-        key: 'note',
-        header: 'Note e orari di esposizione',
-        weight: 2.2,
-        minWidth: 220,
-        cell: (r) => (
-          <Text style={[textStyle('secondary', breakpoint), styles.testoSecondario]}>
-            {r.note?.trim() ? r.note : 'Nessuna nota aggiuntiva'}
-          </Text>
-        ),
-      },
-    ],
-    [adesso, breakpoint],
-  );
+    const ricercaNorm = ricerca.trim().toLowerCase();
+
+    return listaGiorni
+      .map((g) => {
+        const turniGiorno = turniDelGiorno(turni, g.numero);
+        const turniFiltrati = ricercaNorm
+          ? turniGiorno.filter((t) => {
+              const tipo = t.tipo_rifiuto.toLowerCase();
+              const note = (t.note ?? '').toLowerCase();
+              return tipo.includes(ricercaNorm) || note.includes(ricercaNorm);
+            })
+          : turniGiorno;
+
+        return {
+          giorno: g.numero,
+          nome: g.nome,
+          breve: g.breve,
+          turni: turniFiltrati,
+          totaleGiorno: turniGiorno.length,
+        };
+      })
+      .filter((g) => {
+        if (ricercaNorm) {
+          return g.turni.length > 0;
+        }
+        return true;
+      });
+  }, [turni, giornoFiltro, ricerca]);
 
   return (
     <View style={styles.pagina}>
@@ -217,7 +202,7 @@ function RaccoltaDifferenziataContenuto() {
             />
           </View>
 
-          {/* Calendario settimanale completo con ricerca e filtro per giorno */}
+          {/* Calendario settimanale diviso a giorni */}
           <Card title="Calendario settimanale">
             <View style={styles.controlli}>
               <SearchBar
@@ -234,20 +219,92 @@ function RaccoltaDifferenziataContenuto() {
               />
             </View>
 
-            <View style={styles.tabellaWrap}>
-              <ResponsiveDataView
-                label="Calendario settimanale raccolta differenziata"
-                rows={turniFiltrati}
-                columns={colonne}
-                getRowKey={(r) => r.id}
-                getRowLabel={(r) => `${nomeGiornoSettimana(r.giorno_settimana)} — ${r.tipo_rifiuto}`}
-                empty={{
-                  title: 'Nessun turno trovato',
-                  description: 'Prova a cambiare il giorno selezionato o i termini di ricerca.',
-                  icon: 'calendar-days',
-                }}
+            {giorniDaMostrare.length === 0 ? (
+              <EmptyState
+                icon="calendar-days"
+                title="Nessun ritiro trovato"
+                description="Nessun turno di raccolta corrisponde ai criteri di ricerca selezionati."
               />
-            </View>
+            ) : (
+              <View style={styles.listaGiorni}>
+                {giorniDaMostrare.map((g) => {
+                  const relativo = badgeGiornoRelativo(g.giorno, adesso);
+                  return (
+                    <View
+                      key={g.giorno}
+                      style={[
+                        styles.schedaGiorno,
+                        relativo === 'oggi' && styles.schedaGiornoOggi,
+                        relativo === 'domani' && styles.schedaGiornoDomani,
+                      ]}
+                    >
+                      <View style={styles.schedaGiornoHeader}>
+                        <View style={styles.schedaGiornoTitoloWrap}>
+                          <Text style={[textStyle('h3', breakpoint), styles.testoPrimario]}>
+                            {g.nome}
+                          </Text>
+                          {relativo === 'oggi' ? (
+                            <Badge status="in-corso" label="Oggi" />
+                          ) : null}
+                          {relativo === 'domani' ? (
+                            <Badge status="info" label="Domani" />
+                          ) : null}
+                        </View>
+                        {g.turni.length > 0 ? (
+                          <Badge
+                            status="neutral"
+                            label={`${g.turni.length} ${g.turni.length === 1 ? 'ritiro' : 'ritiri'}`}
+                          />
+                        ) : null}
+                      </View>
+
+                      {g.turni.length === 0 ? (
+                        <View style={styles.rigaVuotaGiorno}>
+                          <Icon name="calendar-days" size="indicator" color={colors.text.muted} />
+                          <Text style={[textStyle('secondary', breakpoint), styles.testoMuted]}>
+                            Nessun ritiro previsto per questo giorno.
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.schedaGiornoCorpo}>
+                          {g.turni.map((t) => {
+                            const meta = metadatiTipoRifiuto(t.tipo_rifiuto);
+                            return (
+                              <View key={t.id} style={styles.elementoRitiro}>
+                                <View style={styles.elementoRitiroHeader}>
+                                  <Badge
+                                    status={meta.tono}
+                                    label={t.tipo_rifiuto}
+                                    icon={meta.icona}
+                                  />
+                                </View>
+                                {t.note?.trim() ? (
+                                  <View style={styles.notaRiga}>
+                                    <Icon
+                                      name="clock"
+                                      size="indicator"
+                                      color={colors.text.secondary}
+                                    />
+                                    <Text
+                                      style={[
+                                        textStyle('secondary', breakpoint),
+                                        styles.testoSecondario,
+                                      ]}
+                                    >
+                                      {t.note}
+                                    </Text>
+                                  </View>
+                                ) : null}
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </Card>
         </View>
       ) : null}
@@ -306,21 +363,24 @@ function RiquadroGiorno({
           </Text>
         ) : (
           <View style={styles.listaEvidenza}>
-            {turni.map((t) => (
-              <View key={t.id} style={styles.elementoEvidenza}>
-                <View style={styles.elementoEvidenzaRiga}>
-                  <Badge status="success" label={t.tipo_rifiuto} />
-                </View>
-                {t.note?.trim() ? (
-                  <View style={styles.notaRiga}>
-                    <Icon name="clock" size="indicator" color={colors.text.secondary} />
-                    <Text style={[textStyle('secondary', breakpoint), styles.testoSecondario]}>
-                      {t.note}
-                    </Text>
+            {turni.map((t) => {
+              const meta = metadatiTipoRifiuto(t.tipo_rifiuto);
+              return (
+                <View key={t.id} style={styles.elementoEvidenza}>
+                  <View style={styles.elementoEvidenzaRiga}>
+                    <Badge status={meta.tono} label={t.tipo_rifiuto} icon={meta.icona} />
                   </View>
-                ) : null}
-              </View>
-            ))}
+                  {t.note?.trim() ? (
+                    <View style={styles.notaRiga}>
+                      <Icon name="clock" size="indicator" color={colors.text.secondary} />
+                      <Text style={[textStyle('secondary', breakpoint), styles.testoSecondario]}>
+                        {t.note}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         )}
       </Card>
@@ -401,14 +461,60 @@ const styles = StyleSheet.create({
     gap: space[4],
     marginBottom: space[4],
   },
-  tabellaWrap: {
-    marginTop: space[2],
+  listaGiorni: {
+    gap: space[4],
   },
-  cellaGiorno: {
+  schedaGiorno: {
+    borderRadius: radii.control,
+    backgroundColor: colors.surface,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
+    padding: space[4],
+    gap: space[3],
+  },
+  schedaGiornoOggi: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.tile.teal.foreground,
+  },
+  schedaGiornoDomani: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.tile.blue.foreground,
+  },
+  schedaGiornoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: space[2],
+  },
+  schedaGiornoTitoloWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: space[2],
+  },
+  schedaGiornoCorpo: {
+    gap: space[2],
+  },
+  elementoRitiro: {
+    padding: space[3],
+    borderRadius: radii.control,
+    backgroundColor: colors.background,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
+    gap: space[2],
+  },
+  elementoRitiroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: space[2],
+  },
+  rigaVuotaGiorno: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    paddingVertical: space[2],
   },
   testoPrimario: {
     color: colors.text.primary,

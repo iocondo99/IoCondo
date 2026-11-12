@@ -12,7 +12,6 @@ import {
   Badge,
   Button,
   Card,
-  Checkbox,
   FilterChips,
   Icon,
   Input,
@@ -49,7 +48,7 @@ import {
   type FornitoreAdminView,
   type InputModificaTicketAdmin,
   type OpzioneCategoriaGuasto,
-  type OpzioneUnitaManutenzione,
+  type OpzioneAmbitoManutenzione,
   type PrioritaTicket,
   type StatoTicket,
   type TicketAdminView,
@@ -131,7 +130,7 @@ function AdminManutenzioneContenuto() {
   const [tickets, setTickets] = useState<TicketAdminView[]>([]);
   const [fornitori, setFornitori] = useState<FornitoreAdminView[]>([]);
   const [categorie, setCategorie] = useState<OpzioneCategoriaGuasto[]>([]);
-  const [unitaDisponibili, setUnitaDisponibili] = useState<OpzioneUnitaManutenzione[]>([]);
+  const [ambitiDisponibili, setAmbitiDisponibili] = useState<OpzioneAmbitoManutenzione[]>([]);
 
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState(false);
@@ -148,8 +147,7 @@ function AdminManutenzioneContenuto() {
   const [titoloTicketInput, setTitoloTicketInput] = useState('');
   const [categoriaTicketInput, setCategoriaTicketInput] = useState<string>('');
   const [prioritaTicketInput, setPrioritaTicketInput] = useState<PrioritaTicket>('MEDIA');
-  const [isAreaComuneInput, setIsAreaComuneInput] = useState(true);
-  const [unitaTicketInput, setUnitaTicketInput] = useState<string>('');
+  const [ambitoTicketInput, setAmbitoTicketInput] = useState<string>('condominio');
   const [descrizioneTicketInput, setDescrizioneTicketInput] = useState('');
   const [erroriNuovoTicket, setErroriNuovoTicket] = useState<Record<string, string>>({});
   const [salvataggioTicketInCorso, setSalvataggioTicketInCorso] = useState(false);
@@ -180,8 +178,7 @@ function AdminManutenzioneContenuto() {
   const [categoriaModificaInput, setCategoriaModificaInput] = useState<string>('');
   const [prioritaModificaInput, setPrioritaModificaInput] = useState<PrioritaTicket>('MEDIA');
   const [statoModificaInput, setStatoModificaInput] = useState<StatoTicket>('APERTO');
-  const [isAreaComuneModificaInput, setIsAreaComuneModificaInput] = useState(true);
-  const [unitaModificaInput, setUnitaModificaInput] = useState<string>('');
+  const [ambitoModificaInput, setAmbitoModificaInput] = useState<string>('condominio');
   const [descrizioneModificaInput, setDescrizioneModificaInput] = useState('');
   const [fornitoreModificaId, setFornitoreModificaId] = useState<string>('');
   const [dataPrevistaModificaInput, setDataPrevistaModificaInput] = useState('');
@@ -198,30 +195,30 @@ function AdminManutenzioneContenuto() {
     setErrore(false);
 
     try {
-      const [tktList, fornList, catList, unitaList] = await Promise.all([
+      const [tktList, fornList, catList, ambitiList] = await Promise.all([
         services.manutenzione.listTickets(condominio.id),
         services.manutenzione.listFornitori(profilo?.id),
         services.manutenzione.listCategorie(),
-        services.manutenzione.listUnita(condominio.id),
+        services.manutenzione.listAmbiti(condominio.id),
       ]);
 
       setTickets(tktList);
       setFornitori(fornList);
       setCategorie(catList);
-      setUnitaDisponibili(unitaList);
+      setAmbitiDisponibili(ambitiList);
 
       if (catList.length > 0 && !categoriaTicketInput) {
         setCategoriaTicketInput(catList[0]!.id);
       }
-      if (unitaList.length > 0 && !unitaTicketInput) {
-        setUnitaTicketInput(unitaList[0]!.id);
+      if (ambitiList.length > 0 && !ambitoTicketInput) {
+        setAmbitoTicketInput(ambitiList[0]!.id);
       }
     } catch {
       setErrore(true);
     } finally {
       setCaricamento(false);
     }
-  }, [condominio?.id, profilo?.id, categoriaTicketInput, unitaTicketInput]);
+  }, [condominio?.id, profilo?.id, categoriaTicketInput, ambitoTicketInput]);
 
   React.useEffect(() => {
     void caricaDati();
@@ -273,9 +270,9 @@ function AdminManutenzioneContenuto() {
     return categorie.map((c) => ({ value: c.id, label: c.nome }));
   }, [categorie]);
 
-  const opzioniUnitaSelect: SelectOption[] = useMemo(() => {
-    return unitaDisponibili.map((u) => ({ value: u.id, label: u.label }));
-  }, [unitaDisponibili]);
+  const opzioniAmbitiSelect: SelectOption[] = useMemo(() => {
+    return ambitiDisponibili.map((a) => ({ value: a.id, label: a.label }));
+  }, [ambitiDisponibili]);
 
   const opzioniFornitoriSelect: SelectOption[] = useMemo(() => {
     return [
@@ -318,7 +315,7 @@ function AdminManutenzioneContenuto() {
     setTitoloTicketInput('');
     setDescrizioneTicketInput('');
     setPrioritaTicketInput('MEDIA');
-    setIsAreaComuneInput(true);
+    setAmbitoTicketInput(ambitiDisponibili[0]?.id ?? 'condominio');
     setErroriNuovoTicket({});
     setModaleNuovoTicketAperta(true);
     setTimeout(() => inputTitoloRef.current?.focus(), 150);
@@ -352,8 +349,13 @@ function AdminManutenzioneContenuto() {
     setCategoriaModificaInput(tkt.categoria_id || (categorie[0]?.id ?? ''));
     setPrioritaModificaInput(tkt.priorita);
     setStatoModificaInput(tkt.stato);
-    setIsAreaComuneModificaInput(tkt.is_area_comune);
-    setUnitaModificaInput(tkt.unita_id || (unitaDisponibili[0]?.id ?? ''));
+    setAmbitoModificaInput(
+      tkt.scala_colonna_id && tkt.palazzo_id
+        ? `scala:${tkt.palazzo_id}:${tkt.scala_colonna_id}`
+        : tkt.palazzo_id
+          ? `palazzo:${tkt.palazzo_id}`
+          : 'condominio',
+    );
     setFornitoreModificaId(tkt.fornitore_assegnato_id || '');
     setDataPrevistaModificaInput(tkt.data_intervento_prevista || '');
     setNoteFornitoreModificaInput(tkt.ultimo_intervento?.note_fornitore || '');
@@ -370,11 +372,16 @@ function AdminManutenzioneContenuto() {
 
   // Salvataggio Nuovo Ticket
   const salvaNuovoTicket = async () => {
+    const ambitoScelto =
+      ambitiDisponibili.find((a) => a.id === ambitoTicketInput) ??
+      ambitiDisponibili[0];
+
     const validazione = validaNuovoTicket({
       titolo: titoloTicketInput,
-      isAreaComune: isAreaComuneInput,
-      unitaId: unitaTicketInput,
       priorita: prioritaTicketInput,
+      ambitoTipo: ambitoScelto?.tipo ?? 'CONDOMINIO',
+      palazzoId: ambitoScelto?.palazzoId ?? null,
+      scalaColonnaId: ambitoScelto?.scalaColonnaId ?? null,
     });
 
     if (!validazione.valido) {
@@ -390,8 +397,8 @@ function AdminManutenzioneContenuto() {
         descrizione: descrizioneTicketInput.trim() || null,
         categoriaId: categoriaTicketInput || null,
         priorita: prioritaTicketInput,
-        isAreaComune: isAreaComuneInput,
-        unitaId: isAreaComuneInput ? null : unitaTicketInput,
+        palazzoId: ambitoScelto?.palazzoId ?? null,
+        scalaColonnaId: ambitoScelto?.scalaColonnaId ?? null,
         segnalatoreId: profilo?.id ?? null,
       });
 
@@ -470,6 +477,10 @@ function AdminManutenzioneContenuto() {
       importoNum = Math.round(n * 100) / 100;
     }
 
+    const ambitoScelto =
+      ambitiDisponibili.find((a) => a.id === ambitoModificaInput) ??
+      ambitiDisponibili[0];
+
     setSalvataggioModificaInCorso(true);
     try {
       const payload: InputModificaTicketAdmin = {
@@ -479,8 +490,8 @@ function AdminManutenzioneContenuto() {
         categoriaId: categoriaModificaInput || null,
         priorita: prioritaModificaInput,
         stato: statoModificaInput,
-        isAreaComune: isAreaComuneModificaInput,
-        unitaId: isAreaComuneModificaInput ? null : unitaModificaInput,
+        palazzoId: ambitoScelto?.palazzoId ?? null,
+        scalaColonnaId: ambitoScelto?.scalaColonnaId ?? null,
         fornitoreId: fornitoreModificaId || null,
         dataPrevista: dataPrevistaModificaInput.trim() || null,
         noteFornitore: noteFornitoreModificaInput.trim() || null,
@@ -566,6 +577,16 @@ function AdminManutenzioneContenuto() {
         weight: 3,
         mobile: 'title',
         cell: (row) => <CellaTitolo titolo={row.titolo} />,
+      },
+      {
+        key: 'ambito',
+        header: 'Ambito',
+        minWidth: 140,
+        weight: 2,
+        mobileLabel: 'Ambito',
+        cell: (row) => (
+          <Badge status="neutral" label={row.ambito_label} icon="map-pin" />
+        ),
       },
       {
         key: 'apertura',
@@ -912,21 +933,15 @@ function AdminManutenzioneContenuto() {
             onChange={(val) => setPrioritaTicketInput(val as PrioritaTicket)}
           />
 
-          <Checkbox
-            label="Segnalazione per area comune del condominio"
-            checked={isAreaComuneInput}
-            onChange={(checked) => setIsAreaComuneInput(checked)}
+          <Select
+            label="Dove si trova il guasto (Ambito)"
+            options={opzioniAmbitiSelect}
+            value={ambitoTicketInput}
+            onChange={setAmbitoTicketInput}
           />
-
-          {!isAreaComuneInput ? (
-            <Select
-              label="Unità immobiliare interessata"
-              options={opzioniUnitaSelect}
-              value={unitaTicketInput}
-              onChange={setUnitaTicketInput}
-              error={erroriNuovoTicket.unitaId}
-            />
-          ) : null}
+          <Text style={[textStyle('secondary'), styles.testoAiutoAmbito]}>
+            La segnalazione sarà visibile ai condòmini dell’area o scala interessata per evitare segnalazioni duplicate.
+          </Text>
 
           <Textarea
             label="Descrizione dettagliata"
@@ -1075,20 +1090,15 @@ function AdminManutenzioneContenuto() {
             onChange={setCategoriaModificaInput}
           />
 
-          <Checkbox
-            label="Segnalazione per area comune del condominio"
-            checked={isAreaComuneModificaInput}
-            onChange={(checked) => setIsAreaComuneModificaInput(checked)}
+          <Select
+            label="Dove si trova il guasto (Ambito)"
+            options={opzioniAmbitiSelect}
+            value={ambitoModificaInput}
+            onChange={setAmbitoModificaInput}
           />
-
-          {!isAreaComuneModificaInput ? (
-            <Select
-              label="Unità immobiliare interessata"
-              options={opzioniUnitaSelect}
-              value={unitaModificaInput}
-              onChange={setUnitaModificaInput}
-            />
-          ) : null}
+          <Text style={[textStyle('secondary'), styles.testoAiutoAmbito]}>
+            La segnalazione sarà visibile ai condòmini dell’area o scala interessata per evitare segnalazioni duplicate.
+          </Text>
 
           <Textarea
             label="Descrizione del guasto"
@@ -1217,8 +1227,8 @@ function AdminManutenzioneContenuto() {
                         : 'Bassa'}
                 </Text>
                 <Text style={styles.voceInfoDettaglio}>
-                  <Text style={styles.etichettaForte}>Ubicazione: </Text>
-                  {ticketDettaglio.ubicazione_label}
+                  <Text style={styles.etichettaForte}>Ambito: </Text>
+                  {ticketDettaglio.ambito_label}
                 </Text>
                 <Text style={styles.voceInfoDettaglio}>
                   <Text style={styles.etichettaForte}>Segnalato il: </Text>
@@ -1529,5 +1539,9 @@ const styles = StyleSheet.create({
   bloccoScriviMessaggio: {
     gap: space[2],
     marginTop: space[2],
+  },
+  testoAiutoAmbito: {
+    color: colors.text.secondary,
+    marginTop: -space[1],
   },
 });

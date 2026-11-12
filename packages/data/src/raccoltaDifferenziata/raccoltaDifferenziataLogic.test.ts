@@ -14,6 +14,7 @@ import {
   statisticheRaccolta,
   turniDelGiorno,
   validaTurnoRaccolta,
+  metadatiTipoRifiuto,
 } from './raccoltaDifferenziataLogic.ts';
 
 const turno = (
@@ -181,5 +182,81 @@ test('casi limite validazione note e lunghezza tipo rifiuto', () => {
 
   const oltre80 = validaTurnoRaccolta({ tipo_rifiuto: 'A'.repeat(81), giorno_settimana: 1 });
   assert.equal(oltre80.ok, false);
+});
+
+test('metadatiTipoRifiuto associa categoria, icona e tono appropriati', () => {
+  // Organico / Umido
+  assert.deepEqual(metadatiTipoRifiuto('Umido / Organico'), {
+    categoria: 'organico',
+    icona: 'apple',
+    tono: 'warning',
+  });
+  assert.deepEqual(metadatiTipoRifiuto('Scarti di cibo e alimentari'), {
+    categoria: 'organico',
+    icona: 'apple',
+    tono: 'warning',
+  });
+
+  // Carta e cartone
+  assert.deepEqual(metadatiTipoRifiuto('Carta e cartone'), {
+    categoria: 'carta',
+    icona: 'newspaper',
+    tono: 'info',
+  });
+  assert.deepEqual(metadatiTipoRifiuto('Giornali e riviste'), {
+    categoria: 'carta',
+    icona: 'newspaper',
+    tono: 'info',
+  });
+
+  // Plastica e metalli
+  assert.deepEqual(metadatiTipoRifiuto('Plastica e metalli'), {
+    categoria: 'plastica',
+    icona: 'recycle',
+    tono: 'warning',
+  });
+  assert.deepEqual(metadatiTipoRifiuto('Lattine e alluminio'), {
+    categoria: 'plastica',
+    icona: 'recycle',
+    tono: 'warning',
+  });
+
+  // Vetro
+  assert.deepEqual(metadatiTipoRifiuto('Vetro'), {
+    categoria: 'vetro',
+    icona: 'wine',
+    tono: 'success',
+  });
+  assert.deepEqual(metadatiTipoRifiuto('Bottiglie di vetro'), {
+    categoria: 'vetro',
+    icona: 'wine',
+    tono: 'success',
+  });
+
+  // Sfalci e potature
+  assert.deepEqual(metadatiTipoRifiuto('Sfalci e potature'), {
+    categoria: 'sfalci',
+    icona: 'leaf',
+    tono: 'success',
+  });
+
+  // Indifferenziato
+  assert.deepEqual(metadatiTipoRifiuto('Indifferenziato'), {
+    categoria: 'indifferenziato',
+    icona: 'trash-2',
+    tono: 'neutral',
+  });
+  assert.deepEqual(metadatiTipoRifiuto('Secco residuo'), {
+    categoria: 'indifferenziato',
+    icona: 'trash-2',
+    tono: 'neutral',
+  });
+
+  // Fallback
+  assert.deepEqual(metadatiTipoRifiuto('Rifiuto speciale non specificato'), {
+    categoria: 'altro',
+    icona: 'trash-2',
+    tono: 'neutral',
+  });
 });
 

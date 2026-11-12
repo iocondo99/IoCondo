@@ -29,7 +29,7 @@ export function TicketAreeComuniScreen() {
       rotta="/ticket-aree-comuni"
       etichettaAzione="Nuovo ticket"
       etichettaTabella="Ticket delle aree comuni"
-      vuotoDescrizione="Quando verrà aperto un ticket su un’area comune, oppure ne aprirai uno tu, lo troverai qui."
+      vuotoDescrizione="Quando verrà aperto un ticket su un’area comune o una scala del condominio, oppure ne aprirai uno tu, lo troverai qui."
     />
   );
 }

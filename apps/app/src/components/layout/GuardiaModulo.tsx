@@ -23,8 +23,13 @@ export interface GuardiaModuloProps {
  * Per gli amministratori (vista "ADMIN"), l'accesso alla gestione non viene mai bloccato.
  */
 export function GuardiaModulo({ modulo, titolo, messaggio, children }: GuardiaModuloProps) {
-  const { vista, moduli } = useProfilo();
+  const { vista, moduli, stato } = useProfilo();
   const router = useRouter();
+
+  // Finché il profilo e i moduli non sono caricati, non montare i children per evitare fetch premature
+  if (stato === 'caricamento' || !vista) {
+    return null;
+  }
 
   // Gli amministratori mantengono sempre l'accesso alla schermata
   if (vista !== 'RESIDENTE') {

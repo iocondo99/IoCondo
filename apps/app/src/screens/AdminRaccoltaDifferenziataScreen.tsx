@@ -7,6 +7,7 @@ import {
   badgeGiornoRelativo,
   contestoGiorniRaccolta,
   filtraTurniRaccolta,
+  metadatiTipoRifiuto,
   nomeGiornoSettimana,
   ordinaTurniRaccolta,
   statisticheRaccolta,
@@ -22,6 +23,7 @@ import {
   EmptyState,
   ErrorState,
   FilterChips,
+  Icon,
   LoadingState,
   Input,
   Modal,
@@ -33,7 +35,9 @@ import {
   Select,
   StatCard,
   Textarea,
+  borderWidths,
   colors,
+  radii,
   space,
   textStyle,
   useBreakpoint,
@@ -112,6 +116,10 @@ function AdminRaccoltaDifferenziataContenuto() {
   // Eliminazione con ConfirmDialog
   const [turnoDaEliminare, setTurnoDaEliminare] = useState<IRaccoltaDifferenziata | null>(null);
 
+  // Modale Dettaglio Turno (riga cliccabile standard)
+  const [turnoDettaglio, setTurnoDettaglio] = useState<IRaccoltaDifferenziata | null>(null);
+  const [modaleDettaglioAperta, setModaleDettaglioAperta] = useState(false);
+
   const caricaTurni = useCallback(async () => {
     setCaricamento(true);
     setErrore(false);
@@ -161,6 +169,29 @@ function AdminRaccoltaDifferenziataContenuto() {
     setModaleAperta(true);
   }, []);
 
+  const apriDettaglioTurno = useCallback((turno: IRaccoltaDifferenziata) => {
+    setTurnoDettaglio(turno);
+    setModaleDettaglioAperta(true);
+  }, []);
+
+  const chiudiDettaglio = useCallback(() => {
+    setModaleDettaglioAperta(false);
+  }, []);
+
+  const apriModificaDaDettaglio = useCallback(() => {
+    if (!turnoDettaglio) return;
+    const t = turnoDettaglio;
+    setModaleDettaglioAperta(false);
+    apriModificaTurno(t);
+  }, [apriModificaTurno, turnoDettaglio]);
+
+  const chiediEliminazioneDaDettaglio = useCallback(() => {
+    if (!turnoDettaglio) return;
+    const t = turnoDettaglio;
+    setModaleDettaglioAperta(false);
+    setTurnoDaEliminare(t);
+  }, [turnoDettaglio]);
+
   const chiudiModale = useCallback(() => {
     if (salvataggioInCorso) return;
     setModaleAperta(false);
@@ -193,6 +224,7 @@ function AdminRaccoltaDifferenziataContenuto() {
         setTurni((prev) =>
           ordinaTurniRaccolta(prev.map((t) => (t.id === aggiornato.id ? aggiornato : t))),
         );
+        setTurnoDettaglio((prev) => (prev?.id === aggiornato.id ? aggiornato : prev));
         setModaleAperta(false);
         toast.show({
           tone: 'success',
@@ -223,6 +255,9 @@ function AdminRaccoltaDifferenziataContenuto() {
     const target = turnoDaEliminare;
     await services.raccoltaDifferenziata.elimina(target.id, condominioId);
     setTurni((prev) => prev.filter((t) => t.id !== target.id));
+    if (turnoDettaglio?.id === target.id) {
+      setTurnoDettaglio(null);
+    }
     setTurnoDaEliminare(null);
     toast.show({
       tone: 'success',
@@ -236,8 +271,8 @@ function AdminRaccoltaDifferenziataContenuto() {
       {
         key: 'giorno',
         header: 'Giorno',
-        weight: 1.3,
-        minWidth: 150,
+        weight: 1.6,
+        minWidth: 210,
         mobile: 'title',
         cell: (r) => {
           const relativo = badgeGiornoRelativo(r.giorno_settimana, adesso);
@@ -255,10 +290,13 @@ function AdminRaccoltaDifferenziataContenuto() {
       {
         key: 'tipo',
         header: 'Tipologia rifiuto',
-        weight: 1.5,
-        minWidth: 170,
+        weight: 1.6,
+        minWidth: 190,
         mobile: 'status',
-        cell: (r) => <Badge status="success" label={r.tipo_rifiuto} />,
+        cell: (r) => {
+          const meta = metadatiTipoRifiuto(r.tipo_rifiuto);
+          return <Badge status={meta.tono} label={r.tipo_rifiuto} icon={meta.icona} />;
+        },
       },
       {
         key: 'note',
@@ -393,6 +431,7 @@ function AdminRaccoltaDifferenziataContenuto() {
               columns={colonne}
               getRowKey={(r) => r.id}
               getRowLabel={(r) => `${nomeGiornoSettimana(r.giorno_settimana)} — ${r.tipo_rifiuto}`}
+              onRowPress={apriDettaglioTurno}
               empty={{
                 title: 'Nessun turno trovato',
                 description: 'Prova a cambiare il giorno selezionato o i termini di ricerca.',
@@ -483,6 +522,101 @@ function AdminRaccoltaDifferenziataContenuto() {
         </View>
       </Modal>
 
+      {/* Modale Visualizzazione Dettaglio Turno (aperta al click sulla riga) */}
+      <Modal
+        visible={modaleDettaglioAperta}
+        onClose={chiudiDettaglio}
+        title="Dettaglio turno di raccolta"
+        description="Visualizza le informazioni complete del turno di raccolta programmato."
+        actions={
+          <ModalActions>
+            <Button
+              label="Chiudi"
+              variant="secondary"
+              onPress={chiudiDettaglio}
+            />
+            <Button
+              label="Modifica"
+              variant="primary"
+              icon="pencil"
+              onPress={apriModificaDaDettaglio}
+            />
+            <Button
+              label="Elimina"
+              variant="destructive"
+              icon="trash-2"
+              onPress={chiediEliminazioneDaDettaglio}
+            />
+          </ModalActions>
+        }
+      >
+        {turnoDettaglio ? (
+          <View style={styles.corpoDettaglio}>
+            <View style={styles.sezioneDettaglio}>
+              <Text style={[textStyle('label', breakpoint), styles.etichettaDettaglio]}>
+                Tipologia di rifiuto
+              </Text>
+              <View style={styles.valoreDettaglioRiga}>
+                {(() => {
+                  const meta = metadatiTipoRifiuto(turnoDettaglio.tipo_rifiuto);
+                  return (
+                    <Badge
+                      status={meta.tono}
+                      label={turnoDettaglio.tipo_rifiuto}
+                      icon={meta.icona}
+                    />
+                  );
+                })()}
+              </View>
+            </View>
+
+            <View style={styles.sezioneDettaglio}>
+              <Text style={[textStyle('label', breakpoint), styles.etichettaDettaglio]}>
+                Giorno della settimana
+              </Text>
+              <View style={styles.valoreDettaglioRiga}>
+                <Icon name="calendar-days" size="action" color={colors.text.secondary} />
+                <Text style={[textStyle('h3', breakpoint), styles.testoPrimario]}>
+                  {nomeGiornoSettimana(turnoDettaglio.giorno_settimana)}
+                </Text>
+                {badgeGiornoRelativo(turnoDettaglio.giorno_settimana, adesso) === 'oggi' ? (
+                  <Badge status="in-corso" label="Oggi" />
+                ) : null}
+                {badgeGiornoRelativo(turnoDettaglio.giorno_settimana, adesso) === 'domani' ? (
+                  <Badge status="info" label="Domani" />
+                ) : null}
+              </View>
+            </View>
+
+            <View style={styles.sezioneDettaglio}>
+              <Text style={[textStyle('label', breakpoint), styles.etichettaDettaglio]}>
+                Note e orari di esposizione
+              </Text>
+              <View style={styles.boxNoteDettaglio}>
+                <Icon name="clock" size="indicator" color={colors.text.secondary} />
+                <Text style={[textStyle('body', breakpoint), styles.testoSecondario]}>
+                  {turnoDettaglio.note?.trim()
+                    ? turnoDettaglio.note
+                    : 'Nessuna indicazione particolare per i residenti.'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.sezioneDettaglio}>
+              <Text style={[textStyle('label', breakpoint), styles.etichettaDettaglio]}>
+                Condominio
+              </Text>
+              <View style={styles.valoreDettaglioRiga}>
+                <Icon name="building-2" size="indicator" color={colors.text.secondary} />
+                <Text style={[textStyle('body', breakpoint), styles.testoSecondario]}>
+                  {condominioNome}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </Modal>
+
       {/* ConfirmDialog eliminazione sicura */}
       <ConfirmDialog
         visible={Boolean(turnoDaEliminare)}
@@ -528,7 +662,7 @@ const styles = StyleSheet.create({
   cellaGiorno: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     gap: space[2],
   },
   azioniRiga: {
@@ -536,6 +670,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: space[2],
+  },
+  corpoDettaglio: {
+    gap: space[4],
+  },
+  sezioneDettaglio: {
+    gap: space[2],
+  },
+  etichettaDettaglio: {
+    color: colors.text.muted,
+  },
+  valoreDettaglioRiga: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: space[2],
+  },
+  boxNoteDettaglio: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
+    padding: space[3],
+    borderRadius: radii.control,
+    backgroundColor: colors.background,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
   },
   formModale: {
     gap: space[4],

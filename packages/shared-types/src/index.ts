@@ -528,6 +528,8 @@ export interface ITicketTestata {
   id: string;
   condominio_id: string;
   unita_id: string | null;
+  palazzo_id: string | null;
+  scala_colonna_id: string | null;
   segnalatore_id: string | null;
   categoria_id: string | null;
   titolo: string;
@@ -1324,7 +1326,7 @@ export interface Database {
       };
       ticket_testata: {
         Row: Plain<ITicketTestata>;
-        Insert: Plain<Omit<ITicketTestata, 'id' | 'unita_id' | 'segnalatore_id' | 'categoria_id' | 'descrizione' | 'is_area_comune' | 'priorita' | 'stato' | 'created_at' | 'updated_at' | 'closed_at'> & Partial<Pick<ITicketTestata, 'id' | 'unita_id' | 'segnalatore_id' | 'categoria_id' | 'descrizione' | 'is_area_comune' | 'priorita' | 'stato' | 'created_at' | 'updated_at' | 'closed_at'>>>;
+        Insert: Plain<Omit<ITicketTestata, 'id' | 'unita_id' | 'palazzo_id' | 'scala_colonna_id' | 'segnalatore_id' | 'categoria_id' | 'descrizione' | 'is_area_comune' | 'priorita' | 'stato' | 'created_at' | 'updated_at' | 'closed_at'> & Partial<Pick<ITicketTestata, 'id' | 'unita_id' | 'palazzo_id' | 'scala_colonna_id' | 'segnalatore_id' | 'categoria_id' | 'descrizione' | 'is_area_comune' | 'priorita' | 'stato' | 'created_at' | 'updated_at' | 'closed_at'>>>;
         Update: Plain<Partial<ITicketTestata>>;
         Relationships: [];
       };

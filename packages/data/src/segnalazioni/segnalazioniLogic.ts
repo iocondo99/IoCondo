@@ -1,20 +1,17 @@
 /**
  * Logica pura per la sezione Segnalazioni del condòmino (`/segnalazioni` e `/segnalazioni/[id]`,
  * REQ-C03 e REQ-C04) e per i Ticket aree comuni del portiere (`/ticket-aree-comuni`):
- * - isolamento lato client nella vista residente:
- *   - condòmino (`/segnalazioni`): solo ticket del condominio selezionato aperti dall'utente
- *     (`segnalatore_id = userId`) oppure associati a una sua unità attiva (`unita_id IN unitaDelResidente`),
- *     anche se l'utente ha ruolo `ADMIN` o `is_superadmin` (coerente con `homeService.ticketRecenti`);
- *   - portiere (`/ticket-aree-comuni`): solo ticket del condominio selezionato con
- *     `is_area_comune = true` (più quelli aperti dal portiere stesso nel condominio);
- * - stati del ticket (`APERTO`, `LAVORAZIONE`, `RISOLTO`), priorità (`BASSA`, `MEDIA`, `ALTA`, `URGENTE`),
- *   ambito (`Area comune` vs `Unità Int. <interno>`), conteggi per le `StatCard`;
- * - filtri per stato (`Tutti`, `Aperti`, `In lavorazione`, `Risolti`), ricerca per titolo/categoria/ambito,
- *   ordinamento per data di apertura (`created_at`), stato e priorità, paginazione;
- * - validazione del modulo di apertura segnalazione (titolo obbligatorio non vuoto con lunghezza massima,
- *   descrizione, categoria opzionale, ambito propria unità o area comune, allegati fotografici
- *   JPEG/PNG/WEBP/HEIC max 15 MB e percorso Storage `<condominio_id>/<ticket_id>/<nome_file_sanificato>`
- *   senza `..`).
+ * - modello ad ambiti condivisi (nessun ticket privato 1-a-1):
+ *   - 'CONDOMINIO': Area comune condominiale (visibile a tutti i condòmini del condominio);
+ *   - 'PALAZZO': Area/parti comuni del palazzo (visibile solo ai residenti di quel palazzo);
+ *   - 'SCALA': Area/parti comuni della scala/colonna (visibile solo ai residenti di quella scala/colonna).
+ * - isolamento per ruolo e residenza attiva:
+ *   - condòmino: vede solo Area comune + proprio Palazzo + propria Scala (mai altre scale o palazzi);
+ *   - portiere: vede e può aprire per qualsiasi ambito del condominio;
+ * - stati del ticket (`APERTO`, `LAVORAZIONE`, `RISOLTO`), priorità (`BASSA`, `MEDIA`, `ALTA`, `URGENTE`);
+ * - conteggi per le `StatCard`, filtri per stato e per ambito, ricerca su titolo/categoria/ambito;
+ * - validazione input nuova segnalazione senza riferimenti a unità private;
+ * - allegati fotografici JPEG/PNG/WEBP/HEIC max 15 MB e percorsi Storage sicuri nel bucket `foto-guasti`.
  *
  * File puro (nessuna dipendenza da React Native o Supabase): eseguibile con `node --test`.
  * Nessun uso di `Intl` o `localeCompare` (compatibilità Hermes).
@@ -23,6 +20,8 @@
 export type PrioritaTicket = 'BASSA' | 'MEDIA' | 'ALTA' | 'URGENTE';
 export type StatoTicket = 'APERTO' | 'LAVORAZIONE' | 'RISOLTO';
 export type TipoFileTicket = 'FOTO' | 'FATTURA' | 'ALTRO';
+
+export type TipoAmbitoTicket = 'CONDOMINIO' | 'PALAZZO' | 'SCALA';
 
 export const BUCKET_FOTO_GUASTI = 'foto-guasti';
 export const DURATA_LINK_FOTO_SECONDI = 600;
@@ -56,6 +55,7 @@ export type ModalitaSegnalazioni = 'condomino' | 'portiere';
 export type StatoBadgeTicket = 'aperto' | 'in_lavorazione' | 'risolto';
 
 export type FiltroStatoSegnalazioni = 'tutti' | 'APERTO' | 'LAVORAZIONE' | 'RISOLTO';
+export type FiltroAmbitoSegnalazioni = 'tutti' | 'CONDOMINIO' | 'PALAZZO' | 'SCALA';
 
 export type OrdineSegnalazioni =
   | 'data-desc'
@@ -76,6 +76,16 @@ export interface CategoriaGuasto {
   nome: string;
 }
 
+export interface OpzioneAmbitoTicket {
+  id: string;
+  tipo: TipoAmbitoTicket;
+  palazzoId: string | null;
+  scalaColonnaId: string | null;
+  etichetta: string;
+  descrizione?: string;
+}
+
+/** Interfaccia storica mantenuta per retrocompatibilità. */
 export interface UnitaResidenteOpzione {
   id: string;
   interno: string;
@@ -87,6 +97,10 @@ export interface UnitaResidenteOpzione {
 export interface SegnalazioneRiepilogo {
   id: string;
   condominioId: string;
+  palazzoId: string | null;
+  palazzoNome: string | null;
+  scalaColonnaId: string | null;
+  scalaNome: string | null;
   unitaId: string | null;
   unitaInterno: string | null;
   segnalatoreId: string | null;
@@ -95,6 +109,7 @@ export interface SegnalazioneRiepilogo {
   titolo: string;
   descrizione: string | null;
   isAreaComune: boolean;
+  ambitoTipo: TipoAmbitoTicket;
   etichettaAmbito: string;
   priorita: PrioritaTicket;
   etichettaPriorita: string;
@@ -141,16 +156,25 @@ export interface RiepilogoSegnalazioni {
   inLavorazione: number;
   risolte: number;
   areeComuni: number;
+  palazzo: number;
+  scala: number;
   unitaPropria: number;
 }
 
 export interface FiltriSegnalazioni {
   stato: FiltroStatoSegnalazioni;
+  ambito?: FiltroAmbitoSegnalazioni;
   ricerca: string;
 }
 
 export interface OpzioneFiltroStato {
   value: FiltroStatoSegnalazioni;
+  label: string;
+  count: number;
+}
+
+export interface OpzioneFiltroAmbito {
+  value: FiltroAmbitoSegnalazioni;
   label: string;
   count: number;
 }
@@ -172,18 +196,25 @@ export interface InputNuovaSegnalazione {
   titolo: string;
   descrizione?: string | null;
   categoriaId?: string | null;
-  isAreaComune: boolean;
-  unitaId?: string | null;
+  ambitoTipo?: TipoAmbitoTicket | null;
+  palazzoId?: string | null;
+  scalaColonnaId?: string | null;
   priorita?: PrioritaTicket | null;
   allegati?: readonly FotoAllegatoInput[];
+  // Campi retrocompatibili:
+  isAreaComune?: boolean;
+  unitaId?: string | null;
 }
 
 export interface DatiNuovaSegnalazioneValidati {
   titolo: string;
   descrizione: string | null;
   categoriaId: string | null;
+  ambitoTipo: TipoAmbitoTicket;
+  palazzoId: string | null;
+  scalaColonnaId: string | null;
   isAreaComune: boolean;
-  unitaId: string | null;
+  unitaId: null;
   priorita: PrioritaTicket;
 }
 
@@ -234,107 +265,167 @@ function confrontaDataIso(a: string, b: string): number {
   return confrontaTesto(a, b);
 }
 
-// ─── Isolamento lato client nella vista residente ────────────────────────────
+// ─── Determinazione Ambito ed Etichette ──────────────────────────────────────
+
+function formattaPrefisso(val: string, prefisso: string): string {
+  const v = val.trim();
+  if (v.toLowerCase().startsWith(prefisso.toLowerCase())) return v;
+  return `${prefisso} ${v}`;
+}
+
+export function determinaAmbitoTipo(
+  palazzoId: string | null | undefined,
+  scalaColonnaId: string | null | undefined,
+): TipoAmbitoTicket {
+  if (scalaColonnaId) return 'SCALA';
+  if (palazzoId) return 'PALAZZO';
+  return 'CONDOMINIO';
+}
 
 /**
- * Filtro PostgREST (`.or(...)`) per `ticket_testata` nella vista condòmino (`/segnalazioni`):
- * ticket aperti dall'utente (`segnalatore_id = userId`) oppure associati a una sua unità attiva,
- * esattamente coerente con `homeService.ticketRecenti`.
+ * Costruisce l'etichetta leggibile dell'ambito condiviso:
+ * - `"Palazzo <P> · Scala <S>"` se è specificata una scala;
+ * - `"Palazzo <P>"` se è specificato solo il palazzo;
+ * - `"Area comune"` per ambito condominiale.
  */
-export function filtroTicketCondominoPostgrest(
-  userId: string,
-  unitaResidenteIds: readonly string[],
+export function etichettaAmbitoTicket(
+  palazzoNome?: string | null,
+  scalaNome?: string | null,
+  isAreaComune?: boolean,
+  unitaInterno?: string | null,
 ): string {
-  const filtri = [`segnalatore_id.eq.${userId}`];
-  if (unitaResidenteIds.length > 0) {
-    filtri.push(`unita_id.in.(${unitaResidenteIds.join(',')})`);
+  const p = palazzoNome?.trim();
+  const s = scalaNome?.trim();
+  if (s && p) {
+    return `${formattaPrefisso(p, 'Palazzo')} · ${formattaPrefisso(s, 'Scala')}`;
   }
-  return filtri.join(',');
+  if (s) return formattaPrefisso(s, 'Scala');
+  if (p) return formattaPrefisso(p, 'Palazzo');
+  if (unitaInterno && !isAreaComune) return `Unità Int. ${unitaInterno.trim()}`;
+  return 'Area comune';
 }
 
-/**
- * Filtro PostgREST (`.or(...)`) per `ticket_testata` nella vista portiere (`/ticket-aree-comuni`):
- * ticket su area comune (`is_area_comune = true`) oppure aperti dal portiere stesso (`segnalatore_id = userId`).
- */
-export function filtroTicketPortierePostgrest(userId: string): string {
-  return `is_area_comune.eq.true,segnalatore_id.eq.${userId}`;
+/** Helper retrocompatibile per formattazione unità. */
+export function formattaEtichettaUnita(unita: {
+  interno: string;
+  scala?: string | null;
+  piano?: string | null;
+}): string {
+  const parti = [`Unità Int. ${unita.interno.trim()}`];
+  if (unita.scala?.trim()) parti.push(`Scala ${unita.scala.trim()}`);
+  if (unita.piano?.trim()) parti.push(`Piano ${unita.piano.trim()}`);
+  return parti.join(' · ');
 }
+
+// ─── Isolamento e Visibilità lato client (Defense-in-depth) ──────────────────
 
 export interface TicketIsolamentoInput {
   condominioId: string;
-  segnalatoreId: string | null;
-  unitaId: string | null;
-  isAreaComune: boolean;
+  segnalatoreId?: string | null;
+  palazzoId?: string | null;
+  scalaColonnaId?: string | null;
+  unitaId?: string | null;
+  isAreaComune?: boolean;
 }
 
 /**
- * Verifica in difesa in profondità se un ticket è visibile al condòmino (`/segnalazioni`):
- * 1. deve appartenere al condominio selezionato (`condominioId`);
- * 2. deve essere stato aperto dall'utente (`segnalatoreId === userId`) oppure associato a una
- *    sua unità attiva nel condominio (`unitaId !== null && unitaResidenteIds.includes(unitaId)`).
- * Anche se l'utente possiede ruolo `ADMIN` o `is_superadmin`, in vista residente vede solo questi ticket.
+ * Verifica se un ticket è visibile al condòmino:
+ * - Deve appartenere al condominio selezionato;
+ * - È visibile se:
+ *   1. È di Area comune condominiale (`palazzoId == null && scalaColonnaId == null`);
+ *   2. È del proprio Palazzo (`palazzoId` appartiene a una delle unità attive dell'utente e `scalaColonnaId == null`);
+ *   3. È della propria Scala (`scalaColonnaId` appartiene a una delle unità attive dell'utente);
+ *   4. (Fallback storico) È associato a un'unità attiva dell'utente.
+ * NON è visibile ai condòmini di un'altra scala (es. Scala B non vede Scala A).
  */
 export function ticketVisibileACondomino(
   ticket: TicketIsolamentoInput | null | undefined,
   userId: string,
   condominioId: string,
-  unitaResidenteIds: readonly string[],
+  userPalazzoIds: readonly string[],
+  userScalaIds: readonly string[],
+  unitaResidenteIds: readonly string[] = [],
 ): boolean {
-  if (!ticket || !userId || !condominioId) return false;
+  if (!ticket || !condominioId) return false;
   if (ticket.condominioId !== condominioId) return false;
-  if (ticket.segnalatoreId === userId) return true;
-  if (ticket.unitaId !== null && unitaResidenteIds.includes(ticket.unitaId)) {
+
+  const palId = ticket.palazzoId ?? null;
+  const scaId = ticket.scalaColonnaId ?? null;
+
+  // 1. Area comune del condominio
+  if (palId === null && scaId === null) {
+    // Se è un ticket storico con unitaId esplicita senza palazzo/scala, verifichiamo unità
+    if (ticket.unitaId && !ticket.isAreaComune) {
+      return unitaResidenteIds.includes(ticket.unitaId);
+    }
     return true;
   }
+
+  // 2. Palazzo (senza scala specifica)
+  if (palId !== null && scaId === null) {
+    return userPalazzoIds.includes(palId);
+  }
+
+  // 3. Scala specifica
+  if (scaId !== null) {
+    return userScalaIds.includes(scaId);
+  }
+
   return false;
 }
 
 /**
- * Verifica in difesa in profondità se un ticket è visibile al portiere (`/ticket-aree-comuni`):
- * 1. deve appartenere al condominio selezionato (`condominioId`);
- * 2. deve riguardare un'area comune (`isAreaComune === true`) oppure essere stato aperto dal portiere stesso.
+ * Il portiere nel condominio attivo vede tutte le segnalazioni del condominio.
  */
 export function ticketVisibileAPortiere(
   ticket: TicketIsolamentoInput | null | undefined,
   userId: string,
   condominioId: string,
 ): boolean {
-  if (!ticket || !userId || !condominioId) return false;
-  if (ticket.condominioId !== condominioId) return false;
-  if (ticket.isAreaComune) return true;
-  if (ticket.segnalatoreId === userId) return true;
-  return false;
+  if (!ticket || !condominioId) return false;
+  return ticket.condominioId === condominioId;
 }
 
 /**
- * Verifica se un ticket è visibile nella modalità richiesta (`condomino` vs `portiere`).
+ * Verifica la visibilità del ticket nella modalità richiesta ('condomino' vs 'portiere').
  */
 export function ticketVisibileInModalita(
   ticket: TicketIsolamentoInput | null | undefined,
   userId: string,
   condominioId: string,
-  unitaResidenteIds: readonly string[],
+  userPalazzoIds: readonly string[],
+  userScalaIds: readonly string[],
   modalita: ModalitaSegnalazioni,
+  unitaResidenteIds: readonly string[] = [],
 ): boolean {
   if (modalita === 'portiere') {
     return ticketVisibileAPortiere(ticket, userId, condominioId);
   }
-  return ticketVisibileACondomino(ticket, userId, condominioId, unitaResidenteIds);
+  return ticketVisibileACondomino(
+    ticket,
+    userId,
+    condominioId,
+    userPalazzoIds,
+    userScalaIds,
+    unitaResidenteIds,
+  );
 }
 
-/** Filtra un elenco di ticket mantenendo solo quelli visibili al condòmino nel condominio selezionato. */
+/** Filtra un elenco di ticket mantenendo solo quelli visibili al condòmino. */
 export function filtraTicketVisibiliCondomino<T extends TicketIsolamentoInput>(
   tickets: readonly T[],
   userId: string,
   condominioId: string,
-  unitaResidenteIds: readonly string[],
+  userPalazzoIds: readonly string[],
+  userScalaIds: readonly string[],
+  unitaResidenteIds: readonly string[] = [],
 ): T[] {
   return tickets.filter((t) =>
-    ticketVisibileACondomino(t, userId, condominioId, unitaResidenteIds),
+    ticketVisibileACondomino(t, userId, condominioId, userPalazzoIds, userScalaIds, unitaResidenteIds),
   );
 }
 
-/** Filtra un elenco di ticket mantenendo solo quelli visibili al portiere nel condominio selezionato. */
+/** Filtra un elenco di ticket mantenendo solo quelli visibili al portiere. */
 export function filtraTicketVisibiliPortiere<T extends TicketIsolamentoInput>(
   tickets: readonly T[],
   userId: string,
@@ -381,58 +472,38 @@ export function etichettaPrioritaTicket(priorita: PrioritaTicket): string {
 }
 
 /**
- * Etichetta sintetica dell'ambito del ticket:
- * - `'Area comune'` se `isAreaComune` è `true` o `unitaId` è `null`;
- * - `'Unità Int. <interno>'` (o `'Unità propria'` se l'interno non è noto) se associato a un'unità.
- */
-export function etichettaAmbitoTicket(
-  isAreaComune: boolean,
-  unitaId: string | null | undefined,
-  unitaInterno?: string | null,
-): string {
-  if (isAreaComune || !unitaId) return 'Area comune';
-  const interno = unitaInterno?.trim();
-  if (!interno) return 'Unità propria';
-  if (/^unit[aà](\s|$)/i.test(interno)) return interno;
-  if (/^int\.?\s*/i.test(interno)) return `Unità ${interno}`;
-  return `Unità Int. ${interno}`;
-}
-
-/** Costruisce l'etichetta leggibile di un'unità immobiliare per il selettore di ambito. */
-export function formattaEtichettaUnita(unita: {
-  interno: string;
-  scala?: string | null;
-  piano?: string | null;
-}): string {
-  const parti = [`Unità Int. ${unita.interno.trim()}`];
-  if (unita.scala?.trim()) parti.push(`Scala ${unita.scala.trim()}`);
-  if (unita.piano?.trim()) parti.push(`Piano ${unita.piano.trim()}`);
-  return parti.join(' · ');
-}
-
-/**
- * Calcola i conteggi reali per le `StatCard` in cima a `/segnalazioni` e `/ticket-aree-comuni`:
- * totale segnalazioni, aperte (`APERTO`), in lavorazione (`LAVORAZIONE`), risolte (`RISOLTO`),
- * su area comune e su propria unità.
+ * Calcola i conteggi reali per le `StatCard`:
+ * totale, aperte, in lavorazione, risolte, per area comune, palazzo e scala.
  */
 export function riepilogoSegnalazioni(
-  segnalazioni: readonly Pick<SegnalazioneRiepilogo, 'stato' | 'isAreaComune' | 'unitaId'>[],
+  segnalazioni: readonly {
+    stato: StatoTicket;
+    ambitoTipo?: TipoAmbitoTicket;
+    palazzoId?: string | null;
+    scalaColonnaId?: string | null;
+    isAreaComune?: boolean;
+    unitaId?: string | null;
+  }[],
 ): RiepilogoSegnalazioni {
   let aperte = 0;
   let inLavorazione = 0;
   let risolte = 0;
   let areeComuni = 0;
-  let unitaPropria = 0;
+  let palazzo = 0;
+  let scala = 0;
 
   for (const s of segnalazioni) {
     if (s.stato === 'APERTO') aperte += 1;
     else if (s.stato === 'LAVORAZIONE') inLavorazione += 1;
     else if (s.stato === 'RISOLTO') risolte += 1;
 
-    if (s.isAreaComune || s.unitaId === null) {
-      areeComuni += 1;
+    const tipo = s.ambitoTipo ?? determinaAmbitoTipo(s.palazzoId, s.scalaColonnaId);
+    if (tipo === 'SCALA') {
+      scala += 1;
+    } else if (tipo === 'PALAZZO') {
+      palazzo += 1;
     } else {
-      unitaPropria += 1;
+      areeComuni += 1;
     }
   }
 
@@ -442,18 +513,16 @@ export function riepilogoSegnalazioni(
     inLavorazione,
     risolte,
     areeComuni,
-    unitaPropria,
+    palazzo,
+    scala,
+    unitaPropria: 0,
   };
 }
 
 // ─── Filtri, ricerca, ordinamento e paginazione ──────────────────────────────
 
-/**
- * Opzioni per i `FilterChips` per stato:
- * `Tutti`, `Aperti`, `In lavorazione`, `Risolti` con i rispettivi conteggi reali.
- */
 export function opzioniFiltroStatoSegnalazioni(
-  segnalazioni: readonly Pick<SegnalazioneRiepilogo, 'stato'>[],
+  segnalazioni: readonly { stato: StatoTicket }[],
 ): OpzioneFiltroStato[] {
   let aperti = 0;
   let inLavorazione = 0;
@@ -473,38 +542,74 @@ export function opzioniFiltroStatoSegnalazioni(
   ];
 }
 
-/** Quanti filtri sono attivi (stato specifico selezionato + ricerca testuale non vuota). */
-export function filtriSegnalazioniAttivi(filtri: FiltriSegnalazioni): number {
-  const haStato = Boolean(filtri.stato && filtri.stato !== 'tutti');
-  const haRicerca = filtri.ricerca.trim().length > 0;
-  return (haStato ? 1 : 0) + (haRicerca ? 1 : 0);
+export function opzioniFiltroAmbitoSegnalazioni(
+  segnalazioni: readonly {
+    ambitoTipo?: TipoAmbitoTicket;
+    palazzoId?: string | null;
+    scalaColonnaId?: string | null;
+  }[],
+): OpzioneFiltroAmbito[] {
+  let cond = 0;
+  let pal = 0;
+  let sca = 0;
+
+  for (const s of segnalazioni) {
+    const tipo = s.ambitoTipo ?? determinaAmbitoTipo(s.palazzoId, s.scalaColonnaId);
+    if (tipo === 'SCALA') sca += 1;
+    else if (tipo === 'PALAZZO') pal += 1;
+    else cond += 1;
+  }
+
+  return [
+    { value: 'tutti', label: 'Tutti', count: segnalazioni.length },
+    { value: 'CONDOMINIO', label: 'Area comune', count: cond },
+    { value: 'PALAZZO', label: 'Palazzo', count: pal },
+    { value: 'SCALA', label: 'Scala', count: sca },
+  ];
 }
 
-/**
- * Filtra le segnalazioni per stato (`'tutti'` oppure `'APERTO'` | `'LAVORAZIONE'` | `'RISOLTO'`)
- * e per ricerca testuale su titolo, categoria, ambito e descrizione.
- */
+export function filtriSegnalazioniAttivi(filtri: FiltriSegnalazioni): number {
+  const haStato = Boolean(filtri.stato && filtri.stato !== 'tutti');
+  const haAmbito = Boolean(filtri.ambito && filtri.ambito !== 'tutti');
+  const haRicerca = filtri.ricerca.trim().length > 0;
+  return (haStato ? 1 : 0) + (haAmbito ? 1 : 0) + (haRicerca ? 1 : 0);
+}
+
 export function filtraSegnalazioni(
   segnalazioni: readonly SegnalazioneRiepilogo[],
   filtri: FiltriSegnalazioni,
 ): SegnalazioneRiepilogo[] {
   const statoFiltro = filtri.stato;
+  const ambitoFiltro = filtri.ambito;
   const termine = filtri.ricerca.trim().toLowerCase();
 
   return segnalazioni.filter((s) => {
     if (statoFiltro && statoFiltro !== 'tutti' && s.stato !== statoFiltro) {
       return false;
     }
+    if (ambitoFiltro && ambitoFiltro !== 'tutti' && s.ambitoTipo !== ambitoFiltro) {
+      return false;
+    }
     if (!termine) return true;
+
     const titoloMatch = s.titolo.toLowerCase().includes(termine);
     const categoriaMatch = (s.categoriaNome ?? 'Generale').toLowerCase().includes(termine);
     const ambitoMatch = s.etichettaAmbito.toLowerCase().includes(termine);
     const descrizioneMatch = (s.descrizione ?? '').toLowerCase().includes(termine);
-    return titoloMatch || categoriaMatch || ambitoMatch || descrizioneMatch;
+    const palazzoMatch = (s.palazzoNome ?? '').toLowerCase().includes(termine);
+    const scalaMatch = (s.scalaNome ?? '').toLowerCase().includes(termine);
+
+    return (
+      titoloMatch ||
+      categoriaMatch ||
+      ambitoMatch ||
+      descrizioneMatch ||
+      palazzoMatch ||
+      scalaMatch
+    );
   });
 }
 
-/** Da stato di ordinamento colonna (`SortState`) a `OrdineSegnalazioni`. */
 export function ordineDaColonnaSegnalazioni(
   sort: OrdineColonnaSegnalazioni | null,
 ): OrdineSegnalazioni {
@@ -512,7 +617,6 @@ export function ordineDaColonnaSegnalazioni(
   return ORDINE_DA_COLONNA_SEGNALAZIONI[sort.key]?.[sort.direction] ?? 'data-desc';
 }
 
-/** Da `OrdineSegnalazioni` a stato di ordinamento colonna (`SortState`) per `ResponsiveDataView`. */
 export function colonnaDaOrdineSegnalazioni(
   ordine: OrdineSegnalazioni,
 ): OrdineColonnaSegnalazioni {
@@ -523,12 +627,6 @@ export function colonnaDaOrdineSegnalazioni(
   return { key: 'data', direction: 'descending' };
 }
 
-/**
- * Ordina una copia delle segnalazioni per data di apertura (`data-desc` / `data-asc`),
- * stato (`stato-asc` = Aperto -> In lavorazione -> Risolto, `stato-desc` = inverso)
- * oppure priorità (`priorita-desc` = Urgente -> Bassa, `priorita-asc` = Bassa -> Urgente),
- * con spareggio deterministico per data decrescente e ID.
- */
 export function ordinaSegnalazioni(
   segnalazioni: readonly SegnalazioneRiepilogo[],
   ordine: OrdineSegnalazioni = 'data-desc',
@@ -562,9 +660,6 @@ export function ordinaSegnalazioni(
   });
 }
 
-/**
- * Esegue la pipeline completa (filtri -> ordinamento -> paginazione) per `/segnalazioni` e `/ticket-aree-comuni`.
- */
 export function paginaSegnalazioni(
   segnalazioni: readonly SegnalazioneRiepilogo[],
   filtri: FiltriSegnalazioni,
@@ -590,12 +685,6 @@ export function paginaSegnalazioni(
 
 // ─── Validazione percorsi Storage e allegati fotografici ─────────────────────
 
-/**
- * Sanifica il nome di un file fotografico per il salvataggio nel bucket `foto-guasti`:
- * - rimuove eventuali directory (`/` o `\`) e sequenze `..`;
- * - sostituisce spazi e caratteri speciali con `_`, mantenendo solo `[a-zA-Z0-9._-]`;
- * - evita nomi vuoti o che iniziano con `.`.
- */
 export function sanificaNomeFileFoto(nomeOriginale: string): string {
   const base = nomeOriginale
     .trim()
@@ -613,11 +702,6 @@ export function sanificaNomeFileFoto(nomeOriginale: string): string {
   return pulito || 'foto.jpg';
 }
 
-/**
- * Costruisce il percorso Storage conforme alle policy del bucket `foto-guasti`:
- * `<condominio_id>/<ticket_id>/<nome_file_sanificato>` (senza `..`).
- * Restituisce `null` se `condominioId` o `ticketId` contengono caratteri non sicuri.
- */
 export function costruisciPercorsoFotoGuasto(
   condominioId: string,
   ticketId: string,
@@ -648,13 +732,6 @@ export function costruisciPercorsoFotoGuasto(
   return validaPercorsoFotoStorage(percorso, condId, tktId);
 }
 
-/**
- * Valida e normalizza un percorso `url_storage` per il bucket `foto-guasti`:
- * - rifiuta valori nulli/vuoti, URL assoluti (`http://`, `https://`, ecc.), barre iniziali o backslash;
- * - rifiuta qualsiasi path traversal (`..`, `.`, segmenti vuoti);
- * - accetta percorsi `<condominio_id>/<ticket_id>/<file>` del condominio selezionato
- *   (oppure prefisso `seed-dev/` per i metadati di prova).
- */
 export function validaPercorsoFotoStorage(
   urlStorage: string | null | undefined,
   condominioId: string,
@@ -700,7 +777,6 @@ export function validaPercorsoFotoStorage(
   return senzaBucket;
 }
 
-/** Scompone un percorso Storage validato in `{ cartella, nomeFile }`. */
 export function scomponiPercorsoFotoStorage(
   percorsoValidato: string | null | undefined,
 ): { cartella: string; nomeFile: string } | null {
@@ -713,7 +789,6 @@ export function scomponiPercorsoFotoStorage(
   return { cartella, nomeFile };
 }
 
-/** Estrae il nome del file da `url_storage`. */
 export function estraiNomeFileDaPercorso(urlStorage: string): string {
   const pulito = urlStorage.trim().replace(/\\/g, '/');
   const ultimo = pulito.split('/').pop();
@@ -722,10 +797,7 @@ export function estraiNomeFileDaPercorso(urlStorage: string): string {
 
 function isTipoFotoAmmesso(file: FotoAllegatoInput): boolean {
   const mime = (file.type ?? '').trim().toLowerCase();
-  if (
-    mime &&
-    (TIPI_MIME_FOTO_AMMESSI as readonly string[]).includes(mime)
-  ) {
+  if (mime && (TIPI_MIME_FOTO_AMMESSI as readonly string[]).includes(mime)) {
     return true;
   }
   const punto = file.name.lastIndexOf('.');
@@ -736,12 +808,6 @@ function isTipoFotoAmmesso(file: FotoAllegatoInput): boolean {
   return false;
 }
 
-/**
- * Valida gli allegati fotografici per l'apertura di un ticket:
- * - formati ammessi: JPEG, PNG, WEBP, HEIC (`image/jpeg`, `image/png`, `image/webp`, `image/heic`);
- * - dimensione massima per file: 15 MB (`15728640` byte);
- * - massimo `MAX_FOTO_PER_TICKET` file per segnalazione.
- */
 export function validaAllegatiFotoTicket(
   allegati: readonly FotoAllegatoInput[] | undefined,
 ): string | null {
@@ -771,18 +837,20 @@ export function validaAllegatiFotoTicket(
 const PRIORITA_VALIDE: readonly PrioritaTicket[] = ['BASSA', 'MEDIA', 'ALTA', 'URGENTE'];
 
 /**
- * Valida l'input del modulo di apertura segnalazione:
- * - `titolo`: obbligatorio, non vuoto e lungo al massimo `MAX_LUNGHEZZA_TITOLO_TICKET` caratteri;
- * - `descrizione`: opzionale, lunga al massimo `MAX_LUNGHEZZA_DESCRIZIONE_TICKET` caratteri;
- * - `ambito`:
- *   - in modalità `'portiere'` forza sempre `isAreaComune = true` e `unitaId = null`;
- *   - in modalità `'condomino'`, se `isAreaComune = false`, richiede un `unitaId` appartenente a `unitaResidenteIds`;
- * - `priorita`: una tra `'BASSA' | 'MEDIA' | 'ALTA' | 'URGENTE'` (default `'MEDIA'`);
- * - `allegati`: validati per formato (JPEG/PNG/WEBP/HEIC) e dimensione (max 15 MB).
+ * Valida l'input del modulo di nuova segnalazione:
+ * - `titolo`: obbligatorio, non vuoto, max 120 car.;
+ * - `descrizione`: opzionale, max 2000 car.;
+ * - `ambito`: deve essere 'CONDOMINIO', 'PALAZZO' o 'SCALA'. Per il condòmino, il palazzo/scala
+ *   deve appartenere agli ambiti consentiti. Nessun riferimento a unità immobiliare privata 1-a-1.
+ * - `priorita`: BASSA, MEDIA, ALTA, URGENTE.
+ * - `allegati`: validati per formato e dimensione.
  */
 export function validaInputNuovaSegnalazione(
   input: InputNuovaSegnalazione,
-  unitaResidenteIds: readonly string[],
+  ambitiConsentiti?:
+    | readonly OpzioneAmbitoTicket[]
+    | { palazzoIds: readonly string[]; scalaIds: readonly string[] }
+    | readonly string[],
   modalita: ModalitaSegnalazioni = 'condomino',
 ): RisultatoValidazioneSegnalazione {
   const errori: Partial<
@@ -806,19 +874,74 @@ export function validaInputNuovaSegnalazione(
     errori.priorita = 'Seleziona una priorità valida.';
   }
 
-  let isAreaComune = Boolean(input.isAreaComune);
-  let unitaId: string | null = input.unitaId?.trim() || null;
+  // Risoluzione tipo di ambito:
+  let ambitoTipo: TipoAmbitoTicket = input.ambitoTipo ?? 'CONDOMINIO';
+  if (input.isAreaComune && !input.ambitoTipo) {
+    ambitoTipo = 'CONDOMINIO';
+  } else if (input.scalaColonnaId) {
+    ambitoTipo = 'SCALA';
+  } else if (input.palazzoId) {
+    ambitoTipo = 'PALAZZO';
+  }
 
-  if (modalita === 'portiere') {
-    isAreaComune = true;
-    unitaId = null;
-  } else if (isAreaComune) {
-    unitaId = null;
-  } else {
-    if (!unitaId) {
-      errori.ambito = 'Seleziona la tua unità immobiliare oppure indica "Area comune".';
-    } else if (!unitaResidenteIds.includes(unitaId)) {
-      errori.ambito = "L'unità selezionata non appartiene alle tue unità attive nel condominio.";
+  let palazzoId: string | null = null;
+  let scalaColonnaId: string | null = null;
+
+  if (ambitoTipo === 'CONDOMINIO') {
+    palazzoId = null;
+    scalaColonnaId = null;
+  } else if (ambitoTipo === 'PALAZZO') {
+    palazzoId = input.palazzoId?.trim() || null;
+    scalaColonnaId = null;
+    if (!palazzoId) {
+      errori.ambito = 'Seleziona il palazzo interessato dal guasto.';
+    }
+  } else if (ambitoTipo === 'SCALA') {
+    palazzoId = input.palazzoId?.trim() || null;
+    scalaColonnaId = input.scalaColonnaId?.trim() || null;
+    if (!scalaColonnaId) {
+      errori.ambito = 'Seleziona la scala/colonna interessata dal guasto.';
+    }
+  }
+
+  // Se siamo in modalità condòmino e sono forniti gli ambiti consentiti, verifichiamo la compatibilità
+  if (modalita === 'condomino' && ambitiConsentiti && !errori.ambito) {
+    if (ambitoTipo === 'PALAZZO' && palazzoId) {
+      let consentito = false;
+      if (Array.isArray(ambitiConsentiti)) {
+        if (typeof ambitiConsentiti[0] === 'string') {
+          consentito = (ambitiConsentiti as readonly string[]).includes(palazzoId);
+        } else {
+          consentito = (ambitiConsentiti as readonly OpzioneAmbitoTicket[]).some(
+            (o) => o.tipo === 'PALAZZO' && o.palazzoId === palazzoId,
+          );
+        }
+      } else {
+        consentito = (ambitiConsentiti as { palazzoIds: readonly string[] }).palazzoIds.includes(
+          palazzoId,
+        );
+      }
+      if (!consentito) {
+        errori.ambito = 'Il palazzo selezionato non rientra tra i tuoi palazzi di residenza.';
+      }
+    } else if (ambitoTipo === 'SCALA' && scalaColonnaId) {
+      let consentito = false;
+      if (Array.isArray(ambitiConsentiti)) {
+        if (typeof ambitiConsentiti[0] === 'string') {
+          consentito = (ambitiConsentiti as readonly string[]).includes(scalaColonnaId);
+        } else {
+          consentito = (ambitiConsentiti as readonly OpzioneAmbitoTicket[]).some(
+            (o) => o.tipo === 'SCALA' && o.scalaColonnaId === scalaColonnaId,
+          );
+        }
+      } else {
+        consentito = (ambitiConsentiti as { scalaIds: readonly string[] }).scalaIds.includes(
+          scalaColonnaId,
+        );
+      }
+      if (!consentito) {
+        errori.ambito = 'La scala selezionata non appartiene alla tua scala di residenza.';
+      }
     }
   }
 
@@ -837,15 +960,17 @@ export function validaInputNuovaSegnalazione(
       titolo,
       descrizione: descrizioneGrezza || null,
       categoriaId: input.categoriaId?.trim() || null,
-      isAreaComune,
-      unitaId,
+      ambitoTipo,
+      palazzoId,
+      scalaColonnaId,
+      isAreaComune: true,
+      unitaId: null,
       priorita: prioritaScelta,
     },
     errori: {},
   };
 }
 
-/** Valida il testo di un nuovo messaggio di aggiornamento sul ticket. */
 export function validaMessaggioTicket(
   messaggio: string | null | undefined,
 ): { valido: true; testo: string } | { valido: false; errore: string } {
@@ -867,15 +992,15 @@ export function validaMessaggioTicket(
 export function sottotitoloSegnalazioni(condominioNome: string | null | undefined): string {
   const nome = condominioNome?.trim();
   return nome
-    ? `${nome} — guasti, richieste di intervento e aggiornamenti`
-    : 'Guasti, richieste di intervento e aggiornamenti del condominio';
+    ? `${nome} — guasti, parti comuni e richieste di intervento`
+    : 'Guasti, parti comuni e richieste di intervento del condominio';
 }
 
 export function sottotitoloTicketPortiere(condominioNome: string | null | undefined): string {
   const nome = condominioNome?.trim();
   return nome
-    ? `${nome} — segnalazioni e manutenzioni sulle aree comuni`
-    : 'Segnalazioni e manutenzioni sulle aree comuni del condominio';
+    ? `${nome} — segnalazioni e manutenzioni su parti comuni e stabili`
+    : 'Segnalazioni e manutenzioni su parti comuni e stabili del condominio';
 }
 
 export function etichettaRigaSegnalazione(

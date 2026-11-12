@@ -141,10 +141,11 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
   const valore = useMemo<ProfiloContextValue>(() => {
     const ruoli = profilo ? ruoliIn(profilo, condominioId) : new Set<RuoloCodice>();
     const moduli = statoModuli.stato === 'pronto' ? statoModuli.moduli : null;
+    const moduliPronti = !condominioId || statoModuli.stato === 'pronto';
     const stato: ProfiloContextValue['stato'] =
       caricamento.stato === 'errore' || statoModuli.stato === 'errore'
         ? 'errore'
-        : caricamento.stato === 'pronto' && preferenze && statoModuli.stato !== 'caricamento'
+        : caricamento.stato === 'pronto' && preferenze && moduliPronti
           ? 'pronto'
           : 'caricamento';
     const moduliEffettivi = moduli ?? DEFAULT_MODULI_ATTIVI;

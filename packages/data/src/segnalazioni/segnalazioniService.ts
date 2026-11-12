@@ -3,6 +3,7 @@ import { oggiIso } from '../home/homeLogic.ts';
 import {
   BUCKET_FOTO_GUASTI,
   costruisciPercorsoFotoGuasto,
+  determinaAmbitoTipo,
   DURATA_LINK_FOTO_SECONDI,
   estraiNomeFileDaPercorso,
   etichettaAmbitoTicket,
@@ -10,9 +11,6 @@ import {
   etichettaStatoTicket,
   filtraTicketVisibiliCondomino,
   filtraTicketVisibiliPortiere,
-  filtroTicketCondominoPostgrest,
-  filtroTicketPortierePostgrest,
-  formattaEtichettaUnita,
   ordinaSegnalazioni,
   scomponiPercorsoFotoStorage,
   statoBadgeDaStatoTicket,
@@ -27,11 +25,11 @@ import {
   type InputNuovaSegnalazione,
   type MessaggioTicket,
   type ModalitaSegnalazioni,
+  type OpzioneAmbitoTicket,
   type PrioritaTicket,
   type SegnalazioneRiepilogo,
   type StatoTicket,
   type TipoFileTicket,
-  type UnitaResidenteOpzione,
 } from './segnalazioniLogic.ts';
 
 interface RisultatoQuery<T> {
@@ -64,6 +62,8 @@ interface RigaTicket {
   id: string;
   condominio_id: string;
   unita_id: string | null;
+  palazzo_id: string | null;
+  scala_colonna_id: string | null;
   segnalatore_id: string | null;
   categoria_id: string | null;
   titolo: string;
@@ -77,7 +77,7 @@ interface RigaTicket {
 }
 
 const COLONNE_TICKET =
-  'id, condominio_id, unita_id, segnalatore_id, categoria_id, titolo, descrizione, is_area_comune, priorita, stato, created_at, updated_at, closed_at';
+  'id, condominio_id, unita_id, palazzo_id, scala_colonna_id, segnalatore_id, categoria_id, titolo, descrizione, is_area_comune, priorita, stato, created_at, updated_at, closed_at';
 
 /** Foto da caricare con la segnalazione: metadati + contenuto binario. */
 export interface FotoDaCaricare extends FotoAllegatoInput {
@@ -98,12 +98,13 @@ export type RisultatoAggiungiMessaggio =
 
 /**
  * Servizio per `/segnalazioni`, `/segnalazioni/[id]` (condòmino) e `/ticket-aree-comuni` (portiere).
- * Usa solo la chiave pubblica e le policy RLS, ma restringe sempre query e risultati lato client
- * al condominio selezionato e alla modalità richiesta (anche per ADMIN o superadmin).
- * Le foto sono servite solo con link firmati (`createSignedUrl`, 600 s), mai con `getPublicUrl`.
+ * Basato sul modello ad ambiti condivisi (Condominio / Palazzo / Scala).
+ * Non espone né permette la creazione di ticket privati legati alla singola unità 1-a-1.
+ * Le foto sono servite solo con link firmati temporanei (`createSignedUrl`, 600 s).
  */
 export function createSegnalazioniService(db: TypedSupabaseClient) {
-  async function unitaIdsDiResidente(userId: string): Promise<string[]> {
+  /** Ricava le unità attive del residente nel condominio selezionato con relativo palazzo e scala. */
+  async function unitaResidenteNelCondominio(userId: string, condominioId: string) {
     const [anagrafiche, ruoli] = await Promise.all([
       db
         .from('anagrafiche_unita')
@@ -119,39 +120,66 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
     const ids = new Set<string>();
     for (const r of estraiDati(anagrafiche)) if (r.unita_id) ids.add(r.unita_id);
     for (const r of estraiDati(ruoli)) if (r.unita_id) ids.add(r.unita_id);
-    return [...ids];
-  }
 
-  async function unitaNelCondominio(
-    userId: string,
-    condominioId: string,
-  ): Promise<UnitaResidenteOpzione[]> {
-    const ids = await unitaIdsDiResidente(userId);
-    if (ids.length === 0) return [];
+    const elencoIds = [...ids];
+    if (elencoIds.length === 0) {
+      return { unitaIds: [], palazzoIds: [], scalaIds: [] };
+    }
 
-    const [palazzi, unita] = await Promise.all([
+    const [palazziDelCond, unitaRighe] = await Promise.all([
       db.from('palazzi').select('id').eq('condominio_id', condominioId),
-      db.from('unita_immobiliari').select('id, palazzo_id, interno, piano').in('id', ids),
+      db
+        .from('unita_immobiliari')
+        .select('id, palazzo_id, scala_colonna_id')
+        .in('id', elencoIds),
     ]);
-    const palazziDelCondominio = new Set(estraiDati(palazzi).map((p) => p.id));
+    const palazziSet = new Set(estraiDati(palazziDelCond).map((p) => p.id));
+    const unitaNelCond = estraiDati(unitaRighe).filter((u) => palazziSet.has(u.palazzo_id));
 
-    return estraiDati(unita)
-      .filter((u) => palazziDelCondominio.has(u.palazzo_id))
-      .map((u) => {
-        const piano = u.piano === null || u.piano === undefined ? null : String(u.piano);
-        return {
-          id: u.id,
-          interno: u.interno,
-          scala: null,
-          piano,
-          etichetta: formattaEtichettaUnita({ interno: u.interno, piano }),
-        };
-      });
+    const unitaIds: string[] = [];
+    const palazzoIds = new Set<string>();
+    const scalaIds = new Set<string>();
+
+    for (const u of unitaNelCond) {
+      unitaIds.push(u.id);
+      if (u.palazzo_id) palazzoIds.add(u.palazzo_id);
+      if (u.scala_colonna_id) scalaIds.add(u.scala_colonna_id);
+    }
+
+    return {
+      unitaIds,
+      palazzoIds: [...palazzoIds],
+      scalaIds: [...scalaIds],
+    };
   }
 
-  async function mappaInterni(unitaIds: readonly string[]): Promise<Map<string, string>> {
+  async function mappaPalazzi(ids: readonly (string | null)[]): Promise<Map<string, string>> {
     const mappa = new Map<string, string>();
-    const unici = [...new Set(unitaIds.filter(Boolean))];
+    const unici = [...new Set(ids.filter((i): i is string => Boolean(i)))];
+    if (unici.length === 0) return mappa;
+    const righe = estraiDati(
+      await db.from('palazzi').select('id, nome_identificativo').in('id', unici),
+    );
+    for (const p of righe) mappa.set(p.id, p.nome_identificativo);
+    return mappa;
+  }
+
+  async function mappaScale(
+    ids: readonly (string | null)[],
+  ): Promise<Map<string, { nome: string; palazzo_id: string }>> {
+    const mappa = new Map<string, { nome: string; palazzo_id: string }>();
+    const unici = [...new Set(ids.filter((i): i is string => Boolean(i)))];
+    if (unici.length === 0) return mappa;
+    const righe = estraiDati(
+      await db.from('scale_colonne').select('id, nome, palazzo_id').in('id', unici),
+    );
+    for (const s of righe) mappa.set(s.id, { nome: s.nome, palazzo_id: s.palazzo_id });
+    return mappa;
+  }
+
+  async function mappaInterni(ids: readonly (string | null)[]): Promise<Map<string, string>> {
+    const mappa = new Map<string, string>();
+    const unici = [...new Set(ids.filter((i): i is string => Boolean(i)))];
     if (unici.length === 0) return mappa;
     const righe = estraiDati(await db.from('unita_immobiliari').select('id, interno').in('id', unici));
     for (const u of righe) mappa.set(u.id, u.interno);
@@ -182,13 +210,24 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
 
   function costruisciRiepilogo(
     riga: RigaTicket,
+    palazzi: Map<string, string>,
+    scale: Map<string, { nome: string; palazzo_id: string }>,
     interni: Map<string, string>,
     categorie: Map<string, string>,
   ): SegnalazioneRiepilogo {
+    const palazzoNome = riga.palazzo_id ? (palazzi.get(riga.palazzo_id) ?? null) : null;
+    const scalaInfo = riga.scala_colonna_id ? (scale.get(riga.scala_colonna_id) ?? null) : null;
+    const scalaNome = scalaInfo ? scalaInfo.nome : null;
     const unitaInterno = riga.unita_id ? (interni.get(riga.unita_id) ?? null) : null;
+    const ambitoTipo = determinaAmbitoTipo(riga.palazzo_id, riga.scala_colonna_id);
+
     return {
       id: riga.id,
       condominioId: riga.condominio_id,
+      palazzoId: riga.palazzo_id,
+      palazzoNome,
+      scalaColonnaId: riga.scala_colonna_id,
+      scalaNome,
       unitaId: riga.unita_id,
       unitaInterno,
       segnalatoreId: riga.segnalatore_id,
@@ -197,7 +236,13 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
       titolo: riga.titolo,
       descrizione: riga.descrizione,
       isAreaComune: riga.is_area_comune,
-      etichettaAmbito: etichettaAmbitoTicket(riga.is_area_comune, riga.unita_id, unitaInterno),
+      ambitoTipo,
+      etichettaAmbito: etichettaAmbitoTicket(
+        palazzoNome,
+        scalaNome,
+        riga.is_area_comune,
+        unitaInterno,
+      ),
       priorita: riga.priorita,
       etichettaPriorita: etichettaPrioritaTicket(riga.priorita),
       stato: riga.stato,
@@ -210,11 +255,13 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
   }
 
   async function arricchisci(righe: readonly RigaTicket[]): Promise<SegnalazioneRiepilogo[]> {
-    const [interni, categorie] = await Promise.all([
-      mappaInterni(righe.flatMap((r) => (r.unita_id ? [r.unita_id] : []))),
+    const [palazzi, scale, interni, categorie] = await Promise.all([
+      mappaPalazzi(righe.map((r) => r.palazzo_id)),
+      mappaScale(righe.map((r) => r.scala_colonna_id)),
+      mappaInterni(righe.map((r) => r.unita_id)),
       mappaCategorie(righe.map((r) => r.categoria_id)),
     ]);
-    return righe.map((r) => costruisciRiepilogo(r, interni, categorie));
+    return righe.map((r) => costruisciRiepilogo(r, palazzi, scale, interni, categorie));
   }
 
   async function esisteNelloStorage(percorso: string | null): Promise<boolean> {
@@ -279,14 +326,15 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
       id: m.id,
       ticketId: m.ticket_id,
       mittenteId: m.mittente_id,
-      mittenteNome: m.mittente_id ? (nomi.get(m.mittente_id) ?? 'Utente del condominio') : 'Utente del condominio',
+      mittenteNome: m.mittente_id
+        ? (nomi.get(m.mittente_id) ?? 'Utente del condominio')
+        : 'Utente del condominio',
       isProprioMessaggio: m.mittente_id === userId,
       messaggio: m.messaggio,
       timestamp: m.timestamp,
     }));
   }
 
-  /** Carica il ticket solo se visibile nella modalità richiesta, altrimenti `null`. */
   async function ticketVisibile(
     userId: string,
     condominioId: string,
@@ -298,18 +346,33 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
       await db.from('ticket_testata').select(COLONNE_TICKET).eq('id', ticketId).maybeSingle(),
     ) as RigaTicket | null;
     if (!riga) return null;
-    const unitaIds = modalita === 'condomino' ? await unitaIdsDiResidente(userId) : [];
+
+    let userPalazzoIds: string[] = [];
+    let userScalaIds: string[] = [];
+    let unitaIds: string[] = [];
+
+    if (modalita === 'condomino') {
+      const info = await unitaResidenteNelCondominio(userId, condominioId);
+      userPalazzoIds = info.palazzoIds;
+      userScalaIds = info.scalaIds;
+      unitaIds = info.unitaIds;
+    }
+
     const visibile = ticketVisibileInModalita(
       {
         condominioId: riga.condominio_id,
         segnalatoreId: riga.segnalatore_id,
+        palazzoId: riga.palazzo_id,
+        scalaColonnaId: riga.scala_colonna_id,
         unitaId: riga.unita_id,
         isAreaComune: riga.is_area_comune,
       },
       userId,
       condominioId,
-      unitaIds,
+      userPalazzoIds,
+      userScalaIds,
       modalita,
+      unitaIds,
     );
     return visibile ? riga : null;
   }
@@ -321,28 +384,131 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
       return righe.map((c) => ({ id: c.id, nome: c.nome }));
     },
 
-    /** Unità attive del residente nel condominio selezionato. */
-    async unitaDelResidenteNelCondominio(
+    /**
+     * Ambiti selezionabili per l'apertura di una nuova segnalazione:
+     * - 'CONDOMINIO' (Area comune per tutti);
+     * - 'PALAZZO' (solo i palazzi associati al residente, o tutti per portiere/admin);
+     * - 'SCALA' (solo le scale associate al residente, o tutte per portiere/admin).
+     */
+    async ambitiSelezionabili(
       userId: string,
       condominioId: string,
-    ): Promise<UnitaResidenteOpzione[]> {
-      if (!userId || !condominioId) return [];
-      return unitaNelCondominio(userId, condominioId);
+      modalita: ModalitaSegnalazioni = 'condomino',
+    ): Promise<OpzioneAmbitoTicket[]> {
+      const opzioni: OpzioneAmbitoTicket[] = [
+        {
+          id: 'condominio',
+          tipo: 'CONDOMINIO',
+          palazzoId: null,
+          scalaColonnaId: null,
+          etichetta: 'Area comune del condominio (visibile a tutti)',
+          descrizione: 'Guasto visibile a tutti i condòmini',
+        },
+      ];
+
+      if (modalita === 'condomino') {
+        const info = await unitaResidenteNelCondominio(userId, condominioId);
+        if (info.palazzoIds.length > 0) {
+          const palazziRighe = estraiDati(
+            await db
+              .from('palazzi')
+              .select('id, nome_identificativo')
+              .in('id', info.palazzoIds)
+              .order('nome_identificativo'),
+          );
+          for (const p of palazziRighe) {
+            opzioni.push({
+              id: `palazzo:${p.id}`,
+              tipo: 'PALAZZO',
+              palazzoId: p.id,
+              scalaColonnaId: null,
+              etichetta: `Palazzo ${p.nome_identificativo}`,
+              descrizione: `Visibile ai residenti di Palazzo ${p.nome_identificativo}`,
+            });
+          }
+        }
+
+        if (info.scalaIds.length > 0) {
+          const scaleRighe = estraiDati(
+            await db
+              .from('scale_colonne')
+              .select('id, nome, palazzo_id, palazzi!inner(nome_identificativo)')
+              .in('id', info.scalaIds)
+              .order('nome'),
+          );
+          for (const s of scaleRighe) {
+            const pNome = (s.palazzi as any)?.nome_identificativo ?? 'Palazzo';
+            opzioni.push({
+              id: `scala:${s.palazzo_id}:${s.id}`,
+              tipo: 'SCALA',
+              palazzoId: s.palazzo_id,
+              scalaColonnaId: s.id,
+              etichetta: `Palazzo ${pNome} · Scala ${s.nome}`,
+              descrizione: `Visibile solo ai residenti di Scala ${s.nome}`,
+            });
+          }
+        }
+      } else {
+        // Portiere o Admin: carica tutti i palazzi e le scale del condominio
+        const palazziRighe = estraiDati(
+          await db
+            .from('palazzi')
+            .select('id, nome_identificativo')
+            .eq('condominio_id', condominioId)
+            .order('nome_identificativo'),
+        );
+        const palazziMappa = new Map(palazziRighe.map((p) => [p.id, p.nome_identificativo]));
+
+        for (const p of palazziRighe) {
+          opzioni.push({
+            id: `palazzo:${p.id}`,
+            tipo: 'PALAZZO',
+            palazzoId: p.id,
+            scalaColonnaId: null,
+            etichetta: `Palazzo ${p.nome_identificativo}`,
+            descrizione: `Visibile ai residenti di Palazzo ${p.nome_identificativo}`,
+          });
+        }
+
+        const palIds = palazziRighe.map((p) => p.id);
+        if (palIds.length > 0) {
+          const scaleRighe = estraiDati(
+            await db
+              .from('scale_colonne')
+              .select('id, nome, palazzo_id')
+              .in('palazzo_id', palIds)
+              .order('nome'),
+          );
+          for (const s of scaleRighe) {
+            const pNome = palazziMappa.get(s.palazzo_id) ?? 'Palazzo';
+            opzioni.push({
+              id: `scala:${s.palazzo_id}:${s.id}`,
+              tipo: 'SCALA',
+              palazzoId: s.palazzo_id,
+              scalaColonnaId: s.id,
+              etichetta: `Palazzo ${pNome} · Scala ${s.nome}`,
+              descrizione: `Visibile solo ai residenti di Scala ${s.nome}`,
+            });
+          }
+        }
+      }
+
+      return opzioni;
     },
 
-    /** Segnalazioni del condòmino: proprie o delle sue unità, nel condominio selezionato. */
+    /** Segnalazioni visibili al condòmino nel condominio attivo (Area comune + proprio palazzo + propria scala). */
     async elencoSegnalazioniCondomino(
       userId: string,
       condominioId: string,
     ): Promise<SegnalazioneRiepilogo[]> {
       if (!userId || !condominioId) return [];
-      const unitaIds = await unitaIdsDiResidente(userId);
+      const info = await unitaResidenteNelCondominio(userId, condominioId);
+
       const righe = estraiDati(
         await db
           .from('ticket_testata')
           .select(COLONNE_TICKET)
           .eq('condominio_id', condominioId)
-          .or(filtroTicketCondominoPostgrest(userId, unitaIds))
           .order('created_at', { ascending: false }),
       ) as RigaTicket[];
 
@@ -351,29 +517,33 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
           riga: r,
           condominioId: r.condominio_id,
           segnalatoreId: r.segnalatore_id,
+          palazzoId: r.palazzo_id,
+          scalaColonnaId: r.scala_colonna_id,
           unitaId: r.unita_id,
           isAreaComune: r.is_area_comune,
         })),
         userId,
         condominioId,
-        unitaIds,
+        info.palazzoIds,
+        info.scalaIds,
+        info.unitaIds,
       ).map((v) => v.riga);
 
       return ordinaSegnalazioni(await arricchisci(visibili), 'data-desc');
     },
 
-    /** Ticket delle aree comuni per il portiere (più quelli aperti da lui) nel condominio selezionato. */
+    /** Ticket visibili al portiere nel condominio attivo. */
     async elencoTicketPortiere(
       userId: string,
       condominioId: string,
     ): Promise<SegnalazioneRiepilogo[]> {
       if (!userId || !condominioId) return [];
+
       const righe = estraiDati(
         await db
           .from('ticket_testata')
           .select(COLONNE_TICKET)
           .eq('condominio_id', condominioId)
-          .or(filtroTicketPortierePostgrest(userId))
           .order('created_at', { ascending: false }),
       ) as RigaTicket[];
 
@@ -382,6 +552,8 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
           riga: r,
           condominioId: r.condominio_id,
           segnalatoreId: r.segnalatore_id,
+          palazzoId: r.palazzo_id,
+          scalaColonnaId: r.scala_colonna_id,
           unitaId: r.unita_id,
           isAreaComune: r.is_area_comune,
         })),
@@ -393,8 +565,8 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
     },
 
     /**
-     * Dettaglio di una segnalazione. `null` (senza enumerazione) se il ticket non esiste,
-     * è di un altro condominio o non è visibile nella modalità richiesta.
+     * Dettaglio di una segnalazione. Restituisce `null` se il ticket non esiste o
+     * non è visibile nella modalità e condominio selezionati.
      */
     async dettaglioSegnalazione(
       userId: string,
@@ -424,8 +596,8 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
     },
 
     /**
-     * Crea una segnalazione e carica le foto opzionali. In modalità `portiere` forza
-     * `is_area_comune = true` e `unita_id = null`. Il cambio stato resta all'amministratore.
+     * Crea una segnalazione su ambito condiviso (Condominio / Palazzo / Scala).
+     * Non associa mai il ticket a una singola unità immobiliare 1-a-1 (`unita_id = null`).
      */
     async creaSegnalazione(
       userId: string,
@@ -436,8 +608,9 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
       if (!userId || !condominioId) {
         return { ok: false, errori: { generale: 'Seleziona un condominio per continuare.' } };
       }
-      const unitaIds = modalita === 'condomino' ? await unitaIdsDiResidente(userId) : [];
-      const validazione = validaInputNuovaSegnalazione(input, unitaIds, modalita);
+
+      const ambitiDisponibili = await this.ambitiSelezionabili(userId, condominioId, modalita);
+      const validazione = validaInputNuovaSegnalazione(input, ambitiDisponibili, modalita);
       if (!validazione.valido) {
         return { ok: false, errori: validazione.errori as Record<string, string> };
       }
@@ -447,12 +620,14 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
       const inserito = await db.from('ticket_testata').insert({
         id: ticketId,
         condominio_id: condominioId,
-        unita_id: dati.unitaId,
+        palazzo_id: dati.palazzoId,
+        scala_colonna_id: dati.scalaColonnaId,
+        unita_id: null,
         segnalatore_id: userId,
         categoria_id: dati.categoriaId,
         titolo: dati.titolo,
         descrizione: dati.descrizione,
-        is_area_comune: dati.isAreaComune,
+        is_area_comune: true,
         priorita: dati.priorita,
       });
       if (inserito.error) lanciaErrore(inserito.error);
@@ -490,7 +665,7 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
       return { ok: true, ticketId, fotoNonCaricate };
     },
 
-    /** Aggiunge un messaggio di aggiornamento (`mittente_id = userId`) a un ticket visibile. */
+    /** Aggiunge un messaggio di aggiornamento sul ticket visibile. */
     async aggiungiMessaggio(
       userId: string,
       condominioId: string,
@@ -529,4 +704,3 @@ export function createSegnalazioniService(db: TypedSupabaseClient) {
 }
 
 export type SegnalazioniService = ReturnType<typeof createSegnalazioniService>;
-

@@ -17,7 +17,7 @@ import {
   type FornitoreAdminView,
   type TicketAdminRaw,
   type TicketAdminView,
-} from './manutenzioneLogic';
+} from './manutenzioneLogic.ts';
 
 test('mappaBadgePriorita: mappa correttamente i livelli di priorità', () => {
   assert.deepEqual(mappaBadgePriorita('URGENTE'), { label: 'Urgente', status: 'error' });
@@ -53,27 +53,40 @@ test('formattaDataItaliana e formattaEuro: formattano date e valute secondo conv
   assert.equal(formattaEuro(null), '—');
 });
 
-test('validaNuovoTicket: controlla titolo e ubicazione', () => {
+test('validaNuovoTicket: controlla titolo e ambito condiviso', () => {
   // Vuoto
   const r1 = validaNuovoTicket({});
   assert.equal(r1.valido, false);
   assert.ok(r1.errori.titolo);
-  assert.ok(r1.errori.unitaId);
 
   // Titolo troppo breve (<3)
-  const r2 = validaNuovoTicket({ titolo: 'No', isAreaComune: true });
+  const r2 = validaNuovoTicket({ titolo: 'No', ambitoTipo: 'CONDOMINIO' });
   assert.equal(r2.valido, false);
   assert.ok(r2.errori.titolo);
 
   // Area comune valida
-  const r3 = validaNuovoTicket({ titolo: 'Perdita acqua', isAreaComune: true });
+  const r3 = validaNuovoTicket({ titolo: 'Perdita acqua cortile', ambitoTipo: 'CONDOMINIO' });
   assert.equal(r3.valido, true);
   assert.deepEqual(r3.errori, {});
 
-  // Unità privata valida
-  const r4 = validaNuovoTicket({ titolo: 'Guasto citofono', isAreaComune: false, unitaId: 'u1' });
+  // Palazzo valido
+  const r4 = validaNuovoTicket({ titolo: 'Portone palazzo rotto', ambitoTipo: 'PALAZZO', palazzoId: 'pal-1' });
   assert.equal(r4.valido, true);
   assert.deepEqual(r4.errori, {});
+
+  // Palazzo senza palazzoId
+  const r5 = validaNuovoTicket({ titolo: 'Portone palazzo rotto', ambitoTipo: 'PALAZZO', palazzoId: null });
+  assert.equal(r5.valido, false);
+  assert.ok(r5.errori.ambito);
+
+  // Scala valida
+  const r6 = validaNuovoTicket({ titolo: 'Luce androne scala', ambitoTipo: 'SCALA', palazzoId: 'pal-1', scalaColonnaId: 'sca-1' });
+  assert.equal(r6.valido, true);
+
+  // Scala senza scalaColonnaId
+  const r7 = validaNuovoTicket({ titolo: 'Luce androne scala', ambitoTipo: 'SCALA', palazzoId: 'pal-1', scalaColonnaId: null });
+  assert.equal(r7.valido, false);
+  assert.ok(r7.errori.ambito);
 });
 
 test('validaNuovoFornitore: controlla ragione sociale ed email facoltativa', () => {
@@ -123,6 +136,10 @@ test('calcolaStatisticheManutenzione: conteggia aperti, lavorazione e fornitori'
     {
       id: '1',
       condominio_id: 'c1',
+      palazzo_id: null,
+      palazzo_nome: null,
+      scala_colonna_id: null,
+      scala_nome: null,
       unita_id: null,
       unita_descrizione: null,
       segnalatore_id: null,
@@ -132,6 +149,8 @@ test('calcolaStatisticheManutenzione: conteggia aperti, lavorazione e fornitori'
       titolo: 'Guasto 1',
       descrizione: null,
       is_area_comune: true,
+      ambito_tipo: 'CONDOMINIO',
+      ambito_label: 'Area comune',
       ubicazione_label: 'Area comune',
       priorita: 'URGENTE',
       stato: 'APERTO',
@@ -151,6 +170,10 @@ test('calcolaStatisticheManutenzione: conteggia aperti, lavorazione e fornitori'
     {
       id: '2',
       condominio_id: 'c1',
+      palazzo_id: 'p1',
+      palazzo_nome: 'Palazzo A',
+      scala_colonna_id: 's1',
+      scala_nome: 'Scala A',
       unita_id: null,
       unita_descrizione: null,
       segnalatore_id: null,
@@ -160,7 +183,9 @@ test('calcolaStatisticheManutenzione: conteggia aperti, lavorazione e fornitori'
       titolo: 'Guasto 2',
       descrizione: null,
       is_area_comune: true,
-      ubicazione_label: 'Area comune',
+      ambito_tipo: 'SCALA',
+      ambito_label: 'Palazzo A · Scala A',
+      ubicazione_label: 'Palazzo A · Scala A',
       priorita: 'ALTA',
       stato: 'LAVORAZIONE',
       created_at: '2026-11-05T10:00:00Z',
@@ -179,6 +204,10 @@ test('calcolaStatisticheManutenzione: conteggia aperti, lavorazione e fornitori'
     {
       id: '3',
       condominio_id: 'c1',
+      palazzo_id: 'p1',
+      palazzo_nome: 'Palazzo A',
+      scala_colonna_id: null,
+      scala_nome: null,
       unita_id: null,
       unita_descrizione: null,
       segnalatore_id: null,
@@ -188,7 +217,9 @@ test('calcolaStatisticheManutenzione: conteggia aperti, lavorazione e fornitori'
       titolo: 'Guasto 3',
       descrizione: null,
       is_area_comune: true,
-      ubicazione_label: 'Area comune',
+      ambito_tipo: 'PALAZZO',
+      ambito_label: 'Palazzo A',
+      ubicazione_label: 'Palazzo A',
       priorita: 'BASSA',
       stato: 'RISOLTO',
       created_at: '2026-11-05T10:00:00Z',
@@ -237,11 +268,15 @@ test('calcolaStatisticheManutenzione: conteggia aperti, lavorazione e fornitori'
   assert.equal(stats.fornitoriConvenzionati, 2);
 });
 
-test('filtraTicket: filtra per chip e per ricerca testuale', () => {
+test('filtraTicket: filtra per chip, ambito e per ricerca testuale', () => {
   const dummyTickets: TicketAdminView[] = [
     {
       id: '1',
       condominio_id: 'c1',
+      palazzo_id: null,
+      palazzo_nome: null,
+      scala_colonna_id: null,
+      scala_nome: null,
       unita_id: null,
       unita_descrizione: null,
       segnalatore_id: null,
@@ -251,6 +286,8 @@ test('filtraTicket: filtra per chip e per ricerca testuale', () => {
       titolo: 'Perdita autoclave vano pompe',
       descrizione: 'Allagamento piano terra',
       is_area_comune: true,
+      ambito_tipo: 'CONDOMINIO',
+      ambito_label: 'Area comune',
       ubicazione_label: 'Area comune',
       priorita: 'URGENTE',
       stato: 'APERTO',
@@ -270,16 +307,22 @@ test('filtraTicket: filtra per chip e per ricerca testuale', () => {
     {
       id: '2',
       condominio_id: 'c1',
-      unita_id: 'u2',
-      unita_descrizione: 'Palazzo A - Int. 2',
+      palazzo_id: 'p1',
+      palazzo_nome: 'Palazzo A',
+      scala_colonna_id: 's2',
+      scala_nome: 'Scala B',
+      unita_id: null,
+      unita_descrizione: null,
       segnalatore_id: null,
       segnalatore_nome: null,
       categoria_id: null,
       categoria_nome: 'Elettrico',
-      titolo: 'Guasto citofono interno',
+      titolo: 'Guasto citofono ingresso',
       descrizione: null,
-      is_area_comune: false,
-      ubicazione_label: 'Palazzo A - Int. 2',
+      is_area_comune: true,
+      ambito_tipo: 'SCALA',
+      ambito_label: 'Palazzo A · Scala B',
+      ubicazione_label: 'Palazzo A · Scala B',
       priorita: 'MEDIA',
       stato: 'LAVORAZIONE',
       created_at: '2026-11-05T10:00:00Z',
@@ -320,15 +363,24 @@ test('filtraTicket: filtra per chip e per ricerca testuale', () => {
   assert.equal(areeComuni.length, 1);
   assert.equal(areeComuni[0]?.id, '1');
 
+  // Scale
+  const scale = filtraTicket(dummyTickets, { stato: 'scale' });
+  assert.equal(scale.length, 1);
+  assert.equal(scale[0]?.id, '2');
+
+  // Filtro esplicito ambito
+  assert.equal(filtraTicket(dummyTickets, { ambito: 'SCALA' }).length, 1);
+  assert.equal(filtraTicket(dummyTickets, { ambito: 'CONDOMINIO' }).length, 1);
+
   // Ricerca fornitore
   const perFornitore = filtraTicket(dummyTickets, { ricerca: 'volta' });
   assert.equal(perFornitore.length, 1);
   assert.equal(perFornitore[0]?.id, '2');
 
-  // Ricerca ubicazione
-  const perUbicazione = filtraTicket(dummyTickets, { ricerca: 'Int. 2' });
-  assert.equal(perUbicazione.length, 1);
-  assert.equal(perUbicazione[0]?.id, '2');
+  // Ricerca ambito
+  const perAmbito = filtraTicket(dummyTickets, { ricerca: 'Scala B' });
+  assert.equal(perAmbito.length, 1);
+  assert.equal(perAmbito[0]?.id, '2');
 });
 
 test('filtraFornitori: filtra per ragione sociale o categoria', () => {
@@ -363,27 +415,25 @@ test('filtraFornitori: filtra per ragione sociale o categoria', () => {
   assert.equal(filtraFornitori(fornitori, 'non_esiste').length, 0);
 });
 
-test('trasformaTicketRawInView: converte correttamente raw in view con ubicazione ed interventi', () => {
+test('trasformaTicketRawInView: converte correttamente raw in view con ambito condiviso ed interventi', () => {
   const raw: TicketAdminRaw = {
     id: 'tkt-1',
     condominio_id: 'c1',
-    unita_id: 'u1',
+    palazzo_id: 'p1',
+    scala_colonna_id: 's1',
+    unita_id: null,
     segnalatore_id: 'seg-1',
     categoria_id: 'cat-1',
-    titolo: 'Guasto perdita',
-    descrizione: 'Tubo gocciola',
-    is_area_comune: false,
+    titolo: 'Guasto scala',
+    descrizione: 'Scalino scheggiato',
+    is_area_comune: true,
     priorita: 'ALTA',
     stato: 'LAVORAZIONE',
     created_at: '2026-11-05T08:00:00Z',
     closed_at: null,
-    categorie_guasti: { id: 'cat-1', nome: 'Idraulico' },
-    unita_immobiliari: {
-      id: 'u1',
-      interno: '3',
-      piano: 2,
-      palazzi: { id: 'p1', nome_identificativo: 'Palazzo B' },
-    },
+    palazzi: { id: 'p1', nome_identificativo: 'Palazzo B' },
+    scale_colonne: { id: 's1', nome: 'Scala A', palazzo_id: 'p1' },
+    categorie_guasti: { id: 'cat-1', nome: 'Edile' },
     utenti: { id: 'seg-1', nome_cognome: 'Mario Rossi', email: 'mario@test.it' },
     ticket_interventi: [
       {
@@ -392,11 +442,11 @@ test('trasformaTicketRawInView: converte correttamente raw in view con ubicazion
         fornitore_id: 'forn-1',
         data_prevista: '2026-11-06',
         importo_consuntivo: 180,
-        note_fornitore: 'Sostituzione raccordo',
+        note_fornitore: 'Riparazione gradino',
         fattura_url: null,
         foto_lavoro_url: null,
         created_at: '2026-11-05T09:00:00Z',
-        fornitori: { id: 'forn-1', ragione_sociale: 'Idro Rossi Srl' },
+        fornitori: { id: 'forn-1', ragione_sociale: 'Edil Rossi Srl' },
         fornitori_tokens: [
           {
             token: 'tok-abc',
@@ -411,7 +461,7 @@ test('trasformaTicketRawInView: converte correttamente raw in view con ubicazion
       {
         id: 'all-1',
         ticket_id: 'tkt-1',
-        url_storage: 'foto/perdita.png',
+        url_storage: 'foto/scalino.png',
         tipo_file: 'FOTO',
         caricato_da: 'seg-1',
         created_at: '2026-11-05T08:05:00Z',
@@ -422,7 +472,7 @@ test('trasformaTicketRawInView: converte correttamente raw in view con ubicazion
         id: 'msg-1',
         ticket_id: 'tkt-1',
         mittente_id: 'seg-1',
-        messaggio: 'Ho chiuso l’acqua',
+        messaggio: 'Ho messo il nastro di segnalazione',
         timestamp: '2026-11-05T08:10:00Z',
         utenti: { nome_cognome: 'Mario Rossi' },
       },
@@ -431,13 +481,13 @@ test('trasformaTicketRawInView: converte correttamente raw in view con ubicazion
 
   const view = trasformaTicketRawInView(raw);
   assert.equal(view.id, 'tkt-1');
-  assert.equal(view.ubicazione_label, 'Palazzo B - Int. 3 - P. 2');
-  assert.equal(view.categoria_nome, 'Idraulico');
-  assert.equal(view.fornitore_assegnato_nome, 'Idro Rossi Srl');
+  assert.equal(view.ambito_tipo, 'SCALA');
+  assert.equal(view.ambito_label, 'Palazzo B · Scala A');
+  assert.equal(view.categoria_nome, 'Edile');
+  assert.equal(view.fornitore_assegnato_nome, 'Edil Rossi Srl');
   assert.equal(view.interventi.length, 1);
   assert.equal(view.interventi[0]?.magic_token, 'tok-abc');
   assert.equal(view.interventi[0]?.importo_consuntivo_formattato, '€ 180,00');
   assert.equal(view.allegati.length, 1);
   assert.equal(view.messaggi.length, 1);
 });
-

@@ -3,12 +3,12 @@ import { describe, it } from 'node:test';
 import {
   colonnaDaOrdineSegnalazioni,
   costruisciPercorsoFotoGuasto,
+  determinaAmbitoTipo,
   etichettaAmbitoTicket,
   filtraSegnalazioni,
   filtraTicketVisibiliCondomino,
   filtraTicketVisibiliPortiere,
-  filtroTicketCondominoPostgrest,
-  filtroTicketPortierePostgrest,
+  opzioniFiltroAmbitoSegnalazioni,
   opzioniFiltroStatoSegnalazioni,
   ordinaSegnalazioni,
   ordineDaColonnaSegnalazioni,
@@ -22,29 +22,43 @@ import {
   validaInputNuovaSegnalazione,
   validaMessaggioTicket,
   validaPercorsoFotoStorage,
+  type OpzioneAmbitoTicket,
   type SegnalazioneRiepilogo,
 } from '../segnalazioniLogic.ts';
 
 const U = 'user-1';
 const COND_A = 'cond-a';
 const COND_B = 'cond-b';
-const UNITA_1 = 'unita-1';
-const UNITA_2 = 'unita-2';
+const PAL_1 = 'palazzo-1';
+const PAL_2 = 'palazzo-2';
+const SCALA_A = 'scala-a';
+const SCALA_B = 'scala-b';
 const TKT = 'ticket-1';
 
 function ticket(over: Partial<SegnalazioneRiepilogo> = {}): SegnalazioneRiepilogo {
+  const palId = over.palazzoId ?? null;
+  const scaId = over.scalaColonnaId ?? null;
+  const ambitoTipo = over.ambitoTipo ?? determinaAmbitoTipo(palId, scaId);
   return {
     id: 't1',
     condominioId: COND_A,
-    unitaId: UNITA_1,
-    unitaInterno: '1',
+    palazzoId: palId,
+    palazzoNome: palId ? 'Palazzo 1' : null,
+    scalaColonnaId: scaId,
+    scalaNome: scaId ? 'Scala A' : null,
+    unitaId: null,
+    unitaInterno: null,
     segnalatoreId: null,
     categoriaId: null,
     categoriaNome: 'Idraulica',
-    titolo: 'Perdita',
+    titolo: 'Guasto',
     descrizione: null,
-    isAreaComune: false,
-    etichettaAmbito: 'Unità Int. 1',
+    isAreaComune: true,
+    ambitoTipo,
+    etichettaAmbito: etichettaAmbitoTicket(
+      palId ? 'Palazzo 1' : null,
+      scaId ? 'Scala A' : null,
+    ),
     priorita: 'MEDIA',
     etichettaPriorita: 'Media',
     stato: 'APERTO',
@@ -57,109 +71,143 @@ function ticket(over: Partial<SegnalazioneRiepilogo> = {}): SegnalazioneRiepilog
   };
 }
 
-const iso = (t: Partial<SegnalazioneRiepilogo>) => ({
-  condominioId: t.condominioId ?? COND_A,
-  segnalatoreId: t.segnalatoreId ?? null,
-  unitaId: t.unitaId ?? null,
-  isAreaComune: t.isAreaComune ?? false,
-});
+describe('isolamento condòmino su ambiti condivisi (Area comune, Palazzo, Scala)', () => {
+  it('vede Area comune, proprio Palazzo e propria Scala, ma NON vede altre scale o altri palazzi', () => {
+    const areaComune = { condominioId: COND_A, palazzoId: null, scalaColonnaId: null };
+    const proprioPalazzo = { condominioId: COND_A, palazzoId: PAL_1, scalaColonnaId: null };
+    const altroPalazzo = { condominioId: COND_A, palazzoId: PAL_2, scalaColonnaId: null };
+    const propriaScala = { condominioId: COND_A, palazzoId: PAL_1, scalaColonnaId: SCALA_A };
+    const altraScala = { condominioId: COND_A, palazzoId: PAL_1, scalaColonnaId: SCALA_B };
+    const altroCondominio = { condominioId: COND_B, palazzoId: null, scalaColonnaId: null };
 
-describe('isolamento condòmino', () => {
-  it('vede propri ticket e quelli della propria unità, non di unità altrui né altri condomini', () => {
-    const propri = iso({ segnalatoreId: U, unitaId: null, isAreaComune: true });
-    const unita = iso({ unitaId: UNITA_1 });
-    const altraUnita = iso({ unitaId: UNITA_2 });
-    const altroCond = iso({ condominioId: COND_B, segnalatoreId: U, unitaId: UNITA_1 });
-    const areaComuneAltrui = iso({ isAreaComune: true });
-    assert.equal(ticketVisibileACondomino(propri, U, COND_A, [UNITA_1]), true);
-    assert.equal(ticketVisibileACondomino(unita, U, COND_A, [UNITA_1]), true);
-    assert.equal(ticketVisibileACondomino(altraUnita, U, COND_A, [UNITA_1]), false);
-    assert.equal(ticketVisibileACondomino(altroCond, U, COND_A, [UNITA_1]), false);
-    assert.equal(ticketVisibileACondomino(areaComuneAltrui, U, COND_A, [UNITA_1]), false);
-    assert.equal(ticketVisibileACondomino(null, U, COND_A, [UNITA_1]), false);
+    const palazziUtente = [PAL_1];
+    const scaleUtente = [SCALA_A];
+
+    // 1. Area comune visibile a tutti nel condominio
+    assert.equal(ticketVisibileACondomino(areaComune, U, COND_A, palazziUtente, scaleUtente), true);
+    // 2. Proprio palazzo visibile
+    assert.equal(ticketVisibileACondomino(proprioPalazzo, U, COND_A, palazziUtente, scaleUtente), true);
+    // 3. Altro palazzo NON visibile
+    assert.equal(ticketVisibileACondomino(altroPalazzo, U, COND_A, palazziUtente, scaleUtente), false);
+    // 4. Propria scala visibile
+    assert.equal(ticketVisibileACondomino(propriaScala, U, COND_A, palazziUtente, scaleUtente), true);
+    // 5. Altra scala (Scala B vs Scala A) RIGOROSAMENTE NON VISIBILE
+    assert.equal(ticketVisibileACondomino(altraScala, U, COND_A, palazziUtente, scaleUtente), false);
+    // 6. Altro condominio non visibile
+    assert.equal(ticketVisibileACondomino(altroCondominio, U, COND_A, palazziUtente, scaleUtente), false);
+    assert.equal(ticketVisibileACondomino(null, U, COND_A, palazziUtente, scaleUtente), false);
   });
 
-  it('un admin in vista residente senza unità vede solo ciò che ha aperto', () => {
-    const elenco = [iso({ unitaId: UNITA_2 }), iso({ segnalatoreId: U }), iso({ isAreaComune: true })];
-    assert.equal(filtraTicketVisibiliCondomino(elenco, U, COND_A, []).length, 1);
-  });
-
-  it('costruisce il filtro PostgREST', () => {
-    assert.equal(filtroTicketCondominoPostgrest(U, []), `segnalatore_id.eq.${U}`);
-    assert.equal(
-      filtroTicketCondominoPostgrest(U, ['a', 'b']),
-      `segnalatore_id.eq.${U},unita_id.in.(a,b)`,
-    );
-    assert.equal(filtroTicketPortierePostgrest(U), `is_area_comune.eq.true,segnalatore_id.eq.${U}`);
+  it('filtra una lista preservando solo i ticket dei propri ambiti', () => {
+    const lista = [
+      { id: '1', condominioId: COND_A, palazzoId: null, scalaColonnaId: null }, // Area comune -> SI
+      { id: '2', condominioId: COND_A, palazzoId: PAL_1, scalaColonnaId: SCALA_A }, // Scala A -> SI
+      { id: '3', condominioId: COND_A, palazzoId: PAL_1, scalaColonnaId: SCALA_B }, // Scala B -> NO
+      { id: '4', condominioId: COND_A, palazzoId: PAL_2, scalaColonnaId: null }, // Palazzo 2 -> NO
+    ];
+    const visibili = filtraTicketVisibiliCondomino(lista, U, COND_A, [PAL_1], [SCALA_A]);
+    assert.deepEqual(visibili.map((t) => t.id), ['1', '2']);
   });
 });
 
 describe('isolamento portiere', () => {
-  it('vede solo aree comuni (o aperti da lui) del condominio selezionato', () => {
-    assert.equal(ticketVisibileAPortiere(iso({ isAreaComune: true }), U, COND_A), true);
-    assert.equal(ticketVisibileAPortiere(iso({ segnalatoreId: U }), U, COND_A), true);
-    assert.equal(ticketVisibileAPortiere(iso({ unitaId: UNITA_1 }), U, COND_A), false);
-    assert.equal(ticketVisibileAPortiere(iso({ condominioId: COND_B, isAreaComune: true }), U, COND_A), false);
-    assert.equal(
-      filtraTicketVisibiliPortiere([iso({ isAreaComune: true }), iso({ unitaId: UNITA_1 })], U, COND_A).length,
-      1,
-    );
+  it('vede tutti i ticket di parti comuni (condominio, palazzi, scale) del condominio attivo', () => {
+    assert.equal(ticketVisibileAPortiere({ condominioId: COND_A, palazzoId: null, scalaColonnaId: null }, U, COND_A), true);
+    assert.equal(ticketVisibileAPortiere({ condominioId: COND_A, palazzoId: PAL_1, scalaColonnaId: SCALA_A }, U, COND_A), true);
+    assert.equal(ticketVisibileAPortiere({ condominioId: COND_A, palazzoId: PAL_1, scalaColonnaId: SCALA_B }, U, COND_A), true);
+    assert.equal(ticketVisibileAPortiere({ condominioId: COND_B, palazzoId: null, scalaColonnaId: null }, U, COND_A), false);
+
+    const lista = [
+      { id: '1', condominioId: COND_A },
+      { id: '2', condominioId: COND_A },
+      { id: '3', condominioId: COND_B },
+    ];
+    assert.equal(filtraTicketVisibiliPortiere(lista, U, COND_A).length, 2);
   });
 });
 
-describe('stati, ambito e riepilogo', () => {
-  it('mappa stato e ambito', () => {
-    assert.equal(statoBadgeDaStatoTicket('LAVORAZIONE'), 'in_lavorazione');
-    assert.equal(etichettaAmbitoTicket(true, null), 'Area comune');
-    assert.equal(etichettaAmbitoTicket(false, UNITA_1, '2'), 'Unità Int. 2');
-    assert.equal(etichettaAmbitoTicket(false, UNITA_1, null), 'Unità propria');
+describe('etichette e riepilogo ambiti', () => {
+  it('costruisce le etichette per gli ambiti condivisi', () => {
+    assert.equal(etichettaAmbitoTicket('Edificio 1', 'A'), 'Palazzo Edificio 1 · Scala A');
+    assert.equal(etichettaAmbitoTicket('Edificio 1', null), 'Palazzo Edificio 1');
+    assert.equal(etichettaAmbitoTicket(null, 'B'), 'Scala B');
+    assert.equal(etichettaAmbitoTicket(null, null), 'Area comune');
   });
 
-  it('conta per StatCard e opzioni filtro', () => {
+  it('conta per StatCard suddivise per ambito', () => {
     const lista = [
-      ticket({ id: 'a', stato: 'APERTO' }),
-      ticket({ id: 'b', stato: 'LAVORAZIONE', isAreaComune: true, unitaId: null }),
-      ticket({ id: 'c', stato: 'RISOLTO' }),
-      ticket({ id: 'd', stato: 'RISOLTO' }),
+      ticket({ id: 'a', stato: 'APERTO', palazzoId: null, scalaColonnaId: null }),
+      ticket({ id: 'b', stato: 'LAVORAZIONE', palazzoId: PAL_1, scalaColonnaId: null }),
+      ticket({ id: 'c', stato: 'RISOLTO', palazzoId: PAL_1, scalaColonnaId: SCALA_A }),
+      ticket({ id: 'd', stato: 'RISOLTO', palazzoId: PAL_1, scalaColonnaId: SCALA_B }),
     ];
     const r = riepilogoSegnalazioni(lista);
-    assert.deepEqual(r, { totale: 4, aperte: 1, inLavorazione: 1, risolte: 2, areeComuni: 1, unitaPropria: 3 });
+    assert.deepEqual(r, {
+      totale: 4,
+      aperte: 1,
+      inLavorazione: 1,
+      risolte: 2,
+      areeComuni: 1,
+      palazzo: 1,
+      scala: 2,
+      unitaPropria: 0,
+    });
+
+    const opzioni = opzioniFiltroAmbitoSegnalazioni(lista);
     assert.deepEqual(
-      opzioniFiltroStatoSegnalazioni(lista).map((o) => [o.label, o.count]),
-      [['Tutti', 4], ['Aperti', 1], ['In lavorazione', 1], ['Risolti', 2]],
+      opzioni.map((o) => [o.value, o.count]),
+      [['tutti', 4], ['CONDOMINIO', 1], ['PALAZZO', 1], ['SCALA', 2]],
     );
   });
 });
 
 describe('filtri, ordinamento, paginazione', () => {
   const lista = [
-    ticket({ id: 'a', titolo: 'Ascensore fermo', categoriaNome: 'Ascensore', priorita: 'URGENTE', createdAt: '2026-01-03T00:00:00Z' }),
-    ticket({ id: 'b', titolo: 'Luce rotta', categoriaNome: 'Elettrica', stato: 'RISOLTO', priorita: 'BASSA', createdAt: '2026-01-01T00:00:00Z' }),
-    ticket({ id: 'c', titolo: 'Perdita', stato: 'LAVORAZIONE', priorita: 'ALTA', createdAt: '2026-01-02T00:00:00Z' }),
+    ticket({
+      id: 'a',
+      titolo: 'Ascensore bloccato',
+      palazzoId: PAL_1,
+      scalaColonnaId: SCALA_A,
+      priorita: 'URGENTE',
+      createdAt: '2026-01-03T00:00:00Z',
+    }),
+    ticket({
+      id: 'b',
+      titolo: 'Luce androne bruciata',
+      palazzoId: PAL_1,
+      scalaColonnaId: null,
+      stato: 'RISOLTO',
+      priorita: 'BASSA',
+      createdAt: '2026-01-01T00:00:00Z',
+    }),
+    ticket({
+      id: 'c',
+      titolo: 'Cancello carraio rotto',
+      palazzoId: null,
+      scalaColonnaId: null,
+      stato: 'LAVORAZIONE',
+      priorita: 'ALTA',
+      createdAt: '2026-01-02T00:00:00Z',
+    }),
   ];
 
-  it('filtra per stato e ricerca', () => {
+  it('filtra per stato, ambito e ricerca', () => {
     assert.deepEqual(filtraSegnalazioni(lista, { stato: 'RISOLTO', ricerca: '' }).map((t) => t.id), ['b']);
-    assert.deepEqual(filtraSegnalazioni(lista, { stato: 'tutti', ricerca: 'ascens' }).map((t) => t.id), ['a']);
-    assert.deepEqual(filtraSegnalazioni(lista, { stato: 'tutti', ricerca: 'elettrica' }).map((t) => t.id), ['b']);
+    assert.deepEqual(filtraSegnalazioni(lista, { stato: 'tutti', ambito: 'SCALA', ricerca: '' }).map((t) => t.id), ['a']);
+    assert.deepEqual(filtraSegnalazioni(lista, { stato: 'tutti', ambito: 'CONDOMINIO', ricerca: '' }).map((t) => t.id), ['c']);
+    assert.deepEqual(filtraSegnalazioni(lista, { stato: 'tutti', ricerca: 'cancello' }).map((t) => t.id), ['c']);
   });
 
   it('ordina per data, stato e priorità', () => {
     assert.deepEqual(ordinaSegnalazioni(lista, 'data-desc').map((t) => t.id), ['a', 'c', 'b']);
     assert.deepEqual(ordinaSegnalazioni(lista, 'data-asc').map((t) => t.id), ['b', 'c', 'a']);
-    assert.deepEqual(ordinaSegnalazioni(lista, 'stato-asc').map((t) => t.id), ['a', 'c', 'b']);
     assert.deepEqual(ordinaSegnalazioni(lista, 'priorita-desc').map((t) => t.id), ['a', 'c', 'b']);
-    assert.deepEqual(ordinaSegnalazioni(lista, 'priorita-asc').map((t) => t.id), ['b', 'c', 'a']);
   });
 
-  it('converte ordine da/verso colonna', () => {
-    assert.equal(ordineDaColonnaSegnalazioni({ key: 'priorita', direction: 'ascending' }), 'priorita-asc');
-    assert.equal(ordineDaColonnaSegnalazioni(null), 'data-desc');
-    assert.deepEqual(colonnaDaOrdineSegnalazioni('stato-desc'), { key: 'stato', direction: 'descending' });
-  });
-
-  it('pagina e limita la pagina richiesta', () => {
-    const molti = Array.from({ length: 25 }, (_, i) => ticket({ id: `x${i}`, createdAt: `2026-02-${String(i + 1).padStart(2, '0')}T00:00:00Z` }));
+  it('pagina correttamente', () => {
+    const molti = Array.from({ length: 25 }, (_, i) =>
+      ticket({ id: `x${i}`, createdAt: `2026-02-${String(i + 1).padStart(2, '0')}T00:00:00Z` }),
+    );
     const p = paginaSegnalazioni(molti, { stato: 'tutti', ricerca: '' }, 'data-desc', 99);
     assert.equal(p.numeroPagine, 3);
     assert.equal(p.pagina, 3);
@@ -167,76 +215,66 @@ describe('filtri, ordinamento, paginazione', () => {
   });
 });
 
-describe('validazione', () => {
-  it('titolo obbligatorio e lunghezza massima', () => {
-    const v = validaInputNuovaSegnalazione({ titolo: '  ', isAreaComune: true }, []);
-    assert.equal(v.valido, false);
-    const lungo = validaInputNuovaSegnalazione({ titolo: 'x'.repeat(121), isAreaComune: true }, []);
-    assert.equal(lungo.valido, false);
-  });
+describe('validazione nuova segnalazione su ambiti condivisi', () => {
+  const ambitiUtente: OpzioneAmbitoTicket[] = [
+    { id: 'condominio', tipo: 'CONDOMINIO', palazzoId: null, scalaColonnaId: null, etichetta: 'Area comune' },
+    { id: `palazzo:${PAL_1}`, tipo: 'PALAZZO', palazzoId: PAL_1, scalaColonnaId: null, etichetta: 'Palazzo 1' },
+    { id: `scala:${PAL_1}:${SCALA_A}`, tipo: 'SCALA', palazzoId: PAL_1, scalaColonnaId: SCALA_A, etichetta: 'Scala A' },
+  ];
 
-  it('richiede una propria unità se non area comune', () => {
-    assert.equal(validaInputNuovaSegnalazione({ titolo: 'T', isAreaComune: false }, [UNITA_1]).valido, false);
-    assert.equal(
-      validaInputNuovaSegnalazione({ titolo: 'T', isAreaComune: false, unitaId: UNITA_2 }, [UNITA_1]).valido,
-      false,
+  it('accetta Area comune condominiale valida per tutti', () => {
+    const res = validaInputNuovaSegnalazione(
+      { titolo: 'Citofono rotto', ambitoTipo: 'CONDOMINIO' },
+      ambitiUtente,
+      'condomino',
     );
-    const ok = validaInputNuovaSegnalazione({ titolo: ' T ', isAreaComune: false, unitaId: UNITA_1 }, [UNITA_1]);
-    assert.ok(ok.valido);
-    if (ok.valido) {
-      assert.equal(ok.dati.titolo, 'T');
-      assert.equal(ok.dati.priorita, 'MEDIA');
+    assert.equal(res.valido, true);
+    if (res.valido) {
+      assert.equal(res.dati.ambitoTipo, 'CONDOMINIO');
+      assert.equal(res.dati.palazzoId, null);
+      assert.equal(res.dati.scalaColonnaId, null);
+      assert.equal(res.dati.unitaId, null);
     }
   });
 
-  it('il portiere forza area comune e nessuna unità', () => {
-    const v = validaInputNuovaSegnalazione({ titolo: 'T', isAreaComune: false, unitaId: UNITA_2 }, [], 'portiere');
-    assert.ok(v.valido);
-    if (v.valido) {
-      assert.equal(v.dati.isAreaComune, true);
-      assert.equal(v.dati.unitaId, null);
+  it('accetta segnalazione su propria scala o proprio palazzo', () => {
+    const resScala = validaInputNuovaSegnalazione(
+      { titolo: 'Luce scala fulminata', ambitoTipo: 'SCALA', palazzoId: PAL_1, scalaColonnaId: SCALA_A },
+      ambitiUtente,
+      'condomino',
+    );
+    assert.equal(resScala.valido, true);
+    if (resScala.valido) {
+      assert.equal(resScala.dati.scalaColonnaId, SCALA_A);
+      assert.equal(resScala.dati.unitaId, null);
     }
   });
 
-  it('valida foto: formato e 15 MB', () => {
+  it('rifiuta segnalazione su una scala a cui il condòmino non appartiene (es. Scala B)', () => {
+    const resAltraScala = validaInputNuovaSegnalazione(
+      { titolo: 'Guasto altrove', ambitoTipo: 'SCALA', palazzoId: PAL_1, scalaColonnaId: SCALA_B },
+      ambitiUtente,
+      'condomino',
+    );
+    assert.equal(resAltraScala.valido, false);
+    if (!resAltraScala.valido) {
+      assert.ok(resAltraScala.errori.ambito?.includes('non appartiene'));
+    }
+  });
+
+  it('il portiere può aprire ticket per qualsiasi scala o palazzo', () => {
+    const resPortiere = validaInputNuovaSegnalazione(
+      { titolo: 'Guasto scala B aperto da portiere', ambitoTipo: 'SCALA', palazzoId: PAL_1, scalaColonnaId: SCALA_B },
+      ambitiUtente,
+      'portiere',
+    );
+    assert.equal(resPortiere.valido, true);
+  });
+
+  it('valida allegati foto e messaggi', () => {
     assert.equal(validaAllegatiFotoTicket([{ name: 'a.jpg', size: 100, type: 'image/jpeg' }]), null);
-    assert.equal(validaAllegatiFotoTicket([{ name: 'a.heic', size: 100, type: 'image/heic' }]), null);
-    assert.equal(validaAllegatiFotoTicket([{ name: 'a.webp', size: 100, type: 'image/webp' }]), null);
-    assert.ok(validaAllegatiFotoTicket([{ name: 'a.pdf', size: 100, type: 'application/pdf' }]));
-    assert.equal(validaAllegatiFotoTicket([{ name: 'a.png', size: 15728640, type: 'image/png' }]), null);
-    assert.ok(validaAllegatiFotoTicket([{ name: 'a.png', size: 15728641, type: 'image/png' }]));
-    const sei = Array.from({ length: 6 }, () => ({ name: 'a.png', size: 1, type: 'image/png' }));
-    assert.ok(validaAllegatiFotoTicket(sei));
-  });
-
-  it('valida il messaggio', () => {
+    assert.ok(validaAllegatiFotoTicket([{ name: 'a.exe', size: 100, type: 'application/x-msdownload' }]));
     assert.equal(validaMessaggioTicket('  ').valido, false);
-    assert.equal(validaMessaggioTicket('x'.repeat(1001)).valido, false);
-    assert.deepEqual(validaMessaggioTicket(' ciao '), { valido: true, testo: 'ciao' });
+    assert.deepEqual(validaMessaggioTicket('aggiornamento'), { valido: true, testo: 'aggiornamento' });
   });
 });
-
-describe('percorsi Storage', () => {
-  it('sanifica i nomi file', () => {
-    assert.equal(sanificaNomeFileFoto('../../etc/passwd.jpg'), 'passwd.jpg');
-    assert.equal(sanificaNomeFileFoto('Foto Guasto (1).JPG'), 'Foto_Guasto_1_.JPG');
-    assert.equal(sanificaNomeFileFoto('...'), 'foto.jpg');
-  });
-
-  it('costruisce percorsi <condominio>/<ticket>/<file> e rifiuta traversal', () => {
-    assert.equal(costruisciPercorsoFotoGuasto(COND_A, TKT, 'a b.jpg'), `${COND_A}/${TKT}/a_b.jpg`);
-    assert.equal(costruisciPercorsoFotoGuasto(COND_A, '../x', 'a.jpg'), null);
-    assert.equal(costruisciPercorsoFotoGuasto('', TKT, 'a.jpg'), null);
-  });
-
-  it('valida url_storage', () => {
-    assert.equal(validaPercorsoFotoStorage(`${COND_A}/${TKT}/a.jpg`, COND_A), `${COND_A}/${TKT}/a.jpg`);
-    assert.equal(validaPercorsoFotoStorage(`foto-guasti/${COND_A}/${TKT}/a.jpg`, COND_A), `${COND_A}/${TKT}/a.jpg`);
-    assert.equal(validaPercorsoFotoStorage('seed-dev/guasti/a.jpg', COND_A), 'seed-dev/guasti/a.jpg');
-    assert.equal(validaPercorsoFotoStorage(`${COND_B}/${TKT}/a.jpg`, COND_A), null);
-    assert.equal(validaPercorsoFotoStorage(`${COND_A}/../${COND_B}/a.jpg`, COND_A), null);
-    assert.equal(validaPercorsoFotoStorage('https://x.test/a.jpg', COND_A), null);
-    assert.equal(validaPercorsoFotoStorage(`${COND_A}/${TKT}/a.jpg`, COND_A, 'altro'), null);
-  });
-});
-

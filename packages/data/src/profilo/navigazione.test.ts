@@ -111,6 +111,100 @@ test('barra mobile: se mancano voci si passa alle successive; con 4 voci niente 
   assert.deepEqual(mobile.altre, []);
 });
 
+test('amministratore e super amministratore: i moduli residenti spenti non alterano le voci admin', () => {
+  const moduliTuttiSpenti: ModuliAttivi = {
+    abilita_social: false,
+    abilita_chat: false,
+    abilita_bacheca: false,
+    abilita_ticket: false,
+    abilita_prenotazioni: false,
+    abilita_pacchi: false,
+    abilita_spese: false,
+    abilita_pagamenti: false,
+    abilita_documenti: false,
+    abilita_assemblee: false,
+    abilita_raccolta_differenziata: false,
+  };
+  // Sull'admin tutte le sezioni di gestione rimangono accessibili per configurazione o archivio
+  const adminVoci = ids(vociDi({ vista: 'ADMIN', ruoli: new Set(['ADMIN']), moduli: moduliTuttiSpenti }));
+  assert.ok(adminVoci.includes('moduli'));
+  assert.ok(adminVoci.includes('dashboard'));
+  assert.ok(adminVoci.includes('contabilita'));
+  assert.ok(adminVoci.includes('manutenzione'));
+  assert.ok(adminVoci.includes('comunicazioni'));
+  assert.ok(adminVoci.includes('documenti'));
+  assert.ok(adminVoci.includes('assemblee'));
+  assert.ok(adminVoci.includes('prenotazioni'));
+  assert.ok(adminVoci.includes('raccolta-differenziata'));
+});
+
+test('barra mobile: ricalcolo con tutte le 5 voci prioritarie spente (spese, documenti, comunicazioni, pacchi, segnalazioni)', () => {
+  const senzaPrioritarie = vociDi(
+    residente(['CONDOMINO', 'PORTIERE'], {
+      ...tutti,
+      abilita_spese: false,
+      abilita_documenti: false,
+      abilita_chat: false,
+      abilita_bacheca: false,
+      abilita_pacchi: false,
+      abilita_ticket: false,
+    }),
+  );
+  const { barra, altre } = navigazioneMobile(senzaPrioritarie, 'RESIDENTE');
+  // Le 4 voci subentrate devono essere le successive in ordine di vociDi: home, pagamenti, assemblee, prenotazioni
+  assert.deepEqual(barra.map((v) => v.id), ['home', 'pagamenti', 'assemblee', 'prenotazioni']);
+  assert.equal(barra.length, 4);
+  // Altre contiene il resto: raccolta-differenziata, impostazioni, assistenza
+  assert.deepEqual(ids(altre), ['raccolta-differenziata', 'impostazioni', 'assistenza']);
+});
+
+test('barra mobile: caso limite con <= 4 voci attive totali (nessuna voce "Altro")', () => {
+  const quasiTuttoSpento = vociDi(
+    residente(['CONDOMINO'], {
+      abilita_social: false,
+      abilita_chat: false,
+      abilita_bacheca: false,
+      abilita_ticket: false,
+      abilita_prenotazioni: false,
+      abilita_pacchi: false,
+      abilita_spese: false,
+      abilita_pagamenti: false,
+      abilita_documenti: false,
+      abilita_assemblee: false,
+      abilita_raccolta_differenziata: false,
+    }),
+  );
+  // Rimangono solo: home, impostazioni, assistenza (3 voci)
+  assert.deepEqual(ids(quasiTuttoSpento), ['home', 'impostazioni', 'assistenza']);
+  const { barra, altre } = navigazioneMobile(quasiTuttoSpento, 'RESIDENTE');
+  assert.equal(barra.length, 3);
+  assert.deepEqual(barra.map((v) => v.id), ['home', 'impostazioni', 'assistenza']);
+  assert.deepEqual(altre, [], 'quando le voci totali sono <= 4, altre deve essere un array vuoto');
+});
+
+test('ibrido condòmino + portiere: combinazione toggle parziali', () => {
+  const ibrido = vociDi(
+    residente(['CONDOMINO', 'PORTIERE'], {
+      ...tutti,
+      abilita_pacchi: false,
+      abilita_ticket: false,
+      abilita_prenotazioni: false,
+    }),
+  );
+  const vociIbrido = ids(ibrido);
+  // Pacchi e prenotazioni spenti
+  assert.ok(!vociIbrido.includes('pacchi'));
+  assert.ok(!vociIbrido.includes('prenotazioni'));
+  // Con abilita_ticket = false sia le segnalazioni private sia i ticket aree comuni sono spenti
+  assert.ok(!vociIbrido.includes('segnalazioni'));
+  assert.ok(!vociIbrido.includes('ticket-aree-comuni'));
+  // Altre sezioni attive
+  assert.ok(vociIbrido.includes('spese'));
+  assert.ok(vociIbrido.includes('pagamenti'));
+  assert.ok(vociIbrido.includes('documenti'));
+  assert.ok(vociIbrido.includes('comunicazioni'));
+});
+
 test('voceAttiva: percorso esatto o pagina di dettaglio', () => {
   const voci = vociDi(residente(['CONDOMINO']));
   assert.equal(voceAttiva(voci, '/spese')?.id, 'spese');

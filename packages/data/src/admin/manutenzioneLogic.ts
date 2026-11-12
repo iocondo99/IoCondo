@@ -2,6 +2,7 @@ import type { BadgeStatus } from '@iocondo/ui';
 
 export type PrioritaTicket = 'BASSA' | 'MEDIA' | 'ALTA' | 'URGENTE';
 export type StatoTicket = 'APERTO' | 'LAVORAZIONE' | 'RISOLTO';
+export type TipoAmbitoAdmin = 'CONDOMINIO' | 'PALAZZO' | 'SCALA';
 
 export interface FornitoreAdminView {
   id: string;
@@ -55,7 +56,9 @@ export interface TicketInterventoAdminView {
 export interface TicketAdminRaw {
   id: string;
   condominio_id: string;
-  unita_id: string | null;
+  palazzo_id?: string | null;
+  scala_colonna_id?: string | null;
+  unita_id?: string | null;
   segnalatore_id: string | null;
   categoria_id: string | null;
   titolo: string;
@@ -66,6 +69,15 @@ export interface TicketAdminRaw {
   created_at: string;
   updated_at?: string;
   closed_at: string | null;
+  palazzi?: {
+    id: string;
+    nome_identificativo: string;
+  } | null;
+  scale_colonne?: {
+    id: string;
+    nome: string;
+    palazzo_id: string;
+  } | null;
   categorie_guasti?: {
     id: string;
     nome: string;
@@ -128,6 +140,10 @@ export interface TicketAdminRaw {
 export interface TicketAdminView {
   id: string;
   condominio_id: string;
+  palazzo_id: string | null;
+  palazzo_nome: string | null;
+  scala_colonna_id: string | null;
+  scala_nome: string | null;
   unita_id: string | null;
   unita_descrizione: string | null;
   segnalatore_id: string | null;
@@ -137,7 +153,9 @@ export interface TicketAdminView {
   titolo: string;
   descrizione: string | null;
   is_area_comune: boolean;
-  ubicazione_label: string;
+  ambito_tipo: TipoAmbitoAdmin;
+  ambito_label: string;
+  ubicazione_label: string; // Alias retrocompatibile
   priorita: PrioritaTicket;
   stato: StatoTicket;
   created_at: string;
@@ -155,7 +173,8 @@ export interface TicketAdminView {
 }
 
 export interface FiltriManutenzioneAdmin {
-  stato?: 'tutti' | 'aperti' | 'in_lavorazione' | 'risolti' | 'urgenti' | 'aree_comuni' | string;
+  stato?: 'tutti' | 'aperti' | 'in_lavorazione' | 'risolti' | 'urgenti' | 'aree_comuni' | 'palazzi' | 'scale' | string;
+  ambito?: 'tutti' | 'CONDOMINIO' | 'PALAZZO' | 'SCALA' | string;
   categoria?: string;
   priorita?: string;
   ricerca?: string;
@@ -216,8 +235,8 @@ export function mappaBadgePriorita(priorita: PrioritaTicket): { label: string; s
 
 /**
  * Mappatura colori e badge per lo stato del ticket:
- * - APERTO: azzurro / info (o warning)
- * - LAVORAZIONE: in-lavorazione / attenzione
+ * - APERTO: azzurro / info
+ * - LAVORAZIONE: in-lavorazione
  * - RISOLTO: verde / successo
  */
 export function mappaBadgeStato(stato: StatoTicket): { label: string; status: BadgeStatus } {
@@ -270,22 +289,57 @@ export function calcolaStatisticheManutenzione(
   };
 }
 
+function formattaPrefisso(val: string, prefisso: string): string {
+  const v = val.trim();
+  if (v.toLowerCase().startsWith(prefisso.toLowerCase())) return v;
+  return `${prefisso} ${v}`;
+}
+
 /**
  * Trasforma il record grezzo di ticket_testata con le sue relazioni in vista per la UI.
  */
 export function trasformaTicketRawInView(raw: TicketAdminRaw): TicketAdminView {
-  // Ubicazione
-  let ubicazione_label = 'Area comune';
+  // Determinazione Ambito Condiviso
+  let ambito_tipo: TipoAmbitoAdmin = 'CONDOMINIO';
+  let palazzo_id: string | null = raw.palazzo_id ?? null;
+  let palazzo_nome: string | null = raw.palazzi?.nome_identificativo ?? null;
+  let scala_colonna_id: string | null = raw.scala_colonna_id ?? null;
+  let scala_nome: string | null = raw.scale_colonne?.nome ?? null;
+  let ambito_label = 'Area comune';
   let unita_descrizione: string | null = null;
-  if (!raw.is_area_comune && raw.unita_immobiliari) {
+
+  if (raw.scala_colonna_id || raw.scale_colonne) {
+    ambito_tipo = 'SCALA';
+    scala_colonna_id = raw.scala_colonna_id ?? raw.scale_colonne?.id ?? null;
+    scala_nome = raw.scale_colonne?.nome ?? null;
+    palazzo_id = raw.palazzo_id ?? raw.scale_colonne?.palazzo_id ?? null;
+    palazzo_nome = raw.palazzi?.nome_identificativo ?? null;
+
+    const pFmt = palazzo_nome ? formattaPrefisso(palazzo_nome, 'Palazzo') : null;
+    const sFmt = scala_nome ? formattaPrefisso(scala_nome, 'Scala') : null;
+    if (pFmt && sFmt) {
+      ambito_label = `${pFmt} · ${sFmt}`;
+    } else if (sFmt) {
+      ambito_label = sFmt;
+    } else if (pFmt) {
+      ambito_label = pFmt;
+    }
+  } else if (raw.palazzo_id || raw.palazzi) {
+    ambito_tipo = 'PALAZZO';
+    palazzo_id = raw.palazzo_id ?? raw.palazzi?.id ?? null;
+    palazzo_nome = raw.palazzi?.nome_identificativo ?? null;
+    ambito_label = palazzo_nome ? formattaPrefisso(palazzo_nome, 'Palazzo') : 'Palazzo';
+  } else if (raw.unita_immobiliari && !raw.is_area_comune) {
+    // Fallback storico per vecchie righe associate a unita_immobiliari
     const pNome = raw.unita_immobiliari.palazzi?.nome_identificativo;
     const interno = raw.unita_immobiliari.interno;
     const piano = raw.unita_immobiliari.piano;
     const pezzi = [pNome, interno ? `Int. ${interno}` : null, piano !== null && piano !== undefined ? `P. ${piano}` : null].filter(Boolean);
     unita_descrizione = pezzi.join(' - ');
-    ubicazione_label = unita_descrizione || 'Unità privata';
-  } else if (raw.is_area_comune) {
-    ubicazione_label = 'Area comune';
+    ambito_label = unita_descrizione || 'Area comune';
+  } else {
+    ambito_tipo = 'CONDOMINIO';
+    ambito_label = 'Area comune';
   }
 
   // Interventi
@@ -336,7 +390,11 @@ export function trasformaTicketRawInView(raw: TicketAdminRaw): TicketAdminView {
   return {
     id: raw.id,
     condominio_id: raw.condominio_id,
-    unita_id: raw.unita_id,
+    palazzo_id,
+    palazzo_nome,
+    scala_colonna_id,
+    scala_nome,
+    unita_id: raw.unita_id ?? null,
     unita_descrizione,
     segnalatore_id: raw.segnalatore_id,
     segnalatore_nome: raw.utenti?.nome_cognome ?? null,
@@ -345,7 +403,9 @@ export function trasformaTicketRawInView(raw: TicketAdminRaw): TicketAdminView {
     titolo: raw.titolo,
     descrizione: raw.descrizione,
     is_area_comune: Boolean(raw.is_area_comune),
-    ubicazione_label,
+    ambito_tipo,
+    ambito_label,
+    ubicazione_label: ambito_label,
     priorita: raw.priorita,
     stato: raw.stato,
     created_at: raw.created_at,
@@ -364,7 +424,7 @@ export function trasformaTicketRawInView(raw: TicketAdminRaw): TicketAdminView {
 }
 
 /**
- * Filtra i ticket secondo chip di stato/priorità, categoria e stringa di ricerca.
+ * Filtra i ticket secondo chip di stato/priorità, categoria, ambito e stringa di ricerca.
  */
 export function filtraTicket(
   tickets: TicketAdminView[],
@@ -374,6 +434,7 @@ export function filtraTicket(
   const query = (filtri.ricerca || '').trim().toLowerCase();
   const categoria = (filtri.categoria || '').trim().toLowerCase();
   const priorita = (filtri.priorita || '').trim().toUpperCase();
+  const ambitoFiltro = filtri.ambito || 'tutti';
 
   return tickets.filter((ticket) => {
     // 1. Filtro rapido chip
@@ -381,7 +442,14 @@ export function filtraTicket(
     if (stato === 'in_lavorazione' && ticket.stato !== 'LAVORAZIONE') return false;
     if (stato === 'risolti' && ticket.stato !== 'RISOLTO') return false;
     if (stato === 'urgenti' && ticket.priorita !== 'URGENTE') return false;
-    if (stato === 'aree_comuni' && !ticket.is_area_comune) return false;
+    if (stato === 'aree_comuni' && ticket.ambito_tipo !== 'CONDOMINIO') return false;
+    if (stato === 'palazzi' && ticket.ambito_tipo !== 'PALAZZO') return false;
+    if (stato === 'scale' && ticket.ambito_tipo !== 'SCALA') return false;
+
+    // Filtro ambito esplicito
+    if (ambitoFiltro && ambitoFiltro !== 'tutti' && ticket.ambito_tipo !== ambitoFiltro) {
+      return false;
+    }
 
     // 2. Filtro categoria opzionale
     if (categoria && categoria !== 'tutte' && ticket.categoria_nome.toLowerCase() !== categoria) {
@@ -398,10 +466,10 @@ export function filtraTicket(
       const matchTitolo = ticket.titolo.toLowerCase().includes(query);
       const matchDesc = ticket.descrizione?.toLowerCase().includes(query) ?? false;
       const matchFornitore = ticket.fornitore_assegnato_nome.toLowerCase().includes(query);
-      const matchUbicazione = ticket.ubicazione_label.toLowerCase().includes(query);
+      const matchAmbito = ticket.ambito_label.toLowerCase().includes(query);
       const matchCategoria = ticket.categoria_nome.toLowerCase().includes(query);
 
-      if (!matchTitolo && !matchDesc && !matchFornitore && !matchUbicazione && !matchCategoria) {
+      if (!matchTitolo && !matchDesc && !matchFornitore && !matchAmbito && !matchCategoria) {
         return false;
       }
     }
@@ -431,14 +499,17 @@ export function filtraFornitori(
 }
 
 /**
- * Validazione creazione nuovo ticket da parte dell'amministratore.
+ * Validazione creazione nuovo ticket da parte dell'amministratore (esclusivamente su ambiti condivisi).
  */
 export function validaNuovoTicket(input: {
   titolo?: string | null;
   categoriaId?: string | null;
+  ambitoTipo?: TipoAmbitoAdmin | string | null;
+  palazzoId?: string | null;
+  scalaColonnaId?: string | null;
+  priorita?: string | null;
   isAreaComune?: boolean;
   unitaId?: string | null;
-  priorita?: string | null;
 }): { valido: boolean; errori: Record<string, string> } {
   const errori: Record<string, string> = {};
   const titolo = (input.titolo || '').trim();
@@ -449,8 +520,11 @@ export function validaNuovoTicket(input: {
     errori.titolo = 'Il titolo deve contenere almeno 3 caratteri.';
   }
 
-  if (!input.isAreaComune && !input.unitaId) {
-    errori.unitaId = 'Seleziona l’unità immobiliare interessata o contrassegna come area comune.';
+  const tipo = input.ambitoTipo || (input.isAreaComune ? 'CONDOMINIO' : (input.scalaColonnaId ? 'SCALA' : (input.palazzoId ? 'PALAZZO' : 'CONDOMINIO')));
+  if (tipo === 'PALAZZO' && !input.palazzoId) {
+    errori.ambito = 'Seleziona il palazzo interessato dal guasto.';
+  } else if (tipo === 'SCALA' && !input.scalaColonnaId) {
+    errori.ambito = 'Seleziona la scala interessata dal guasto.';
   }
 
   return {
@@ -533,4 +607,3 @@ export function validaChiusuraTicket(input: {
     importoNumerico,
   };
 }
-

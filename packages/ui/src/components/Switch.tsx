@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { colors, radii, space, touchTarget } from '../tokens';
 import {
   cursorStyle,
@@ -37,6 +38,9 @@ export function Switch({
   const transition = useColorTransition();
   const message = error ?? helperText;
   const a11yLabel = accessibilityLabel ?? label ?? (checked ? 'Attivo' : 'Disattivato');
+  const [isFocused, setIsFocused] = useState(false);
+  const webOutlineReset: ViewStyle | undefined =
+    Platform.OS === 'web' ? ({ outlineWidth: 0 } as ViewStyle) : undefined;
 
   const onKeyDown = (event: KeyEventLike) => {
     const key = keyOf(event);
@@ -99,12 +103,14 @@ export function Switch({
         aria-invalid={error ? true : undefined}
         disabled={disabled}
         onPress={() => onChange(!checked)}
-        style={[styles.pressableRow, cursorStyle(disabled)]}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        style={[styles.pressableRow, cursorStyle(disabled), webOutlineReset]}
         {...keyboardProps(onKeyDown)}
       >
         {({ focused, hovered }: PressState) => (
           <>
-            <View style={styles.controlTouchZone}>{renderControl(!!focused, !!hovered)}</View>
+            <View style={styles.controlTouchZone}>{renderControl(isFocused || !!focused, !!hovered)}</View>
             {label ? (
               <Text
                 style={[

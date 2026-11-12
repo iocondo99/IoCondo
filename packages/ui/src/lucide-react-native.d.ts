@@ -10,6 +10,7 @@ declare module 'lucide-react-native' {
 
   export type LucideIcon = ComponentType<LucideProps>;
 
+  export const Apple: LucideIcon;
   export const ArrowDown: LucideIcon;
   export const ArrowLeft: LucideIcon;
   export const ArrowRight: LucideIcon;
@@ -53,12 +54,14 @@ declare module 'lucide-react-native' {
   export const Info: LucideIcon;
   export const Layers: LucideIcon;
   export const LayoutDashboard: LucideIcon;
+  export const Leaf: LucideIcon;
   export const Lock: LucideIcon;
   export const LogOut: LucideIcon;
   export const Mail: LucideIcon;
   export const MailPlus: LucideIcon;
   export const MapPin: LucideIcon;
   export const MessageCircle: LucideIcon;
+  export const Newspaper: LucideIcon;
   export const Package: LucideIcon;
   export const PackageCheck: LucideIcon;
   export const PackagePlus: LucideIcon;
@@ -71,6 +74,7 @@ declare module 'lucide-react-native' {
   export const Play: LucideIcon;
   export const Plus: LucideIcon;
   export const Receipt: LucideIcon;
+  export const Recycle: LucideIcon;
   export const RefreshCw: LucideIcon;
   export const RotateCcw: LucideIcon;
   export const Search: LucideIcon;
@@ -92,6 +96,7 @@ declare module 'lucide-react-native' {
   export const UserX: LucideIcon;
   export const Video: LucideIcon;
   export const Wallet: LucideIcon;
+  export const Wine: LucideIcon;
   export const Wrench: LucideIcon;
   export const X: LucideIcon;
 }

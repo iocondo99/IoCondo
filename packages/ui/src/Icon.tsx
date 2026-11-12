@@ -2,6 +2,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import {
+  Apple,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
@@ -44,6 +45,7 @@ import {
   MailPlus,
   MapPin,
   MessageCircle,
+  Newspaper,
   Pencil,
   Play,
   RefreshCw,
@@ -61,6 +63,7 @@ import {
   Calculator,
   Layers,
   LayoutDashboard,
+  Leaf,
   LogOut,
   Package,
   PackageCheck,
@@ -68,6 +71,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Receipt,
+  Recycle,
   Phone,
   Shield,
   ShieldAlert,
@@ -83,6 +87,7 @@ import {
   HardHat,
   Truck,
   Wallet,
+  Wine,
   BadgePercent,
   PiggyBank,
   RotateCcw,
@@ -178,6 +183,11 @@ export const iconMap = {
   'alert-triangle': TriangleAlert,
   'rotate-ccw': RotateCcw,
   'sliders-horizontal': SlidersHorizontal,
+  apple: Apple,
+  leaf: Leaf,
+  newspaper: Newspaper,
+  recycle: Recycle,
+  wine: Wine,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof iconMap;
