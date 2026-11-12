@@ -9,10 +9,10 @@ import { useProfilo } from '@/context/ProfiloContext';
 /** Pagina "Segnalazioni" del condòmino (`/segnalazioni`, REQ-C03). */
 export function SegnalazioniScreen() {
   const consentito = useAccessoConsentito();
-  const { profilo, condominio, voci } = useProfilo();
+  const { profilo, condominio, ruoli, voci } = useProfilo();
   if (!consentito || !profilo || !condominio) return null;
 
-  if (!voci.some((v) => v.id === 'segnalazioni')) {
+  if (!ruoli.has('CONDOMINO') || !voci.some((v) => v.id === 'segnalazioni')) {
     return (
       <View style={styles.pagina}>
         <PageHeader title="Segnalazioni" subtitle="Guasti e richieste di intervento." />

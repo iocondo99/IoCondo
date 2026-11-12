@@ -26,11 +26,13 @@ test('portiere e condòmino: stesse voci più Registro pacchi e Ticket aree comu
   ]);
 });
 
-test('solo portiere: nessuna voce contabile', () => {
+test('solo portiere: nessuna voce contabile né segnalazioni private condòmino', () => {
   const voci = ids(vociDi(residente(['PORTIERE'])));
   assert.ok(!voci.includes('spese'));
   assert.ok(!voci.includes('pagamenti'));
+  assert.ok(!voci.includes('segnalazioni'));
   assert.ok(voci.includes('pacchi'));
+  assert.ok(voci.includes('ticket-aree-comuni'));
 });
 
 test('i moduli disattivati nascondono le voci collegate', () => {

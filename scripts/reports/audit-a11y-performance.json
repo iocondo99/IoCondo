@@ -1,0 +1,132 @@
+{
+  "timestamp": "2026-11-12T00:19:43.721Z",
+  "overflowChecks": {
+    "Registro Pacchi @ Desktop 1440x900": {
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "hasOverflow": false
+    },
+    "Ticket Aree Comuni @ Desktop 1440x900": {
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "hasOverflow": false
+    },
+    "Home @ Desktop 1440x900": {
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "hasOverflow": false
+    },
+    "Registro Pacchi @ Tablet 820x1180": {
+      "scrollWidth": 820,
+      "clientWidth": 820,
+      "hasOverflow": false
+    },
+    "Ticket Aree Comuni @ Tablet 820x1180": {
+      "scrollWidth": 820,
+      "clientWidth": 820,
+      "hasOverflow": false
+    },
+    "Home @ Tablet 820x1180": {
+      "scrollWidth": 820,
+      "clientWidth": 820,
+      "hasOverflow": false
+    },
+    "Registro Pacchi @ Mobile 390x844": {
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "hasOverflow": false
+    },
+    "Ticket Aree Comuni @ Mobile 390x844": {
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "hasOverflow": false
+    },
+    "Home @ Mobile 390x844": {
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "hasOverflow": false
+    }
+  },
+  "contrastChecks": {
+    "Pulsante primario (Action #0A79AB su testo bianco #FFFFFF)": {
+      "ratio": "4.84",
+      "pass": true,
+      "required": 4.5
+    },
+    "Pulsante distruttivo (#B91C1C su testo bianco #FFFFFF)": {
+      "ratio": "6.47",
+      "pass": true,
+      "required": 4.5
+    },
+    "Focus ring (#0284C7 su sfondo #F8FAFC)": {
+      "ratio": "3.91",
+      "pass": true,
+      "required": 3
+    },
+    "Badge Giacenza/Warning (#B45309 su sfondo #FFFBEB)": {
+      "ratio": "4.84",
+      "pass": true,
+      "required": 4.5
+    },
+    "Badge Ritirato/Success (#15803D su sfondo #F0FDF4)": {
+      "ratio": "4.79",
+      "pass": true,
+      "required": 4.5
+    },
+    "Badge Info/Aperto (#0369A1 su sfondo #F0F9FF)": {
+      "ratio": "5.57",
+      "pass": true,
+      "required": 4.5
+    },
+    "Badge Error/Urgente (#B91C1C su sfondo #FEF2F2)": {
+      "ratio": "5.91",
+      "pass": true,
+      "required": 4.5
+    },
+    "StatCard Blu (#0369A1 su #E0F2FE)": {
+      "ratio": "5.17",
+      "pass": true,
+      "required": 4.5
+    },
+    "StatCard Teal (#0F766E su #CCFBF1)": {
+      "ratio": "4.86",
+      "pass": true,
+      "required": 4.5
+    },
+    "StatCard Navy (#0D3B66 su #DCE7F3)": {
+      "ratio": "9.14",
+      "pass": true,
+      "required": 4.5
+    },
+    "Sidebar link (#FFFFFF su Navy #0D3B66)": {
+      "ratio": "11.45",
+      "pass": true,
+      "required": 4.5
+    },
+    "Sidebar hover (#FFFFFF su NavyHover #154A78)": {
+      "ratio": "9.20",
+      "pass": true,
+      "required": 4.5
+    }
+  },
+  "a11yTreeChecks": {
+    "SearchBar Pacchi": {
+      "hasLabelOrPlaceholder": true,
+      "ariaLabel": "Cerca pacco",
+      "placeholder": "Cerca per unità o interno (es. Int. 1)..."
+    },
+    "Pulsanti Senza Nome /pacchi": 0
+  },
+  "keyboardNavChecks": {
+    "Chiusura Modale con Escape": true
+  },
+  "tapTargetChecks": {
+    "totali": 12,
+    "conformi": 12,
+    "nonConformi": []
+  },
+  "nestedScrollViewChecks": {
+    "Modale Registra Arrivo Pacco": false
+  },
+  "consoleErrors": []
+}

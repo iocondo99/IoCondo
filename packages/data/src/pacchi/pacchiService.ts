@@ -372,6 +372,9 @@ export function createPacchiService(db: TypedSupabaseClient) {
 
     const { data: authData } = await db.auth.getUser();
     const registratoDa = authData?.user?.id ?? null;
+    if (!registratoDa) {
+      return { ok: false, errori: { form: 'Utente non autenticato.' } };
+    }
 
     const { data, error } = await db
       .from('registro_pacchi')

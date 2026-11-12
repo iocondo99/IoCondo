@@ -138,19 +138,23 @@ export function ElencoSegnalazioni(props: Props) {
   );
 
   const alCreata = useCallback(
-    (_ticketId: string, fotoNonCaricate: string[]) => {
+    (ticketId: string, fotoNonCaricate: string[]) => {
       setModuloAperto(false);
-      setEsito(
-        fotoNonCaricate.length > 0
-          ? {
-              tono: 'warning',
-              messaggio: `La segnalazione è stata inviata, ma alcune foto non sono state caricate: ${fotoNonCaricate.join(', ')}.`,
-            }
-          : { tono: 'success', messaggio: 'La segnalazione è stata inviata.' },
-      );
       ricarica();
+      if (ticketId) {
+        router.push(`${rotta}/${ticketId}` as Href);
+      } else {
+        setEsito(
+          fotoNonCaricate.length > 0
+            ? {
+                tono: 'warning',
+                messaggio: `La segnalazione è stata inviata, ma alcune foto non sono state caricate: ${fotoNonCaricate.join(', ')}.`,
+              }
+            : { tono: 'success', messaggio: 'La segnalazione è stata inviata.' },
+        );
+      }
     },
-    [ricarica],
+    [ricarica, rotta, router],
   );
 
   const colonne: readonly DataColumn<SegnalazioneRiepilogo>[] = useMemo(

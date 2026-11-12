@@ -59,7 +59,7 @@ function residente({ ruoli, moduli }: ContestoNavigazione): INavVoce[] {
     voce('documenti', 'Documenti', 'file-text', '/documenti'),
     (moduli.abilita_bacheca || moduli.abilita_chat) && voce('comunicazioni', 'Comunicazioni', 'message-circle', '/comunicazioni'),
     voce('assemblee', 'Assemblee', 'users', '/assemblee'),
-    moduli.abilita_ticket && voce('segnalazioni', 'Segnalazioni', 'wrench', '/segnalazioni'),
+    condomino && moduli.abilita_ticket && voce('segnalazioni', 'Segnalazioni', 'wrench', '/segnalazioni'),
     portiere && moduli.abilita_pacchi && voce('pacchi', 'Registro pacchi', 'package', '/pacchi'),
     portiere && moduli.abilita_ticket && voce('ticket-aree-comuni', 'Ticket aree comuni', 'triangle-alert', '/ticket-aree-comuni'),
     voce('impostazioni', 'Impostazioni', 'settings', '/impostazioni'),

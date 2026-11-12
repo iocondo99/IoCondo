@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-11-12T00:18:12.954Z",
+  "scenario": "PORTIERE PURO (senza CONDOMINO, senza ADMIN)",
+  "risultati": {
+    "sidebarDesktop": {
+      "voci": [],
+      "speseAssente": true,
+      "pagamentiAssente": true,
+      "registroPacchiPresente": false,
+      "ticketAreeComuniPresente": false,
+      "segnalazioniAssente": true
+    },
+    "mobile": {
+      "vociBarra": [],
+      "pacchiPromossoInBarra": false,
+      "speseAssenteDallaBarra": true
+    },
+    "isolamentoContabile": {
+      "/spese": {
+        "url": "http://localhost:8081/spese",
+        "bloccato": false,
+        "haNonAutorizzato": false
+      },
+      "/spese/123": {
+        "url": "http://localhost:8081/spese/123",
+        "bloccato": false,
+        "haNonAutorizzato": false
+      },
+      "/pagamenti": {
+        "url": "http://localhost:8081/pagamenti",
+        "bloccato": false,
+        "haNonAutorizzato": false
+      },
+      "/pagamenti/123": {
+        "url": "http://localhost:8081/pagamenti/123",
+        "bloccato": false,
+        "haNonAutorizzato": false
+      }
+    },
+    "home": {
+      "cardSpeseAssente": true,
+      "haSegnalazioniRapide": false,
+      "chiamateContabiliPartite": 0
+    },
+    "condominoPuroPacchi": {
+      "haPulsanteRegistraArrivo": false,
+      "haPulsanteConsegna": false,
+      "sicuroSolaLettura": true
+    }
+  },
+  "chiamateContabiliRilevate": [],
+  "anomalieRilevate": [
+    "Registro pacchi NON è presente direttamente nella barra mobile a 4 voci del portiere puro!",
+    "La rotta contabile /spese NON è bloccata per il portiere puro!",
+    "La rotta contabile /spese/123 NON è bloccata per il portiere puro!",
+    "La rotta contabile /pagamenti NON è bloccata per il portiere puro!",
+    "La rotta contabile /pagamenti/123 NON è bloccata per il portiere puro!"
+  ]
+}

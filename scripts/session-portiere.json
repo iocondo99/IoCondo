@@ -1,0 +1,18 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:8081",
+      "localStorage": [
+        {
+          "name": "sb-hhumsgeitajvmqmrtthh-auth-token",
+          "value": "{\"access_token\":\"eyJhbGciOiJFUzI1NiIsImtpZCI6ImI0YWI4MmUzLTAwMWEtNDI0ZC1iYjdlLTI2NTQwZTMzMjFhMyIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2hodW1zZ2VpdGFqdm1xbXJ0dGhoLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJiNmU3NmE2YS1iZjM3LTQzZmQtYjAwYi1lZmIxY2I2OTIxYWQiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzk0NDQ1MzA4LCJpYXQiOjE3OTQ0NDE3MDgsImVtYWlsIjoicm9tZW9tYXR0ZW8yNEBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsX3ZlcmlmaWVkIjp0cnVlfSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc5NDQ0MTcwOH1dLCJzZXNzaW9uX2lkIjoiOTEyZmE5MDctODIwZS00NTM2LTkyN2ItM2UwNTU2Y2IzYTkyIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.cCt8P-A-A7chXBQ8LgjHZKb_U_UFSnOxKBpEKsk58-kPHmnIbX52m8HW2QehOyxCvN-t-_OByZKBRVoo3vJRlw\",\"token_type\":\"bearer\",\"expires_in\":3600,\"expires_at\":1794445308,\"refresh_token\":\"b4bhfa4cdrxs\",\"user\":{\"id\":\"b6e76a6a-bf37-43fd-b00b-efb1cb6921ad\",\"aud\":\"authenticated\",\"role\":\"authenticated\",\"email\":\"romeomatteo24@gmail.com\",\"email_confirmed_at\":\"2026-11-01T18:57:48.659262Z\",\"phone\":\"\",\"confirmed_at\":\"2026-11-01T18:57:48.659262Z\",\"last_sign_in_at\":\"2026-11-12T00:01:48.341683193Z\",\"app_metadata\":{\"provider\":\"email\",\"providers\":[\"email\"]},\"user_metadata\":{\"email_verified\":true},\"identities\":[{\"identity_id\":\"73675191-3bba-4513-95a5-b0528914df72\",\"id\":\"b6e76a6a-bf37-43fd-b00b-efb1cb6921ad\",\"user_id\":\"b6e76a6a-bf37-43fd-b00b-efb1cb6921ad\",\"identity_data\":{\"email\":\"romeomatteo24@gmail.com\",\"email_verified\":false,\"phone_verified\":false,\"sub\":\"b6e76a6a-bf37-43fd-b00b-efb1cb6921ad\"},\"provider\":\"email\",\"last_sign_in_at\":\"2026-11-01T18:57:48.65729Z\",\"created_at\":\"2026-11-01T18:57:48.657342Z\",\"updated_at\":\"2026-11-01T18:57:48.657342Z\",\"email\":\"romeomatteo24@gmail.com\"}],\"created_at\":\"2026-11-01T18:57:48.651258Z\",\"updated_at\":\"2026-11-12T00:01:48.407673Z\",\"is_anonymous\":false},\"weak_password\":null}"
+        },
+        {
+          "name": "iocondo.preferenze.v1",
+          "value": "{\"vista\":\"RESIDENTE\"}"
+        }
+      ]
+    }
+  ]
+}
