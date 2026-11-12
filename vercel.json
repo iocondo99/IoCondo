@@ -1,10 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "framework": "nextjs",
+  "framework": null,
   "installCommand": "npm install",
-  "buildCommand": "npx turbo run build --filter=@iocondo/admin-web",
-  "outputDirectory": "apps/admin-web/.next",
+  "buildCommand": "npx turbo run build --filter=@iocondo/app",
+  "outputDirectory": "apps/app/dist",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
   "git": {
     "deploymentEnabled": {
       "main": true

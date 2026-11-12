@@ -13,7 +13,8 @@ async function inspectTicketTable() {
 
   const page = await context.newPage();
 
-  await page.goto('http://localhost:8081/ticket-aree-comuni', { waitUntil: 'networkidle' });
+  const BASE_URL = process.env.APP_URL || (process.env.VERCEL_URL ? (process.env.VERCEL_URL.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`) : 'http://localhost:8081');
+  await page.goto(`${BASE_URL}/ticket-aree-comuni`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
 
   const text = await page.innerText('body');

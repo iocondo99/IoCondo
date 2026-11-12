@@ -21,8 +21,9 @@ async function testLogin() {
     }
   });
 
-  console.log('Navigazione a http://localhost:8081...');
-  await page.goto('http://localhost:8081', { waitUntil: 'networkidle', timeout: 30000 });
+  const BASE_URL = process.env.APP_URL || (process.env.VERCEL_URL ? (process.env.VERCEL_URL.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`) : 'http://localhost:8081');
+  console.log(`Navigazione a ${BASE_URL}...`);
+  await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
   
   console.log('URL corrente:', page.url());
   const title = await page.title();

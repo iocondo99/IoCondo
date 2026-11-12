@@ -17,8 +17,9 @@ async function performLogin() {
     console.log(`[BROWSER ${msg.type()}]`, msg.text());
   });
 
-  console.log('Navigazione a http://localhost:8081/login...');
-  await page.goto('http://localhost:8081/login', { waitUntil: 'networkidle', timeout: 30000 });
+  const BASE_URL = process.env.APP_URL || (process.env.VERCEL_URL ? (process.env.VERCEL_URL.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`) : 'http://localhost:8081');
+  console.log(`Navigazione a ${BASE_URL}/login...`);
+  await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle', timeout: 30000 });
   await page.waitForTimeout(2000);
 
   console.log('Pagina corrente:', page.url());

@@ -1,5 +1,7 @@
 import { chromium } from 'playwright';
 
+const BASE_URL = process.env.APP_URL || (process.env.VERCEL_URL ? (process.env.VERCEL_URL.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`) : 'http://localhost:8081');
+
 async function verifyFinal() {
   console.log('=== VERIFICA FINALE POST-FIX ===');
 
@@ -16,8 +18,8 @@ async function verifyFinal() {
   const page = await context.newPage();
 
   // 1. Verifica utente ibrido LIVE (romeomatteo24@gmail.com): continua ad avere tutto disponibile
-  console.log('Navigazione a /home con utente PORTIERE + CONDOMINO...');
-  await page.goto('http://localhost:8081/home', { waitUntil: 'networkidle' });
+  console.log(`Navigazione a ${BASE_URL}/home con utente PORTIERE + CONDOMINO...`);
+  await page.goto(`${BASE_URL}/home`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
 
   const sidebarLinks = await page.locator('aside a, nav a').allInnerTexts();
@@ -59,7 +61,7 @@ async function verifyFinal() {
   });
 
   // Navigazione a /home con profilo solo portiere
-  await page.goto('http://localhost:8081/home', { waitUntil: 'networkidle' });
+  await page.goto(`${BASE_URL}/home`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
 
   const sidebarPortiere = await page.locator('aside a, nav a').allInnerTexts();
@@ -82,7 +84,7 @@ async function verifyFinal() {
 
   // Verifica accesso diretto a /segnalazioni per il portiere puro
   console.log('Verifica guardia su /segnalazioni...');
-  await page.goto('http://localhost:8081/segnalazioni', { waitUntil: 'networkidle' });
+  await page.goto(`${BASE_URL}/segnalazioni`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1500);
   const textSegnalazioni = await page.innerText('body');
   const bloccatoSegnalazioni = textSegnalazioni.includes('Non autorizzato') || textSegnalazioni.includes('Questa funzione non è disponibile');
@@ -90,7 +92,7 @@ async function verifyFinal() {
 
   // Verifica accesso diretto a /segnalazioni/123 per il portiere puro
   console.log('Verifica guardia su /segnalazioni/123...');
-  await page.goto('http://localhost:8081/segnalazioni/123', { waitUntil: 'networkidle' });
+  await page.goto(`${BASE_URL}/segnalazioni/123`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1500);
   const textDettaglio = await page.innerText('body');
   const bloccatoDettaglio = textDettaglio.includes('Non autorizzato') || textDettaglio.includes('Questa funzione non è disponibile');

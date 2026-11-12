@@ -13,8 +13,9 @@ async function testSwitchVista() {
 
   const page = await context.newPage();
 
-  console.log('Navigazione a http://localhost:8081/admin/dashboard...');
-  await page.goto(`${'http://localhost:8081'}/admin/dashboard`, { waitUntil: 'networkidle' });
+  const BASE_URL = process.env.APP_URL || (process.env.VERCEL_URL ? (process.env.VERCEL_URL.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`) : 'http://localhost:8081');
+  console.log(`Navigazione a ${BASE_URL}/admin/dashboard...`);
+  await page.goto(`${BASE_URL}/admin/dashboard`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
 
   // Impostiamo direttamente la preferenza nel localStorage e navighiamo a /home
@@ -31,8 +32,8 @@ async function testSwitchVista() {
     }
   });
 
-  console.log('Navigazione a http://localhost:8081/home...');
-  await page.goto('http://localhost:8081/home', { waitUntil: 'networkidle' });
+  console.log(`Navigazione a ${BASE_URL}/home...`);
+  await page.goto(`${BASE_URL}/home`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(3000);
 
   console.log('URL corrente:', page.url());

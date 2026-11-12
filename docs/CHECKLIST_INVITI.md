@@ -8,18 +8,19 @@ Tutto da fare a mano (nulla è stato applicato o pubblicato dal codice). Ordine 
    `crea_invito()`, `email_confermata()` e rende più rigida `applica_inviti()`.
 
 ## 2. Redirect URLs (Authentication → URL Configuration)
-**Site URL:** `http://localhost:8081` in sviluppo; in produzione l'indirizzo pubblico dell'app.
+**Site URL:** `https://<nome-progetto>.vercel.app` (o dominio proprio di produzione).
 
 Aggiungi (uno per riga):
 
 | Ambiente | URL |
 |---|---|
-| Locale | `http://localhost:8081/imposta-password` |
-| Locale | `http://localhost:8081/reimposta-password` |
-| Locale (solo se apri l'app da 127.0.0.1) | `http://127.0.0.1:8081/imposta-password` e `/reimposta-password` |
+| Produzione (Vercel) | `https://<nome-progetto>.vercel.app/**` |
+| Produzione (Vercel) | `https://<nome-progetto>.vercel.app/imposta-password` |
+| Produzione (Vercel) | `https://<nome-progetto>.vercel.app/reimposta-password` |
+| Produzione (Vercel) | `https://<nome-progetto>.vercel.app/login` |
+| Preview Vercel (opzionale) | `https://*-<team>.vercel.app/**` |
 | Nativo | `iocondo://imposta-password` e `iocondo://reimposta-password` |
-| Produzione | `https://<dominio-app>/imposta-password` |
-| Produzione | `https://<dominio-app>/reimposta-password` |
+| Locale (sviluppo) | `http://localhost:8081/imposta-password` e `/reimposta-password` |
 
 `/login` può restare (era il vecchio redirect del reset) ma non serve più.
 
@@ -49,7 +50,7 @@ Da PowerShell, nella cartella del progetto (serve la CLI di Supabase, già usata
 $env:NODE_OPTIONS = "--use-system-ca"
 npx supabase login
 npx supabase link --project-ref <ref-del-progetto>
-npx supabase secrets set APP_URL=https://<dominio-app>        # in prova: http://localhost:8081
+npx supabase secrets set APP_URL=https://<nome-progetto>.vercel.app
 npx supabase functions deploy invita-utente
 ```
 

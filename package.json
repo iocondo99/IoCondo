@@ -16,6 +16,7 @@
     "dev:admin": "turbo run dev --filter=@iocondo/admin-web",
     "dev:app": "turbo run dev --filter=@iocondo/app",
     "build": "turbo run build",
+    "build:app": "turbo run build --filter=@iocondo/app",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",

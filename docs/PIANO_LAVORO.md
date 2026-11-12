@@ -16,7 +16,7 @@ Tutte le regole di sicurezza, ambiente aziendale, comandi, architettura e stile 
   - `packages/data`: servizi, logica pura, hook (senza dipendenze da Expo);
   - `packages/supabase-client`: client e storage per piattaforma;
   - `packages/shared-types`: tipi condivisi.
-- Target: web ora; Android e iOS compatibili; deploy su Vercel come sito statico (da configurare).
+- Target: web ora; Android e iOS compatibili; deploy su Vercel come sito statico SPA (`apps/app` via `vercel.json` e Turbo).
 - Gruppi di route: `(pubblico)` per `login`, `imposta-password`, `reimposta-password`; `(app)` con guardia; sottogruppi `(condomino)`, `(portiere)`, `(admin)`, `(superadmin)`.
 - Navigazione: condòmino e portiere condividono la stessa vista; amministratore e super admin hanno viste separate con selettore "Vista".
 - Sicurezza: la protezione vera sono le policy RLS. La guardia nel client serve solo a non mostrare schermate non consentite.

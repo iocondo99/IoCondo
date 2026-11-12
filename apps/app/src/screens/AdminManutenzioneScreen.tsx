@@ -495,7 +495,7 @@ function AdminManutenzioneContenuto() {
         fornitoreId: fornitoreModificaId || null,
         dataPrevista: dataPrevistaModificaInput.trim() || null,
         noteFornitore: noteFornitoreModificaInput.trim() || null,
-        baseUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
+        baseUrl: typeof window !== 'undefined' ? window.location.origin : (process.env.EXPO_PUBLIC_APP_URL || undefined),
         importoConsuntivo: importoNum,
       };
 

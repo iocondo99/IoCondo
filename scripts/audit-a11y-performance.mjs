@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 
-const BASE_URL = 'http://localhost:8081';
+const BASE_URL = process.env.APP_URL || (process.env.VERCEL_URL ? (process.env.VERCEL_URL.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`) : 'http://localhost:8081');
 const REPORT_DIR = 'scripts/reports';
 
 // Formula WCAG per calcolo luminanza e contrasto

@@ -60,8 +60,11 @@ function failure(error: unknown): AuthResult {
 /** Dove porta il link dell'email di reimpostazione: la pagina per scegliere la password, sul web o nell'app. */
 function passwordResetRedirect(): string {
   if (Platform.OS === 'web') {
-    const origin = (globalThis as { location?: { origin?: string } }).location?.origin ?? '';
-    return `${origin}/reimposta-password`;
+    const origin =
+      (globalThis as { location?: { origin?: string } }).location?.origin ||
+      process.env.EXPO_PUBLIC_APP_URL ||
+      '';
+    return `${origin.replace(/\/$/, '')}/reimposta-password`;
   }
   return Linking.createURL('/reimposta-password');
 }
