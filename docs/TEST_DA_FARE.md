@@ -1302,6 +1302,60 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 - [ ] **Cosa fare:** al termine delle verifiche eseguire `supabase/seed-dev/prenotazioni_extra_pulizia.sql` nel SQL Editor.
   **Risultato atteso:** le prenotazioni e gli spazi di prova vengono rimossi senza alterare gli altri dati del condominio.
 
+---
+
+## Q. Gestione Moduli e Feature Toggle (/admin/moduli)
+
+### Q1 — Migrazione 11 (moduli estesi) e graceful degradation
+
+- [ ] **Cosa fare:** aprire il SQL Editor di Supabase ed eseguire `supabase/da-applicare/11_moduli_condominio_estesi.sql`, poi eseguire `supabase/da-applicare/11_verifica.sql`.
+  **Risultato atteso:** la query di verifica restituisce 11 colonne su `public.configurazioni_condominio` (le 6 native `abilita_social`, `abilita_chat`, `abilita_bacheca`, `abilita_ticket`, `abilita_prenotazioni`, `abilita_pacchi` più le 5 estese `abilita_spese`, `abilita_pagamenti`, `abilita_documenti`, `abilita_assemblee`, `abilita_raccolta_differenziata`), tutte di tipo `boolean` con default `true`.
+
+- [ ] **Cosa fare:** verificare il comportamento prima dell'applicazione della migrazione 11 (graceful degradation): eseguire l'app senza la migrazione e consultare la schermata `/admin/moduli`.
+  **Risultato atteso:** l'app legge correttamente i toggle esistenti e assume `default = true` per le colonne assenti senza generare errori 400 Bad Request; in caso di tentativo di salvataggio di un toggle esteso su un DB privo delle nuove colonne, viene mostrato un messaggio descrittivo che invita ad applicare la migrazione 11.
+
+### Q2 — Accesso e interfaccia Amministratore (`/admin/moduli`)
+
+- [ ] **Cosa fare:** accedere con un utente con ruolo `ADMIN`, verificare la nuova voce di menu `Moduli e funzionalità` (icona `sliders-horizontal`) e aprire la pagina `/admin/moduli`.
+  **Risultato atteso:** la pagina si apre con `PageHeader` istituzionale ("Moduli e funzionalità", breadcrumb `Home / Amministrazione / Moduli e funzionalità`), 3 `StatCard` (`Funzionalità attive`, `Funzionalità disattivate`, `Ambito di configurazione`), barra di ricerca, `FilterChips` (`Tutti`, `Attivi`, `Disattivati`, `Condòmino`, `Portiere`) e l'elenco di tutte le schede modulo con `Badge` destinatari (`Condòmino`, `Portiere`), `Badge` stato (`Attivo` / `Disattivato`) e componente `Switch` accessibile.
+
+- [ ] **Cosa fare:** accedere con un utente puro `CONDOMINO` (senza ruoli amministrativi) e provare a navigare direttamente all'URL `/admin/moduli`.
+  **Risultato atteso:** la schermata `/admin/moduli` è protetta dalla guardia amministratore e mostra il messaggio `NonAutorizzato` ("Questa funzione non è disponibile per te") con pulsante "Vai alla tua Home".
+
+### Q3 — Reattività e spegnimento/accensione moduli (lato Condòmino / Portiere)
+
+- [ ] **Cosa fare:** dalla pagina `/admin/moduli`, disattivare il toggle `Prenotazione spazi comuni` e passare alla vista `Condòmino e portiere` (senza ricaricare il browser).
+  **Risultato atteso:** il salvataggio è immediato con `Toast` di conferma; la sidebar e la bottom bar mobile ricalcolano subito le voci e la voce `Spazi comuni` scompare immediatamente dal menu dei residenti; nella Home i collegamenti rapidi relativi agli spazi comuni non sono più visibili.
+
+- [ ] **Cosa fare:** tornare alla vista `Amministratore` su `/admin/moduli` e riattivare il toggle `Prenotazione spazi comuni`, poi tornare alla vista `Condòmino e portiere`.
+  **Risultato atteso:** il modulo viene riabilitato, la voce `Spazi comuni` riappare immediatamente nella navigazione residente e nella Home.
+
+- [ ] **Cosa fare:** provare a disattivare un modulo critico (es. `Bacheca condominiale`, `Segnalazioni e ticket guasti`, `Spese ed esercizi`, `Pagamenti e rate`).
+  **Risultato atteso:** compare un `ConfirmDialog` di avviso che segnala l'impatto della disattivazione prima di procedere; annullando il dialogo lo `Switch` rimane attivo; confermando, il modulo viene disattivato.
+
+### Q4 — Protezione reale delle rotte residenti (`GuardiaModulo`)
+
+- [ ] **Cosa fare:** con il modulo `Prenotazione spazi comuni` disattivato, accedere come residente e digitare direttamente nella barra degli indirizzi l'URL `/prenotazioni`.
+  **Risultato atteso:** la pagina non esegue le query Supabase relative alle prenotazioni e mostra la schermata accessibile di blocco `GuardiaModulo` ("Funzionalità non attiva: Questa funzionalità è stata disattivata dall'amministratore per questo condominio") con pulsante "Torna alla Home".
+
+- [ ] **Cosa fare:** con i moduli `Raccolta differenziata`, `Registro pacchi` o `Comunicazioni` disattivati, verificare l'accesso diretto via URL alle rispettive rotte (`/raccolta-differenziata`, `/pacchi`, `/comunicazioni`, `/segnalazioni`).
+  **Risultato atteso:** tutte le rotte protette da `GuardiaModulo` bloccano l'accesso diretto e non mostrano dati parziali o errori rossi in console.
+
+- [ ] **Cosa fare:** accedere con vista `Amministratore` e navigare alle rotte gestionali `/admin/prenotazioni`, `/admin/raccolta-differenziata`, `/admin/comunicazioni`.
+  **Risultato atteso:** per l'amministratore l'accesso alla gestione non viene mai bloccato anche quando il modulo è disattivato per i residenti.
+
+### Q5 — Ambito edificio / palazzo e ripristino override predefiniti
+
+- [ ] **Cosa fare:** in un condominio con più palazzi, aprire `/admin/moduli` e usare il selettore `Configura per` per selezionare uno specifico edificio (es. `Edificio: Palazzo B`).
+  **Risultato atteso:** la scheda mostra l'indicazione che l'edificio sta ereditando i moduli predefiniti del condominio.
+
+- [ ] **Cosa fare:** con l'edificio selezionato, modificare uno o più toggle (es. disattivare un modulo solo per quel palazzo).
+  **Risultato atteso:** viene creato un record dedicato in `configurazioni_condominio` con `palazzo_id`, compare il badge `Override dedicato edificio` e il pulsante `Ripristina predefiniti`.
+
+- [ ] **Cosa fare:** cliccare su `Ripristina predefiniti` e confermare l'operazione nel `ConfirmDialog`.
+  **Risultato atteso:** l'override dedicato dell'edificio viene rimosso dal database e l'edificio torna immediatamente a ereditare i valori predefiniti del condominio, con `Toast` di notifica.
+
+
 
 
 

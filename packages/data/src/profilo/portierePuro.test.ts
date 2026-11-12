@@ -1,13 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { navigazioneMobile, vociDi, type ContestoNavigazione } from './navigazione.ts';
+import { DEFAULT_MODULI_ATTIVI, type ModuliAttivi } from './moduli.ts';
 
-const tuttiModuli = {
-  abilita_chat: true,
-  abilita_bacheca: true,
-  abilita_ticket: true,
-  abilita_prenotazioni: true,
-  abilita_pacchi: true,
+const tuttiModuli: ModuliAttivi = {
+  ...DEFAULT_MODULI_ATTIVI,
 };
 
 const portierePuroContesto: ContestoNavigazione = {

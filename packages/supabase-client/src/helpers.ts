@@ -1,5 +1,5 @@
-import { ServiceError } from './errors';
-import type { TypedSupabaseClient } from './index';
+import { ServiceError } from './errors.ts';
+import type { TypedSupabaseClient } from './index.ts';
 
 /** Id dell'utente autenticato (lancia se non c'e' sessione). */
 export async function getCurrentUserId(db: TypedSupabaseClient): Promise<string> {

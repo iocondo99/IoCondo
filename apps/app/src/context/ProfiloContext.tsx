@@ -9,6 +9,7 @@ import {
   senzaRuoli,
   vistePossibili,
   vociDi,
+  DEFAULT_MODULI_ATTIVI,
   type CondominioBreve,
   type ModuliAttivi,
   type ProfiloUtente,
@@ -41,6 +42,12 @@ interface ProfiloContextValue {
   setVista: (vista: Vista) => void;
   /** Ruoli dell'utente nel condominio scelto. */
   ruoli: ReadonlySet<RuoloCodice>;
+  /** Moduli attivi nel condominio scelto. */
+  moduli: ModuliAttivi;
+  /** Ricarica i moduli attivi da Supabase. */
+  ricaricaModuli: () => Promise<void>;
+  /** Aggiorna immediatamente lo stato locale dei moduli (reattività ottimistica). */
+  aggiornaModuli: (nuovi: ModuliAttivi) => void;
   /** Nome della vista attiva, come lo vede l'utente. */
   etichettaVista: string;
   voci: INavVoce[];
@@ -117,6 +124,20 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
 
   const riprova = useCallback(() => setTentativo((n) => n + 1), []);
 
+  const ricaricaModuli = useCallback(async () => {
+    if (!condominioId) return;
+    try {
+      const moduli = await services.condomini.getFeatureToggles(condominioId);
+      setStatoModuli({ stato: 'pronto', moduli });
+    } catch {
+      // Ignora l'errore transitorio per non resettare lo stato attuale
+    }
+  }, [condominioId]);
+
+  const aggiornaModuli = useCallback((nuovi: ModuliAttivi) => {
+    setStatoModuli({ stato: 'pronto', moduli: nuovi });
+  }, []);
+
   const valore = useMemo<ProfiloContextValue>(() => {
     const ruoli = profilo ? ruoliIn(profilo, condominioId) : new Set<RuoloCodice>();
     const moduli = statoModuli.stato === 'pronto' ? statoModuli.moduli : null;
@@ -126,12 +147,13 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
         : caricamento.stato === 'pronto' && preferenze && statoModuli.stato !== 'caricamento'
           ? 'pronto'
           : 'caricamento';
+    const moduliEffettivi = moduli ?? DEFAULT_MODULI_ATTIVI;
     const voci =
       vista && (moduli || vista === 'SUPER_ADMIN')
         ? vociDi({
             vista,
             ruoli,
-            moduli: moduli ?? { abilita_chat: true, abilita_bacheca: true, abilita_ticket: true, abilita_prenotazioni: true, abilita_pacchi: true },
+            moduli: moduliEffettivi,
           })
         : [];
     return {
@@ -145,11 +167,14 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
       viste: profilo ? vistePossibili(profilo, condominioId) : [],
       setVista: (prossima) => salva({ ...preferenze, vista: prossima }),
       ruoli,
+      moduli: moduliEffettivi,
+      ricaricaModuli,
+      aggiornaModuli,
       etichettaVista: vista ? etichettaVista(vista, ruoli) : '',
       voci,
       etichettaDi: (v) => etichettaVista(v, ruoli),
     };
-  }, [caricamento, preferenze, statoModuli, profilo, condominioId, vista, riprova, salva]);
+  }, [caricamento, preferenze, statoModuli, profilo, condominioId, vista, riprova, salva, ricaricaModuli, aggiornaModuli]);
 
   return <ProfiloContext.Provider value={valore}>{children}</ProfiloContext.Provider>;
 }

@@ -78,6 +78,7 @@ declare module 'lucide-react-native' {
   export const Share2: LucideIcon;
   export const Shield: LucideIcon;
   export const ShieldAlert: LucideIcon;
+  export const SlidersHorizontal: LucideIcon;
   export const Square: LucideIcon;
   export const Table: LucideIcon;
   export const Trash2: LucideIcon;

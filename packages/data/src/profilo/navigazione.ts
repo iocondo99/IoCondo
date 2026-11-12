@@ -5,15 +5,9 @@
  */
 import type { RuoloCodice, INavVoce } from '@iocondo/shared-types';
 import type { Vista } from './profiloLogic';
+import type { ModuliAttivi } from './moduli.ts';
 
-/** Moduli attivi del condominio (le stesse colonne di `configurazioni_condominio`). */
-export interface ModuliAttivi {
-  abilita_chat: boolean;
-  abilita_bacheca: boolean;
-  abilita_ticket: boolean;
-  abilita_prenotazioni: boolean;
-  abilita_pacchi: boolean;
-}
+export type { ModuliAttivi } from './moduli.ts';
 
 export interface ContestoNavigazione {
   vista: Vista;
@@ -44,6 +38,7 @@ const ADMIN: readonly INavVoce[] = [
   voce('assemblee', 'Assemblee', 'users', '/admin/assemblee'),
   voce('prenotazioni', 'Spazi comuni', 'calendar-plus', '/admin/prenotazioni'),
   voce('raccolta-differenziata', 'Raccolta differenziata', 'calendar-days', '/admin/raccolta-differenziata'),
+  voce('moduli', 'Moduli e funzionalità', 'sliders-horizontal', '/admin/moduli'),
   voce('impostazioni', 'Impostazioni', 'settings', '/admin/impostazioni'),
   voce('assistenza', 'Assistenza', 'circle-help', '/admin/assistenza'),
 ];
@@ -57,13 +52,13 @@ function residente({ ruoli, moduli }: ContestoNavigazione): INavVoce[] {
   const portiere = ruoli.has('PORTIERE');
   const voci: Array<INavVoce | false> = [
     voce('home', 'Home', 'home', '/home'),
-    condomino && voce('spese', 'Spese', 'coins', '/spese'),
-    condomino && voce('pagamenti', 'Pagamenti', 'credit-card', '/pagamenti'),
-    voce('documenti', 'Documenti', 'file-text', '/documenti'),
+    condomino && moduli.abilita_spese !== false && voce('spese', 'Spese', 'coins', '/spese'),
+    condomino && moduli.abilita_pagamenti !== false && voce('pagamenti', 'Pagamenti', 'credit-card', '/pagamenti'),
+    moduli.abilita_documenti !== false && voce('documenti', 'Documenti', 'file-text', '/documenti'),
     (moduli.abilita_bacheca || moduli.abilita_chat) && voce('comunicazioni', 'Comunicazioni', 'message-circle', '/comunicazioni'),
-    voce('assemblee', 'Assemblee', 'users', '/assemblee'),
+    moduli.abilita_assemblee !== false && voce('assemblee', 'Assemblee', 'users', '/assemblee'),
     (condomino || portiere) && moduli.abilita_prenotazioni && voce('prenotazioni', 'Spazi comuni', 'calendar-plus', '/prenotazioni'),
-    voce('raccolta-differenziata', 'Raccolta differenziata', 'calendar-days', '/raccolta-differenziata'),
+    moduli.abilita_raccolta_differenziata !== false && voce('raccolta-differenziata', 'Raccolta differenziata', 'calendar-days', '/raccolta-differenziata'),
     condomino && moduli.abilita_ticket && voce('segnalazioni', 'Segnalazioni', 'wrench', '/segnalazioni'),
     portiere && moduli.abilita_pacchi && voce('pacchi', 'Registro pacchi', 'package', '/pacchi'),
     portiere && moduli.abilita_ticket && voce('ticket-aree-comuni', 'Ticket aree comuni', 'triangle-alert', '/ticket-aree-comuni'),

@@ -1,19 +1,9 @@
 import { assertOk, unwrap, unwrapMaybe, type TypedSupabaseClient } from '@iocondo/supabase-client';
 import type { ICondominio, IConfigurazioneCondominio, TablesInsert, TablesUpdate } from '@iocondo/shared-types';
+import { DEFAULT_MODULI_ATTIVI, type ModuliAttivi } from '../profilo/moduli.ts';
 
-export type FeatureToggles = Pick<
-  IConfigurazioneCondominio,
-  'abilita_social' | 'abilita_chat' | 'abilita_bacheca' | 'abilita_ticket' | 'abilita_prenotazioni' | 'abilita_pacchi'
->;
-
-const DEFAULT_TOGGLES: FeatureToggles = {
-  abilita_social: true,
-  abilita_chat: true,
-  abilita_bacheca: true,
-  abilita_ticket: true,
-  abilita_prenotazioni: true,
-  abilita_pacchi: true,
-};
+export type FeatureToggles = ModuliAttivi;
+export const DEFAULT_TOGGLES: FeatureToggles = DEFAULT_MODULI_ATTIVI;
 
 export function createCondominiService(db: TypedSupabaseClient) {
   return {
@@ -49,7 +39,11 @@ export function createCondominiService(db: TypedSupabaseClient) {
       const cfg =
         (palazzoId ? rows.find((r) => r.palazzo_id === palazzoId) : undefined) ??
         rows.find((r) => r.palazzo_id === null);
-      return cfg ?? DEFAULT_TOGGLES;
+      if (!cfg) return { ...DEFAULT_TOGGLES };
+      return {
+        ...DEFAULT_TOGGLES,
+        ...(cfg as unknown as Partial<FeatureToggles>),
+      };
     },
 
     async setFeatureToggles(
@@ -60,17 +54,48 @@ export function createCondominiService(db: TypedSupabaseClient) {
       let q = db.from('configurazioni_condominio').select('id').eq('condominio_id', condominioId);
       q = palazzoId ? q.eq('palazzo_id', palazzoId) : q.is('palazzo_id', null);
       const existing = unwrapMaybe(await q.maybeSingle());
-      if (existing) {
+
+      try {
+        if (existing) {
+          return unwrap(
+            await db
+              .from('configurazioni_condominio')
+              .update(toggles as TablesUpdate<'configurazioni_condominio'>)
+              .eq('id', existing.id)
+              .select('*')
+              .single(),
+          );
+        }
         return unwrap(
-          await db.from('configurazioni_condominio').update(toggles).eq('id', existing.id).select('*').single(),
+          await db
+            .from('configurazioni_condominio')
+            .insert({
+              condominio_id: condominioId,
+              palazzo_id: palazzoId,
+              ...toggles,
+            } as TablesInsert<'configurazioni_condominio'>)
+            .select('*')
+            .single(),
         );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('column') || msg.includes('schema cache') || msg.includes('PGRST204')) {
+          throw new Error(
+            `Per salvare questo modulo è necessario applicare prima la migrazione 11 su Supabase (supabase/da-applicare/11_moduli_condominio_estesi.sql). Dettaglio: ${msg}`,
+          );
+        }
+        throw err;
       }
-      return unwrap(
+    },
+
+    /** Ripristina i valori predefiniti del condominio per un palazzo eliminando il suo override. */
+    async resetPalazzoOverride(condominioId: string, palazzoId: string): Promise<void> {
+      assertOk(
         await db
           .from('configurazioni_condominio')
-          .insert({ condominio_id: condominioId, palazzo_id: palazzoId, ...toggles })
-          .select('*')
-          .single(),
+          .delete()
+          .eq('condominio_id', condominioId)
+          .eq('palazzo_id', palazzoId),
       );
     },
   };

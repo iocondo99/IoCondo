@@ -45,9 +45,11 @@ function HomeContenuto() {
   const oggi = oggiIso(ora);
 
   // Un portiere "puro" non ha accesso contabile (PRD, ruoli): niente spese né scadenze, e niente query.
-  const vedeSpese = ruoli.has('CONDOMINO');
+  const vedeSpese = ruoli.has('CONDOMINO') && voci.some((v) => v.id === 'spese');
   const vedeComunicazioni = voci.some((v) => v.id === 'comunicazioni');
   const puoSegnalare = voci.some((v) => v.id === 'segnalazioni' || v.id === 'ticket-aree-comuni');
+  const vedeDocumenti = voci.some((v) => v.id === 'documenti');
+  const vedeAssemblea = voci.some((v) => v.id === 'assemblee');
   const modalitaSegnalazione: ModalitaSegnalazioni = ruoli.has('CONDOMINO') ? 'condomino' : 'portiere';
   const rottaConsulta = modalitaSegnalazione === 'condomino' ? '/segnalazioni' : '/ticket-aree-comuni';
 
@@ -59,8 +61,8 @@ function HomeContenuto() {
     chiave,
     vedeComunicazioni,
   );
-  const documenti = useBlocco(() => services.home.contaDocumenti(utenteId, condominioId), chiave);
-  const assemblea = useBlocco(() => services.home.prossimaAssemblea(condominioId), chiave);
+  const documenti = useBlocco(() => services.home.contaDocumenti(utenteId, condominioId), chiave, vedeDocumenti);
+  const assemblea = useBlocco(() => services.home.prossimaAssemblea(condominioId), chiave, vedeAssemblea);
 
   // Ricarica le comunicazioni (e lo stato letto/non letto) quando si torna alla Home dal dettaglio.
   const primoFocus = useRef(true);
@@ -128,8 +130,12 @@ function HomeContenuto() {
         {vedeComunicazioni ? (
           <SchedaComunicazioni blocco={comunicazioni.blocco} ricarica={comunicazioni.ricarica} apri={apri} />
         ) : null}
-        <SchedaDocumenti blocco={documenti.blocco} ricarica={documenti.ricarica} apri={apri} />
-        <SchedaAssemblea blocco={assemblea.blocco} ricarica={assemblea.ricarica} apri={apri} />
+        {vedeDocumenti ? (
+          <SchedaDocumenti blocco={documenti.blocco} ricarica={documenti.ricarica} apri={apri} />
+        ) : null}
+        {vedeAssemblea ? (
+          <SchedaAssemblea blocco={assemblea.blocco} ricarica={assemblea.ricarica} apri={apri} />
+        ) : null}
       </GrigliaSchede>
 
       {ultime}

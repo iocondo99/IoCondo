@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { DEFAULT_MODULI_ATTIVI, type ModuliAttivi } from './moduli.ts';
 import { navigazioneMobile, vociDi, voceAttiva, type ContestoNavigazione } from './navigazione.ts';
 
-const tutti = { abilita_chat: true, abilita_bacheca: true, abilita_ticket: true, abilita_prenotazioni: true, abilita_pacchi: true };
+const tutti: ModuliAttivi = DEFAULT_MODULI_ATTIVI;
 const ids = (voci: ReadonlyArray<{ id: string }>) => voci.map((v) => v.id);
 const residente = (ruoli: Array<'CONDOMINO' | 'PORTIERE' | 'ADMIN'>, moduli = tutti): ContestoNavigazione => ({
   vista: 'RESIDENTE',
@@ -38,14 +39,36 @@ test('solo portiere: nessuna voce contabile né segnalazioni private condòmino'
 test('i moduli disattivati nascondono le voci collegate', () => {
   const voci = ids(
     vociDi(
-      residente(['CONDOMINO', 'PORTIERE'], { abilita_chat: false, abilita_bacheca: false, abilita_ticket: false, abilita_prenotazioni: false, abilita_pacchi: false }),
+      residente(['CONDOMINO', 'PORTIERE'], {
+        ...tutti,
+        abilita_chat: false,
+        abilita_bacheca: false,
+        abilita_ticket: false,
+        abilita_prenotazioni: false,
+        abilita_pacchi: false,
+        abilita_spese: false,
+        abilita_pagamenti: false,
+        abilita_documenti: false,
+        abilita_assemblee: false,
+        abilita_raccolta_differenziata: false,
+      }),
     ),
   );
+  assert.ok(!voci.includes('spese'));
+  assert.ok(!voci.includes('pagamenti'));
+  assert.ok(!voci.includes('documenti'));
   assert.ok(!voci.includes('comunicazioni'));
+  assert.ok(!voci.includes('assemblee'));
   assert.ok(!voci.includes('prenotazioni'));
+  assert.ok(!voci.includes('raccolta-differenziata'));
   assert.ok(!voci.includes('segnalazioni'));
   assert.ok(!voci.includes('pacchi'));
   assert.ok(!voci.includes('ticket-aree-comuni'));
+  // Voci di sistema essenziali sempre visibili
+  assert.ok(voci.includes('home'));
+  assert.ok(voci.includes('impostazioni'));
+  assert.ok(voci.includes('assistenza'));
+
   // Basta la bacheca o la chat per tenere Comunicazioni.
   const soloChat = ids(vociDi(residente(['CONDOMINO'], { ...tutti, abilita_bacheca: false })));
   assert.ok(soloChat.includes('comunicazioni'));
@@ -53,11 +76,20 @@ test('i moduli disattivati nascondono le voci collegate', () => {
 
 test('amministratore e super amministratore', () => {
   assert.deepEqual(ids(vociDi({ vista: 'ADMIN', ruoli: new Set(['ADMIN']), moduli: tutti })), [
-    'dashboard', 'struttura', 'inviti', 'contabilita', 'manutenzione', 'comunicazioni', 'documenti', 'assemblee', 'prenotazioni', 'raccolta-differenziata', 'impostazioni', 'assistenza',
+    'dashboard', 'struttura', 'inviti', 'contabilita', 'manutenzione', 'comunicazioni', 'documenti', 'assemblee', 'prenotazioni', 'raccolta-differenziata', 'moduli', 'impostazioni', 'assistenza',
   ]);
   assert.deepEqual(ids(vociDi({ vista: 'SUPER_ADMIN', ruoli: new Set(), moduli: tutti })), [
     'amministratori', 'piani-abbonamenti', 'fatture', 'impostazioni',
   ]);
+});
+
+test('barra mobile: ricalcolo quando spese e comunicazioni sono spente', () => {
+  const senzaSpese = vociDi(residente(['CONDOMINO'], { ...tutti, abilita_spese: false, abilita_chat: false, abilita_bacheca: false }));
+  const { barra } = navigazioneMobile(senzaSpese, 'RESIDENTE');
+  assert.ok(!barra.map((v) => v.id).includes('spese'));
+  assert.ok(!barra.map((v) => v.id).includes('comunicazioni'));
+  assert.equal(barra.length, 4);
+  assert.deepEqual(barra.map((v) => v.id), ['home', 'pagamenti', 'documenti', 'segnalazioni']);
 });
 
 test('barra mobile: Home, Spese, Documenti, Messaggi e il resto in "Altro"', () => {

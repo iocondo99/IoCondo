@@ -57,6 +57,6 @@ export function createServerSupabase(config: SupabaseConfig, cookies: CookieAdap
   return createServerClient<Database>(config.url, config.anonKey, { cookies }) as unknown as TypedSupabaseClient;
 }
 
-export * from './errors';
+export * from './errors.ts';
 export type { Database } from '@iocondo/shared-types';
-export * from './helpers';
+export * from './helpers.ts';

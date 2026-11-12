@@ -71,6 +71,7 @@ import {
   Phone,
   Shield,
   ShieldAlert,
+  SlidersHorizontal,
   UserCog,
   UserPlus,
   UserCheck,
@@ -176,6 +177,7 @@ export const iconMap = {
   'piggy-bank': PiggyBank,
   'alert-triangle': TriangleAlert,
   'rotate-ccw': RotateCcw,
+  'sliders-horizontal': SlidersHorizontal,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof iconMap;

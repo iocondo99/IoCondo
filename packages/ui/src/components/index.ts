@@ -4,6 +4,7 @@ export { Input, type InputProps, type FieldProps } from './Input';
 export { Textarea, type TextareaProps } from './Textarea';
 export { Checkbox, type CheckboxProps } from './Checkbox';
 export { Radio, RadioGroup, type RadioProps, type RadioGroupProps, type RadioOption } from './Radio';
+export { Switch, type SwitchProps } from './Switch';
 export { Select, type SelectProps, type SelectOption } from './Select';
 export { Badge, badgeStatuses, type BadgeProps, type BadgeStatus } from './Badge';
 export { Avatar, initialsOf, type AvatarProps, type AvatarSize } from './Avatar';

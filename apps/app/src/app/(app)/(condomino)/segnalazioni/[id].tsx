@@ -1,6 +1,11 @@
 import { DettaglioSegnalazioneScreen } from '@/screens/DettaglioSegnalazioneScreen';
+import { GuardiaModulo } from '@/components/layout/GuardiaModulo';
 
 export default function DettaglioSegnalazionePage() {
-  return <DettaglioSegnalazioneScreen />;
+  return (
+    <GuardiaModulo modulo="abilita_ticket" titolo="Segnalazioni non attive">
+      <DettaglioSegnalazioneScreen />
+    </GuardiaModulo>
+  );
 }
 
