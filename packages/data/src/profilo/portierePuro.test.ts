@@ -6,6 +6,7 @@ const tuttiModuli = {
   abilita_chat: true,
   abilita_bacheca: true,
   abilita_ticket: true,
+  abilita_prenotazioni: true,
   abilita_pacchi: true,
 };
 

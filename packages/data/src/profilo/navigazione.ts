@@ -11,6 +11,7 @@ export interface ModuliAttivi {
   abilita_chat: boolean;
   abilita_bacheca: boolean;
   abilita_ticket: boolean;
+  abilita_prenotazioni: boolean;
   abilita_pacchi: boolean;
 }
 
@@ -41,6 +42,7 @@ const ADMIN: readonly INavVoce[] = [
   voce('comunicazioni', 'Comunicazioni', 'message-circle', '/admin/comunicazioni'),
   voce('documenti', 'Documenti', 'file-text', '/admin/documenti'),
   voce('assemblee', 'Assemblee', 'users', '/admin/assemblee'),
+  voce('prenotazioni', 'Spazi comuni', 'calendar-plus', '/admin/prenotazioni'),
   voce('raccolta-differenziata', 'Raccolta differenziata', 'calendar-days', '/admin/raccolta-differenziata'),
   voce('impostazioni', 'Impostazioni', 'settings', '/admin/impostazioni'),
   voce('assistenza', 'Assistenza', 'circle-help', '/admin/assistenza'),
@@ -60,6 +62,7 @@ function residente({ ruoli, moduli }: ContestoNavigazione): INavVoce[] {
     voce('documenti', 'Documenti', 'file-text', '/documenti'),
     (moduli.abilita_bacheca || moduli.abilita_chat) && voce('comunicazioni', 'Comunicazioni', 'message-circle', '/comunicazioni'),
     voce('assemblee', 'Assemblee', 'users', '/assemblee'),
+    (condomino || portiere) && moduli.abilita_prenotazioni && voce('prenotazioni', 'Spazi comuni', 'calendar-plus', '/prenotazioni'),
     voce('raccolta-differenziata', 'Raccolta differenziata', 'calendar-days', '/raccolta-differenziata'),
     condomino && moduli.abilita_ticket && voce('segnalazioni', 'Segnalazioni', 'wrench', '/segnalazioni'),
     portiere && moduli.abilita_pacchi && voce('pacchi', 'Registro pacchi', 'package', '/pacchi'),

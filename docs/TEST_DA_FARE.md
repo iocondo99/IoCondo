@@ -1264,6 +1264,44 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 - [ ] **Cosa fare:** al termine delle verifiche eseguire `supabase/seed-dev/raccolta_differenziata_extra_pulizia.sql` nel SQL Editor.
   **Risultato atteso:** i 7 turni di prova vengono rimossi senza toccare altri dati del condominio.
 
+---
+
+## P. Prenotazione Spazi Comuni (Condòmino e Amministratore)
+
+### P1 — Caricamento dati di prova
+
+- [ ] **Cosa fare:** nel SQL Editor di Supabase eseguire `supabase/seed-dev/prenotazioni_extra.sql` (dopo `01_dati_prova.sql`).
+  **Risultato atteso:** vengono inseriti 4 spazi comuni (Parcheggio ospiti, Campo da tennis, Piscina condominiale, Sala riunioni) e 3 prenotazioni di prova senza errori né duplicati.
+
+### P2 — Consultazione e prenotazione lato Condòmino / Portiere (`/prenotazioni`)
+
+- [ ] **Cosa fare:** accedere come `CONDOMINO` (o `PORTIERE`), aprire `Spazi comuni` dal menu e verificare gli spazi disponibili e le proprie prenotazioni.
+  **Risultato atteso:** compaiono gli spazi con tariffa (`Gratuito` o `€/ora`) e durata massima (`Max N ore` o `Nessun limite ore`), e la tabella/lista `Le mie prenotazioni` con filtri `Tutte` / `In programma` / `Passate` e filtro per spazio.
+
+- [ ] **Cosa fare:** aprire `"Prenota spazio comune"`, selezionare uno spazio a pagamento (es. `Campo da tennis`), scegliere data e fascia oraria, poi provare una fascia superiore a `max_ore` e una fascia già occupata.
+  **Risultato atteso:** il riepilogo aggiorna dinamicamente durata e costo stimato (`Totale stimato: X,XX €`) senza finti checkout; le fasce occupate da altri mostrano genericamente `"Occupato"` (privacy tra vicini); il superamento di `max_ore` o la sovrapposizione vengono bloccati con messaggio chiaro in italiano (incluso errore Postgres `23P01` in caso di invio concorrente).
+
+- [ ] **Cosa fare:** confermare una prenotazione valida in fascia libera, poi annullarla tramite il pulsante `"Annulla"` e il `ConfirmDialog`.
+  **Risultato atteso:** la prenotazione viene salvata con `Toast` di conferma, appare in `In programma` e dopo l'annullamento scompare e libera nuovamente la fascia oraria.
+
+### P3 — Configurazione e supervisione lato Amministratore (`/admin/prenotazioni`)
+
+- [ ] **Cosa fare:** passare alla vista `Amministratore`, aprire `Spazi comuni` dal menu, creare un nuovo spazio (es. `Lavanderia`, tariffa `3,50`, max `2` ore), modificarne tariffa/`max_ore` ed eliminarne uno tramite `ConfirmDialog`.
+  **Risultato atteso:** le 3 `StatCard` si aggiornano coerentemente; le validazioni inline bloccano nomi vuoti o tariffe negative; l'eliminazione avvisa della cancellazione a cascata delle prenotazioni collegate (`on delete cascade`).
+
+- [ ] **Cosa fare:** aprire la scheda `Calendario prenotazioni`, filtrare per spazio/stato/testo e annullare una prenotazione tramite `ConfirmDialog`.
+  **Risultato atteso:** vengono mostrate tutte le prenotazioni del condominio con nominativo del condòmino, data/orario, costo addebitato e stato; l'annullamento rimuove la riga e mostra il `Toast` di conferma.
+
+### P4 — Isolamento RLS e toggle modulo (`abilita_prenotazioni`)
+
+- [ ] **Cosa fare:** accedere con utente `CONDOMINO` non `ADMIN` e navigare manualmente a `/admin/prenotazioni`; verificare anche il comportamento impostando `abilita_prenotazioni = false` in `configurazioni_condominio`.
+  **Risultato atteso:** `/admin/prenotazioni` mostra `NonAutorizzato` e le policy RLS bloccano scritture su `risorse_prenotabili` o cancellazioni di prenotazioni altrui; con `abilita_prenotazioni = false` la voce `Spazi comuni` sparisce dal menu residente.
+
+### P5 — Ripristino dati di prova
+
+- [ ] **Cosa fare:** al termine delle verifiche eseguire `supabase/seed-dev/prenotazioni_extra_pulizia.sql` nel SQL Editor.
+  **Risultato atteso:** le prenotazioni e gli spazi di prova vengono rimossi senza alterare gli altri dati del condominio.
+
 
 
 

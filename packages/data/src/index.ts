@@ -41,6 +41,8 @@ export * from './contabilita/rendicontoLogic';
 export * from './contabilita/contabilitaService';
 export * from './raccoltaDifferenziata/raccoltaDifferenziataLogic';
 export * from './raccoltaDifferenziata/raccoltaDifferenziataService';
+export * from './prenotazioni/prenotazioniLogic';
+export * from './prenotazioni/prenotazioniService';
 
 // Risoluzione ambiguità esportazioni duplicate
 export { formattaDataItaliana } from './admin/invitiAdminLogic';

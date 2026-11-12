@@ -131,7 +131,7 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
         ? vociDi({
             vista,
             ruoli,
-            moduli: moduli ?? { abilita_chat: true, abilita_bacheca: true, abilita_ticket: true, abilita_pacchi: true },
+            moduli: moduli ?? { abilita_chat: true, abilita_bacheca: true, abilita_ticket: true, abilita_prenotazioni: true, abilita_pacchi: true },
           })
         : [];
     return {
