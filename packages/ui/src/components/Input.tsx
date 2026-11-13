@@ -29,8 +29,10 @@ export interface FieldProps
     | 'onSubmitEditing'
     | 'maxLength'
   > {
-  /** Sempre visibile: il placeholder non sostituisce mai l'etichetta. */
+  /** Sempre visibile: il placeholder non sostituisce mai l'etichetta (salvo celle tabellari con `hideLabel`). */
   label: string;
+  hideLabel?: boolean;
+  accessibilityLabel?: string;
   helperText?: string;
   /** Messaggio di errore: mostra bordo, icona e testo. */
   error?: string;
@@ -58,6 +60,8 @@ interface BaseFieldProps extends FieldProps {
 
 export function BaseField({
   label,
+  hideLabel = false,
+  accessibilityLabel,
   helperText,
   error,
   success,
@@ -108,10 +112,12 @@ export function BaseField({
 
   return (
     <View style={styles.field}>
-      <Text style={[labelStyle, styles.label]} onPress={() => focusElement(inputRef.current)}>
-        {label}
-        {required ? <Text style={styles.required}> (obbligatorio)</Text> : null}
-      </Text>
+      {!hideLabel ? (
+        <Text style={[labelStyle, styles.label]} onPress={() => focusElement(inputRef.current)}>
+          {label}
+          {required ? <Text style={styles.required}> (obbligatorio)</Text> : null}
+        </Text>
+      ) : null}
       <View style={containerStyle}>
         {leading ? <View style={styles.leading}>{leading}</View> : null}
         <TextInput
@@ -129,7 +135,7 @@ export function BaseField({
             setFocused(false);
             onBlur?.(event);
           }}
-          accessibilityLabel={label}
+          accessibilityLabel={accessibilityLabel ?? label}
           accessibilityHint={message}
           accessibilityState={{ disabled }}
           aria-disabled={disabled}
