@@ -1,6 +1,6 @@
 /**
- * Logica pura per la sezione Segnalazioni del condòmino (`/segnalazioni` e `/segnalazioni/[id]`,
- * REQ-C03 e REQ-C04) e per i Ticket aree comuni del portiere (`/ticket-aree-comuni`):
+ * Logica pura per la sezione unificata Segnalazioni (`/segnalazioni` e `/segnalazioni/[id]`,
+ * accessibile a Condòmino e Portiere, REQ-C03 e REQ-C04):
  * - modello ad ambiti condivisi (nessun ticket privato 1-a-1):
  *   - 'CONDOMINIO': Area comune condominiale (visibile a tutti i condòmini del condominio);
  *   - 'PALAZZO': Area/parti comuni del palazzo (visibile solo ai residenti di quel palazzo);

@@ -552,6 +552,30 @@ export function createStrutturaService(db: TypedSupabaseClient) {
       return unwrap(await db.from('tabelle_millesimali').insert(payload).select('*').single()) as TabellaMillesimaleRaw;
     },
 
+    async aggiornaTabellaMillesimale(
+      tabellaId: string,
+      input: {
+        nome: string;
+        palazzoId?: string | null;
+        scalaColonnaId?: string | null;
+        totale?: number;
+      }
+    ): Promise<TabellaMillesimaleRaw> {
+      const payload: TablesUpdate<'tabelle_millesimali'> = {
+        nome: input.nome.trim(),
+        palazzo_id: input.palazzoId || null,
+        scala_colonna_id: input.scalaColonnaId || null,
+        totale: input.totale ?? 1000,
+      };
+      return unwrap(
+        await db.from('tabelle_millesimali').update(payload).eq('id', tabellaId).select('*').single()
+      ) as TabellaMillesimaleRaw;
+    },
+
+    async eliminaTabellaMillesimale(tabellaId: string): Promise<void> {
+      assertOk(await db.from('tabelle_millesimali').delete().eq('id', tabellaId));
+    },
+
     /**
      * Salva massivamente le quote millesimali per una tabella (UC-09).
      * Rimuove le quote precedenti della tabella e inserisce le nuove quote.
@@ -570,6 +594,38 @@ export function createStrutturaService(db: TypedSupabaseClient) {
       }));
 
       assertOk(await db.from('quote_millesimali').insert(payload));
+    },
+
+    /**
+     * Salvataggio atomico lato applicativo di tabella millesimale (creazione o modifica)
+     * seguito dal salvataggio massivo delle relative quote.
+     */
+    async salvaTabellaEQuote(input: {
+      id?: string;
+      condominioId: string;
+      nome: string;
+      palazzoId?: string | null;
+      scalaColonnaId?: string | null;
+      totale?: number;
+      quote: QuotaMillesimaleInput[];
+    }): Promise<TabellaMillesimaleRaw> {
+      const tabella = input.id
+        ? await this.aggiornaTabellaMillesimale(input.id, {
+            nome: input.nome,
+            palazzoId: input.palazzoId,
+            scalaColonnaId: input.scalaColonnaId,
+            totale: input.totale,
+          })
+        : await this.creaTabellaMillesimale({
+            condominioId: input.condominioId,
+            nome: input.nome,
+            palazzoId: input.palazzoId,
+            scalaColonnaId: input.scalaColonnaId,
+            totale: input.totale,
+          });
+
+      await this.salvaQuoteMillesimali(tabella.id, input.quote);
+      return tabella;
     },
   };
 }

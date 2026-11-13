@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import {
+  type AmbitoTabellaMillesimale,
   type StrutturaAdminData,
   type UnitaDettaglioView,
   type TabellaMillesimaleDettaglioView,
@@ -16,7 +17,13 @@ import {
   type ScalaGruppoView,
   type RisultatoValidazioneCSV,
   type CondominoDisponibile,
+  calcolaQuadraturaManuale,
+  deduciAmbitoTabella,
+  filtraUnitaPerAmbito,
+  formattaMillesimiInput,
+  ripartisciEquamente,
   validaImportMillesimiCSV,
+  validaTabellaMillesimale,
   generaTemplateCSVMillesimi,
   parseValoreMillesimale,
   arrotonda3,
@@ -27,6 +34,8 @@ import {
   Breadcrumbs,
   Button,
   Card,
+  Checkbox,
+  ConfirmDialog,
   EmptyState,
   ErrorState,
   FilterChips,
@@ -137,6 +146,20 @@ function AdminStrutturaContenuto() {
   const [esitoValidazioneCSV, setEsitoValidazioneCSV] = useState<RisultatoValidazioneCSV | null>(null);
   const [importazioneInCorso, setImportazioneInCorso] = useState(false);
   const [erroreImportCSV, setErroreImportCSV] = useState<string | null>(null);
+
+  // Modale Crea / Modifica Tabella Millesimale manuale
+  const [modaleTabellaAperta, setModaleTabellaAperta] = useState(false);
+  const [tabellaInModifica, setTabellaInModifica] = useState<TabellaMillesimaleDettaglioView | null>(null);
+  const [nomeTabellaInput, setNomeTabellaInput] = useState('');
+  const [totaleTabellaInput, setTotaleTabellaInput] = useState('1000,000');
+  const [ambitoTabella, setAmbitoTabella] = useState<AmbitoTabellaMillesimale>('TUTTO_CONDOMINIO');
+  const [palazzoTabellaId, setPalazzoTabellaId] = useState('');
+  const [scalaTabellaId, setScalaTabellaId] = useState('');
+  const [unitaSelezionateTabellaIds, setUnitaSelezionateTabellaIds] = useState<string[]>([]);
+  const [quoteManualiInput, setQuoteManualiInput] = useState<Record<string, string>>({});
+  const [salvataggioTabellaInCorso, setSalvataggioTabellaInCorso] = useState(false);
+  const [erroreFormTabella, setErroreFormTabella] = useState<string | null>(null);
+  const [tabellaDaEliminare, setTabellaDaEliminare] = useState<TabellaMillesimaleDettaglioView | null>(null);
 
   const caricaDati = useCallback(async () => {
     if (!condominio?.id) {
@@ -276,6 +299,65 @@ function AdminStrutturaContenuto() {
     }
     return list;
   }, [condominiDisponibili]);
+
+  const opzioniAmbitoTabella: SelectOption[] = useMemo(
+    () => [
+      { value: 'TUTTO_CONDOMINIO', label: 'Tutte le unità del condominio (Tabella generale)' },
+      { value: 'PALAZZO', label: 'Solo uno specifico Palazzo/Edificio' },
+      { value: 'SCALA', label: 'Solo una specifica Scala o Colonna' },
+      { value: 'PERSONALIZZATO', label: 'Selezione personalizzata di appartamenti' },
+    ],
+    []
+  );
+
+  const opzioniScaleTabellaSelect: SelectOption[] = useMemo(() => {
+    if (!dati || !palazzoTabellaId) return [];
+    const pal = dati.palazzi.find((p) => p.id === palazzoTabellaId);
+    if (!pal) return [];
+    return pal.scale
+      .filter((sc): sc is ScalaGruppoView & { id: string } => Boolean(sc.id))
+      .map((sc) => ({ value: sc.id, label: sc.nome }));
+  }, [dati, palazzoTabellaId]);
+
+  const unitaPartecipantiTabella = useMemo(() => {
+    if (!dati) return [];
+    return filtraUnitaPerAmbito(dati.tutteUnita, {
+      ambito: ambitoTabella,
+      palazzoId: palazzoTabellaId || null,
+      scalaColonnaId: scalaTabellaId || null,
+      unitaSelezionateIds: unitaSelezionateTabellaIds,
+    });
+  }, [dati, ambitoTabella, palazzoTabellaId, scalaTabellaId, unitaSelezionateTabellaIds]);
+
+  const totalePrevistoTabellaNum = useMemo(
+    () => parseValoreMillesimale(totaleTabellaInput) ?? 0,
+    [totaleTabellaInput]
+  );
+
+  const quadraturaManuale = useMemo(
+    () =>
+      calcolaQuadraturaManuale(
+        unitaPartecipantiTabella.map((u) => ({
+          unitaId: u.id,
+          valoreInput: quoteManualiInput[u.id] ?? '',
+        })),
+        totalePrevistoTabellaNum
+      ),
+    [unitaPartecipantiTabella, quoteManualiInput, totalePrevistoTabellaNum]
+  );
+
+  const validazioneTabella = useMemo(
+    () =>
+      validaTabellaMillesimale({
+        nome: nomeTabellaInput,
+        totalePrevisto: totalePrevistoTabellaNum,
+        ambito: ambitoTabella,
+        palazzoId: palazzoTabellaId || null,
+        scalaColonnaId: scalaTabellaId || null,
+        unitaPartecipanti: unitaPartecipantiTabella,
+      }),
+    [nomeTabellaInput, totalePrevistoTabellaNum, ambitoTabella, palazzoTabellaId, scalaTabellaId, unitaPartecipantiTabella]
+  );
 
   // Gestione creazione Palazzo
   const apriModalePalazzo = () => {
@@ -662,6 +744,136 @@ function AdminStrutturaContenuto() {
     }
   };
 
+  // Gestione Tabella Millesimale manuale (Crea / Modifica / Elimina)
+  const apriModaleNuovaTabella = () => {
+    const primoPalazzo = dati?.palazzi[0];
+    const primaScala = primoPalazzo?.scale.find((s) => Boolean(s.id));
+    setTabellaInModifica(null);
+    setNomeTabellaInput('');
+    setTotaleTabellaInput('1000,000');
+    setAmbitoTabella('TUTTO_CONDOMINIO');
+    setPalazzoTabellaId(primoPalazzo?.id ?? '');
+    setScalaTabellaId(primaScala?.id ?? '');
+    setUnitaSelezionateTabellaIds([]);
+    setQuoteManualiInput({});
+    setErroreFormTabella(null);
+    setModaleTabellaAperta(true);
+  };
+
+  const apriModaleModificaTabella = (tabella: TabellaMillesimaleDettaglioView) => {
+    if (!dati) return;
+    const dedotto = deduciAmbitoTabella(tabella, dati.tutteUnita);
+    let palId = tabella.palazzoId ?? '';
+    if (!palId && tabella.scalaColonnaId) {
+      const palTrovato = dati.palazzi.find((p) => p.scale.some((s) => s.id === tabella.scalaColonnaId));
+      palId = palTrovato?.id ?? '';
+    }
+    if (!palId) {
+      palId = dati.palazzi[0]?.id ?? '';
+    }
+
+    const quoteInit: Record<string, string> = {};
+    for (const q of tabella.quote) {
+      quoteInit[q.unitaId] = formattaMillesimiInput(q.valoreMillesimale);
+    }
+
+    setTabellaInModifica(tabella);
+    setNomeTabellaInput(tabella.nome);
+    setTotaleTabellaInput(formattaMillesimiInput(tabella.totalePrevisto));
+    setAmbitoTabella(dedotto.ambito);
+    setPalazzoTabellaId(palId);
+    setScalaTabellaId(tabella.scalaColonnaId ?? '');
+    setUnitaSelezionateTabellaIds(dedotto.unitaSelezionateIds);
+    setQuoteManualiInput(quoteInit);
+    setErroreFormTabella(null);
+    setModaleTabellaAperta(true);
+  };
+
+  const toggleUnitaPersonalizzata = (unitaId: string, checked: boolean) => {
+    setUnitaSelezionateTabellaIds((prev) =>
+      checked ? (prev.includes(unitaId) ? prev : [...prev, unitaId]) : prev.filter((id) => id !== unitaId)
+    );
+  };
+
+  const applicaRipartizioneEqua = () => {
+    if (unitaPartecipantiTabella.length === 0 || totalePrevistoTabellaNum <= 0) return;
+    const ripartite = ripartisciEquamente(
+      unitaPartecipantiTabella.map((u) => u.id),
+      totalePrevistoTabellaNum
+    );
+    setQuoteManualiInput((prev) => {
+      const next = { ...prev };
+      for (const [id, val] of Object.entries(ripartite)) {
+        next[id] = formattaMillesimiInput(val);
+      }
+      return next;
+    });
+  };
+
+  const salvaTabellaMillesimale = async () => {
+    if (!condominio?.id) return;
+    if (!validazioneTabella.valido) {
+      setErroreFormTabella(validazioneTabella.errori[0] || 'Verifica i dati della tabella.');
+      return;
+    }
+    if (quadraturaManuale.righeInvalide.length > 0) {
+      setErroreFormTabella('Alcune quote inserite contengono valori numerici non validi.');
+      return;
+    }
+    if (!quadraturaManuale.isQuadrata) {
+      setErroreFormTabella(
+        `La tabella deve quadrare esattamente a ${totalePrevistoTabellaNum.toFixed(3)} ‰ prima del salvataggio.`
+      );
+      return;
+    }
+
+    setSalvataggioTabellaInCorso(true);
+    setErroreFormTabella(null);
+
+    try {
+      const palazzoIdDb =
+        ambitoTabella === 'PALAZZO' || ambitoTabella === 'SCALA' ? palazzoTabellaId || null : null;
+      const scalaIdDb = ambitoTabella === 'SCALA' ? scalaTabellaId || null : null;
+
+      await services.struttura.salvaTabellaEQuote({
+        id: tabellaInModifica?.id,
+        condominioId: condominio.id,
+        nome: nomeTabellaInput.trim(),
+        palazzoId: palazzoIdDb,
+        scalaColonnaId: scalaIdDb,
+        totale: totalePrevistoTabellaNum,
+        quote: quadraturaManuale.quoteParsed,
+      });
+
+      toast.show({
+        message: tabellaInModifica
+          ? `Tabella "${nomeTabellaInput.trim()}" aggiornata con successo.`
+          : `Tabella "${nomeTabellaInput.trim()}" creata con successo.`,
+        tone: 'success',
+      });
+      setModaleTabellaAperta(false);
+      caricaDati();
+    } catch {
+      setErroreFormTabella(
+        'Impossibile salvare la tabella millesimale. Verifica che non esista già una tabella con lo stesso nome.'
+      );
+    } finally {
+      setSalvataggioTabellaInCorso(false);
+    }
+  };
+
+  const confermaEliminaTabella = async () => {
+    if (!tabellaDaEliminare) return;
+    const nomeEliminata = tabellaDaEliminare.nome;
+    await services.struttura.eliminaTabellaMillesimale(tabellaDaEliminare.id);
+    toast.show({
+      message: `Tabella "${nomeEliminata}" eliminata.`,
+      tone: 'success',
+    });
+    setTabellaDaEliminare(null);
+    caricaDati();
+  };
+
   // Filtraggio unità ed edifici per visualizzazione
   const palazziFiltrati = useMemo(() => {
     if (!dati) return [];
@@ -917,6 +1129,23 @@ function AdminStrutturaContenuto() {
       icon: 'calculator',
       content: (
         <View style={styles.contenutoTab}>
+          <View style={styles.barraAzioniMillesimi}>
+            <Button
+              variant="primary"
+              icon="plus"
+              label="Nuova tabella millesimale"
+              onPress={apriModaleNuovaTabella}
+              accessibilityHint="Apre il modulo per creare una nuova tabella millesimale e compilare le quote"
+            />
+            <Button
+              variant="secondary"
+              icon="upload"
+              label="Importa millesimi CSV"
+              onPress={() => apriModaleCSV()}
+              accessibilityHint="Importa le quote millesimali da un file CSV"
+            />
+          </View>
+
           {dati.tabelle.length === 0 ? (
             <Card>
               <EmptyState
@@ -924,8 +1153,8 @@ function AdminStrutturaContenuto() {
                 title="Nessuna tabella millesimale presente"
                 description="Crea la prima tabella millesimale per impostare la ripartizione dei costi e delle spese del condominio."
                 action={{
-                  label: 'Importa millesimi CSV',
-                  onPress: () => apriModaleCSV(),
+                  label: 'Nuova tabella millesimale',
+                  onPress: apriModaleNuovaTabella,
                 }}
               />
             </Card>
@@ -948,6 +1177,24 @@ function AdminStrutturaContenuto() {
                   }}
                 >
                   <View style={styles.corpoTabellaMillesimi}>
+                    {/* Azioni gestione tabella */}
+                    <View style={styles.azioniTabellaMillesimi}>
+                      <Button
+                        variant="secondary"
+                        icon="pencil"
+                        label="Modifica tabella"
+                        onPress={() => apriModaleModificaTabella(tabella)}
+                        accessibilityHint={`Modifica impostazioni e quote di ${tabella.nome}`}
+                      />
+                      <Button
+                        variant="destructive"
+                        icon="trash-2"
+                        label="Elimina tabella"
+                        onPress={() => setTabellaDaEliminare(tabella)}
+                        accessibilityHint={`Elimina la tabella millesimale ${tabella.nome}`}
+                      />
+                    </View>
+
                     {/* Barra di stato quadratura */}
                     <View style={styles.barraStatoQuadratura}>
                       <View style={styles.infoSommaMillesimi}>
@@ -1792,6 +2039,261 @@ function AdminStrutturaContenuto() {
           </View>
         </View>
       </Modal>
+
+      {/* ==================================================================== */}
+      {/* MODALE CREA / MODIFICA TABELLA MILLESIMALE */}
+      {/* ==================================================================== */}
+      <Modal
+        visible={modaleTabellaAperta}
+        onClose={() => setModaleTabellaAperta(false)}
+        title={tabellaInModifica ? `Modifica tabella · ${tabellaInModifica.nome}` : 'Nuova tabella millesimale'}
+        description="Definisci nome, ambito di applicazione e compila le quote millesimali con quadratura in tempo reale."
+        dismissible={!salvataggioTabellaInCorso}
+        maxWidth={720}
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Annulla"
+              onPress={() => setModaleTabellaAperta(false)}
+              disabled={salvataggioTabellaInCorso}
+            />
+            <Button
+              variant="primary"
+              label="Salva tabella e quote"
+              icon="check"
+              onPress={salvaTabellaMillesimale}
+              disabled={!validazioneTabella.valido || !quadraturaManuale.isQuadrata || salvataggioTabellaInCorso}
+              loading={salvataggioTabellaInCorso}
+            />
+          </ModalActions>
+        }
+      >
+        <View style={styles.formModale}>
+          {erroreFormTabella ? <Alert tone="error" message={erroreFormTabella} /> : null}
+
+          {/* Passo 1 — Dati generali della tabella */}
+          <View style={styles.sezioneModaleTabella}>
+            <Text style={[textStyle('h4', breakpoint), styles.titoloSezioneModale]}>
+              1. Dati generali e ambito
+            </Text>
+
+            <View style={styles.rigaCampiDoppia}>
+              <View style={styles.campoNomeTabella}>
+                <Input
+                  label="Nome della tabella *"
+                  placeholder="Es. Tabella A - Proprietà Generale"
+                  value={nomeTabellaInput}
+                  onChangeText={setNomeTabellaInput}
+                  disabled={salvataggioTabellaInCorso}
+                />
+              </View>
+              <View style={styles.campoTotaleTabella}>
+                <Input
+                  label="Totale millesimi previsto"
+                  placeholder="1000,000"
+                  value={totaleTabellaInput}
+                  onChangeText={setTotaleTabellaInput}
+                  keyboardType="decimal-pad"
+                  disabled={salvataggioTabellaInCorso}
+                />
+              </View>
+            </View>
+
+            <Select
+              label="Ambito di applicazione *"
+              options={opzioniAmbitoTabella}
+              value={ambitoTabella}
+              onChange={(val) => setAmbitoTabella(val as AmbitoTabellaMillesimale)}
+              disabled={salvataggioTabellaInCorso}
+            />
+
+            {ambitoTabella === 'PALAZZO' || ambitoTabella === 'SCALA' ? (
+              <Select
+                label="Palazzo / Edificio *"
+                options={opzioniPalazziSelect}
+                value={palazzoTabellaId}
+                onChange={(newPalId) => {
+                  setPalazzoTabellaId(newPalId);
+                  const pal = dati?.palazzi.find((p) => p.id === newPalId);
+                  const primaScala = pal?.scale.find((s) => Boolean(s.id));
+                  setScalaTabellaId(primaScala?.id ?? '');
+                }}
+                disabled={salvataggioTabellaInCorso}
+              />
+            ) : null}
+
+            {ambitoTabella === 'SCALA' ? (
+              opzioniScaleTabellaSelect.length > 0 ? (
+                <Select
+                  label="Scala o Colonna *"
+                  options={opzioniScaleTabellaSelect}
+                  value={scalaTabellaId}
+                  onChange={setScalaTabellaId}
+                  disabled={salvataggioTabellaInCorso}
+                />
+              ) : (
+                <Alert
+                  tone="warning"
+                  message="L'edificio selezionato non ha ancora scale o colonne configurate."
+                />
+              )
+            ) : null}
+
+            {ambitoTabella === 'PERSONALIZZATO' ? (
+              <View style={styles.boxSelezionePersonalizzata}>
+                <View style={styles.testataSelezionePersonalizzata}>
+                  <Text style={[textStyle('label', breakpoint), styles.titoloSezioneModale]}>
+                    Seleziona appartamenti partecipanti ({unitaSelezionateTabellaIds.length} di {dati.tutteUnita.length})
+                  </Text>
+                  <View style={styles.azioniRapidePersonalizzata}>
+                    <Button
+                      variant="text"
+                      label="Seleziona tutte"
+                      onPress={() => setUnitaSelezionateTabellaIds(dati.tutteUnita.map((u) => u.id))}
+                      disabled={salvataggioTabellaInCorso}
+                    />
+                    <Button
+                      variant="text"
+                      label="Deseleziona"
+                      onPress={() => setUnitaSelezionateTabellaIds([])}
+                      disabled={salvataggioTabellaInCorso}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.listaCheckboxUnita}>
+                  {dati.tutteUnita.map((u) => (
+                    <Checkbox
+                      key={u.id}
+                      checked={unitaSelezionateTabellaIds.includes(u.id)}
+                      onChange={(checked) => toggleUnitaPersonalizzata(u.id, checked)}
+                      label={`Int. ${u.interno} · ${u.palazzoNome}${u.scalaNome ? ` · ${u.scalaNome}` : ''} (${u.tipologiaDescrizione})`}
+                      disabled={salvataggioTabellaInCorso}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Passo 2 — Compilazione delle quote per appartamento */}
+          <View style={styles.sezioneModaleTabella}>
+            <View style={styles.intestazioneQuoteManuali}>
+              <View style={styles.titoloQuoteManualiGroup}>
+                <Text style={[textStyle('h4', breakpoint), styles.titoloSezioneModale]}>
+                  2. Quote per appartamento ({unitaPartecipantiTabella.length})
+                </Text>
+                <Text style={[textStyle('secondary', breakpoint), styles.sottotitoloQuoteManuali]}>
+                  Inserisci i millesimi (virgola o punto decimale).
+                </Text>
+              </View>
+              <Button
+                variant="secondary"
+                icon="calculator"
+                label="Ripartisci equamente"
+                onPress={applicaRipartizioneEqua}
+                disabled={unitaPartecipantiTabella.length === 0 || totalePrevistoTabellaNum <= 0 || salvataggioTabellaInCorso}
+                accessibilityHint="Distribuisce il totale millesimi previsto in parti uguali tra le unità partecipanti"
+              />
+            </View>
+
+            {unitaPartecipantiTabella.length === 0 ? (
+              <Alert
+                tone="info"
+                message="Nessuna unità partecipante selezionata per l'ambito scelto."
+              />
+            ) : (
+              <View style={styles.listaInputQuote}>
+                {unitaPartecipantiTabella.map((u) => {
+                  const isInvalida = quadraturaManuale.righeInvalide.includes(u.id);
+                  return (
+                    <View key={u.id} style={styles.rigaInputQuota}>
+                      <View style={styles.infoUnitaInputQuota}>
+                        <Text style={[textStyle('body', breakpoint), styles.testoUnitaQuota]}>
+                          Int. {u.interno} · {u.tipologiaDescrizione}
+                        </Text>
+                        <Text style={[textStyle('secondary', breakpoint), styles.testoSubEdificio]}>
+                          {u.palazzoNome}{u.scalaNome ? ` · ${u.scalaNome}` : ''}
+                        </Text>
+                      </View>
+                      <View style={styles.campoValoreQuota}>
+                        <Input
+                          label={`Millesimi Int. ${u.interno}`}
+                          placeholder="0,000"
+                          value={quoteManualiInput[u.id] ?? ''}
+                          onChangeText={(text) =>
+                            setQuoteManualiInput((prev) => ({ ...prev, [u.id]: text }))
+                          }
+                          keyboardType="decimal-pad"
+                          error={isInvalida ? 'Valore non valido' : undefined}
+                          disabled={salvataggioTabellaInCorso}
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {/* Passo 3 — Barra di quadratura dinamica (real-time) */}
+          <View style={styles.boxQuadraturaRealTime}>
+            <View style={styles.rigaQuadraturaRealTime}>
+              <Text style={[textStyle('body', breakpoint), styles.testoSommaRealTime]}>
+                Somma inserita: {quadraturaManuale.sommaMillesimi.toFixed(3)} ‰ su {totalePrevistoTabellaNum.toFixed(3)} ‰
+              </Text>
+              <Badge
+                status={
+                  quadraturaManuale.isQuadrata
+                    ? 'success'
+                    : quadraturaManuale.disavanzo > 0
+                      ? 'warning'
+                      : 'error'
+                }
+                label={
+                  quadraturaManuale.isQuadrata
+                    ? `Quadrata a ${totalePrevistoTabellaNum.toFixed(3)} ‰`
+                    : quadraturaManuale.disavanzo > 0
+                      ? `Disavanzo: +${quadraturaManuale.disavanzo.toFixed(3)} ‰`
+                      : `Eccedenza: ${quadraturaManuale.disavanzo.toFixed(3)} ‰`
+                }
+              />
+            </View>
+
+            {!quadraturaManuale.isQuadrata && unitaPartecipantiTabella.length > 0 ? (
+              <Alert
+                tone={quadraturaManuale.disavanzo > 0 ? 'warning' : 'error'}
+                message={
+                  quadraturaManuale.righeInvalide.length > 0
+                    ? 'Correggi i valori numerici non validi prima di salvare.'
+                    : quadraturaManuale.disavanzo > 0
+                      ? `Mancano ${quadraturaManuale.disavanzo.toFixed(3)} ‰ per raggiungere il totale previsto (${totalePrevistoTabellaNum.toFixed(3)} ‰).`
+                      : `La somma supera il totale previsto di ${Math.abs(quadraturaManuale.disavanzo).toFixed(3)} ‰. Riduci alcune quote per salvare.`
+                }
+              />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ==================================================================== */}
+      {/* DIALOGO CONFERMA ELIMINAZIONE TABELLA MILLESIMALE */}
+      {/* ==================================================================== */}
+      <ConfirmDialog
+        visible={tabellaDaEliminare !== null}
+        title="Eliminare la tabella millesimale?"
+        description={
+          tabellaDaEliminare
+            ? `La tabella "${tabellaDaEliminare.nome}" e tutte le relative quote millesimali saranno eliminate definitivamente.`
+            : ''
+        }
+        confirmLabel="Elimina tabella"
+        confirmLoadingLabel="Eliminazione in corso..."
+        destructive
+        onConfirm={confermaEliminaTabella}
+        onCancel={() => setTabellaDaEliminare(null)}
+      />
     </View>
   );
 }
@@ -2213,5 +2715,115 @@ const styles = StyleSheet.create({
   },
   nessunResidente: {
     color: colors.text.muted,
+  },
+  barraAzioniMillesimi: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[3],
+    alignItems: 'center',
+  },
+  azioniTabellaMillesimi: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[2],
+    alignItems: 'center',
+  },
+  sezioneModaleTabella: {
+    gap: space[3],
+    paddingTop: space[2],
+    borderTopWidth: borderWidths.thin,
+    borderTopColor: colors.border,
+  },
+  titoloSezioneModale: {
+    color: colors.brand.navy,
+  },
+  campoNomeTabella: {
+    flex: 2,
+    minWidth: 200,
+  },
+  campoTotaleTabella: {
+    flex: 1,
+    minWidth: 140,
+  },
+  boxSelezionePersonalizzata: {
+    gap: space[2],
+    padding: space[3],
+    backgroundColor: colors.background,
+    borderRadius: radii.card,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
+  },
+  testataSelezionePersonalizzata: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
+  },
+  azioniRapidePersonalizzata: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[2],
+  },
+  listaCheckboxUnita: {
+    gap: space[1],
+  },
+  intestazioneQuoteManuali: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[3],
+  },
+  titoloQuoteManualiGroup: {
+    flex: 1,
+    minWidth: 180,
+    gap: space[1],
+  },
+  sottotitoloQuoteManuali: {
+    color: colors.text.secondary,
+  },
+  listaInputQuote: {
+    gap: space[2],
+  },
+  rigaInputQuota: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[3],
+    padding: space[3],
+    backgroundColor: colors.background,
+    borderRadius: radii.card,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
+  },
+  infoUnitaInputQuota: {
+    flex: 1,
+    minWidth: 160,
+    gap: space[1],
+  },
+  campoValoreQuota: {
+    width: 150,
+    maxWidth: '100%',
+  },
+  boxQuadraturaRealTime: {
+    gap: space[3],
+    padding: space[4],
+    backgroundColor: colors.background,
+    borderRadius: radii.card,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.borderStrong,
+  },
+  rigaQuadraturaRealTime: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
+  },
+  testoSommaRealTime: {
+    color: colors.brand.navy,
+    fontWeight: '600',
   },
 });

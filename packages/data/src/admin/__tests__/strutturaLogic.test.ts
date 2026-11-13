@@ -2,15 +2,21 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   arrotonda3,
+  calcolaQuadraturaManuale,
   calcolaQuadraturaTabella,
   confrontaInterni,
   costruisciAlberoStruttura,
+  deduciAmbitoTabella,
+  filtraUnitaPerAmbito,
+  formattaMillesimiInput,
   generaTemplateCSVMillesimi,
   isAnagraficaAttiva,
   parseCSVMatrice,
   parseValoreMillesimale,
+  ripartisciEquamente,
   selezionaResidenteAttivo,
   validaImportMillesimiCSV,
+  validaTabellaMillesimale,
   type AnagraficaUnitaRaw,
   type PalazzoRaw,
   type QuotaMillesimaleRaw,
@@ -323,5 +329,145 @@ test('generaTemplateCSVMillesimi: genera template corretto', () => {
   const template = generaTemplateCSVMillesimi(unita);
   assert.ok(template.includes('Scala;Interno;Millesimi'));
   assert.ok(template.includes('Scala A;1;0,000'));
+});
+
+test('filtraUnitaPerAmbito e deduciAmbitoTabella: gestiscono tutti e 4 gli ambiti', () => {
+  const mkUnita = (id: string, palazzoId: string, palazzoNome: string, scalaId: string | null, scalaNome: string | null, interno: string): UnitaDettaglioView => ({
+    id,
+    palazzoId,
+    palazzoNome,
+    scalaId,
+    scalaNome,
+    tipologiaId: 't1',
+    tipologiaDescrizione: 'Appartamento',
+    interno,
+    piano: 1,
+    mq: 80,
+    foglioCatastale: null,
+    particella: null,
+    subalterno: null,
+    residenteAttivo: null,
+  });
+
+  const tutte = [
+    mkUnita('u1', 'p1', 'Palazzo A', 'sc1', 'Scala A', '10'),
+    mkUnita('u2', 'p1', 'Palazzo A', 'sc1', 'Scala A', '2'),
+    mkUnita('u3', 'p1', 'Palazzo A', 'sc2', 'Scala B', '1'),
+    mkUnita('u4', 'p2', 'Palazzo B', 'sc3', 'Scala C', '1'),
+  ];
+
+  const tutto = filtraUnitaPerAmbito(tutte, { ambito: 'TUTTO_CONDOMINIO' });
+  assert.equal(tutto.length, 4);
+  assert.equal(tutto[0]?.id, 'u2'); // Interno 2 prima di 10
+
+  const palazzo = filtraUnitaPerAmbito(tutte, { ambito: 'PALAZZO', palazzoId: 'p1' });
+  assert.equal(palazzo.length, 3);
+
+  const scala = filtraUnitaPerAmbito(tutte, { ambito: 'SCALA', scalaColonnaId: 'sc1' });
+  assert.deepEqual(scala.map((u) => u.id), ['u2', 'u1']);
+
+  const pers = filtraUnitaPerAmbito(tutte, { ambito: 'PERSONALIZZATO', unitaSelezionateIds: ['u1', 'u4'] });
+  assert.deepEqual(pers.map((u) => u.id), ['u1', 'u4']);
+
+  assert.equal(
+    deduciAmbitoTabella({ palazzoId: null, scalaColonnaId: 'sc1', quote: [] }, tutte).ambito,
+    'SCALA'
+  );
+  assert.equal(
+    deduciAmbitoTabella({ palazzoId: 'p1', scalaColonnaId: null, quote: [] }, tutte).ambito,
+    'PALAZZO'
+  );
+  const dedPers = deduciAmbitoTabella(
+    {
+      palazzoId: null,
+      scalaColonnaId: null,
+      quote: [
+        { unitaId: 'u1', interno: '10', palazzoNome: 'Palazzo A', scalaNome: 'Scala A', tipologiaDescrizione: 'Appartamento', valoreMillesimale: 500, percentuale: 50 },
+        { unitaId: 'u4', interno: '1', palazzoNome: 'Palazzo B', scalaNome: 'Scala C', tipologiaDescrizione: 'Appartamento', valoreMillesimale: 500, percentuale: 50 },
+      ],
+    },
+    tutte
+  );
+  assert.equal(dedPers.ambito, 'PERSONALIZZATO');
+  assert.deepEqual(dedPers.unitaSelezionateIds, ['u1', 'u4']);
+});
+
+test('validaTabellaMillesimale: verifica nome, totale e coerenza ambito', () => {
+  const unitaFake: UnitaDettaglioView = {
+    id: 'u1',
+    palazzoId: 'p1',
+    palazzoNome: 'Palazzo A',
+    scalaId: 'sc1',
+    scalaNome: 'Scala A',
+    tipologiaId: 't1',
+    tipologiaDescrizione: 'Appartamento',
+    interno: '1',
+    piano: 1,
+    mq: 80,
+    foglioCatastale: null,
+    particella: null,
+    subalterno: null,
+    residenteAttivo: null,
+  };
+
+  const ok = validaTabellaMillesimale({
+    nome: 'Tabella A',
+    totalePrevisto: 1000,
+    ambito: 'TUTTO_CONDOMINIO',
+    unitaPartecipanti: [unitaFake],
+  });
+  assert.equal(ok.valido, true);
+
+  const errNome = validaTabellaMillesimale({
+    nome: '   ',
+    totalePrevisto: 0,
+    ambito: 'PERSONALIZZATO',
+    unitaPartecipanti: [],
+  });
+  assert.equal(errNome.valido, false);
+  assert.equal(errNome.errori.length, 3);
+});
+
+test('calcolaQuadraturaManuale e ripartisciEquamente: precisione millesimale 0.001', () => {
+  const quoteOk = calcolaQuadraturaManuale(
+    [
+      { unitaId: 'u1', valoreInput: '333,333' },
+      { unitaId: 'u2', valoreInput: '333.333' },
+      { unitaId: 'u3', valoreInput: '333,334' },
+    ],
+    1000
+  );
+  assert.equal(quoteOk.sommaMillesimi, 1000);
+  assert.equal(quoteOk.disavanzo, 0);
+  assert.equal(quoteOk.isQuadrata, true);
+  assert.equal(quoteOk.righeInvalide.length, 0);
+
+  const quoteEccedenza = calcolaQuadraturaManuale(
+    [
+      { unitaId: 'u1', valoreInput: '600' },
+      { unitaId: 'u2', valoreInput: '450,500' },
+    ],
+    1000
+  );
+  assert.equal(quoteEccedenza.sommaMillesimi, 1050.5);
+  assert.equal(quoteEccedenza.disavanzo, -50.5);
+  assert.equal(quoteEccedenza.isQuadrata, false);
+
+  const quoteInvalide = calcolaQuadraturaManuale(
+    [
+      { unitaId: 'u1', valoreInput: 'abc' },
+      { unitaId: 'u2', valoreInput: '500' },
+    ],
+    1000
+  );
+  assert.equal(quoteInvalide.isQuadrata, false);
+  assert.deepEqual(quoteInvalide.righeInvalide, ['u1']);
+
+  const ripartite = ripartisciEquamente(['u1', 'u2', 'u3'], 1000);
+  assert.equal(ripartite['u1'], 333.333);
+  assert.equal(ripartite['u2'], 333.333);
+  assert.equal(ripartite['u3'], 333.334);
+  assert.equal(arrotonda3(ripartite['u1']! + ripartite['u2']! + ripartite['u3']!), 1000);
+  assert.equal(formattaMillesimiInput(125.5), '125,500');
 });
 

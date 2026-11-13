@@ -1,18 +1,23 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { sottotitoloSegnalazioni } from '@iocondo/data';
+import {
+  sottotitoloSegnalazioni,
+  sottotitoloTicketPortiere,
+  type ModalitaSegnalazioni,
+} from '@iocondo/data';
 import { NonAutorizzato, PageHeader, space } from '@iocondo/ui';
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
 import { ElencoSegnalazioni } from '@/components/segnalazioni/ElencoSegnalazioni';
 import { useProfilo } from '@/context/ProfiloContext';
 
-/** Pagina "Segnalazioni" del condòmino (`/segnalazioni`, REQ-C03). */
+/** Pagina "Segnalazioni" unificata per Condòmino e Portiere (`/segnalazioni`, REQ-C03). */
 export function SegnalazioniScreen() {
   const consentito = useAccessoConsentito();
   const { profilo, condominio, ruoli, voci } = useProfilo();
   if (!consentito || !profilo || !condominio) return null;
 
-  if (!ruoli.has('CONDOMINO') || !voci.some((v) => v.id === 'segnalazioni')) {
+  const autorizzato = (ruoli.has('CONDOMINO') || ruoli.has('PORTIERE')) && voci.some((v) => v.id === 'segnalazioni');
+  if (!autorizzato) {
     return (
       <View style={styles.pagina}>
         <PageHeader title="Segnalazioni" subtitle="Guasti e richieste di intervento." />
@@ -21,15 +26,25 @@ export function SegnalazioniScreen() {
     );
   }
 
+  const modalita: ModalitaSegnalazioni = ruoli.has('PORTIERE') ? 'portiere' : 'condomino';
+
   return (
     <ElencoSegnalazioni
-      modalita="condomino"
+      modalita={modalita}
       titolo="Segnalazioni"
-      sottotitolo={sottotitoloSegnalazioni(condominio.nome)}
+      sottotitolo={
+        modalita === 'portiere'
+          ? sottotitoloTicketPortiere(condominio.nome)
+          : sottotitoloSegnalazioni(condominio.nome)
+      }
       rotta="/segnalazioni"
       etichettaAzione="Nuova segnalazione"
       etichettaTabella="Segnalazioni del condominio"
-      vuotoDescrizione="Quando verrà aperta una segnalazione su parti comuni del condominio o della tua scala, la troverai qui."
+      vuotoDescrizione={
+        modalita === 'portiere'
+          ? 'Quando verrà aperta una segnalazione su un’area comune o una scala del condominio, oppure ne aprirai una tu, la troverai qui.'
+          : 'Quando verrà aperta una segnalazione su parti comuni del condominio o della tua scala, la troverai qui.'
+      }
     />
   );
 }

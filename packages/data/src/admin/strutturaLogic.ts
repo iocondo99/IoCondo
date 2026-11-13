@@ -17,6 +17,7 @@
 export type TipoScalaColonna = 'SCALA' | 'COLONNA' | 'NESSUNA';
 export type TipoPossesso = 'PROPRIETARIO' | 'INQUILINO';
 export type StatoQuadratura = 'QUADRATA' | 'DISAVANZO';
+export type AmbitoTabellaMillesimale = 'TUTTO_CONDOMINIO' | 'PALAZZO' | 'SCALA' | 'PERSONALIZZATO';
 
 export interface PalazzoRaw {
   id: string;
@@ -797,5 +798,228 @@ export function generaTemplateCSVMillesimi(unita: UnitaDettaglioView[]): string 
     righe.push(`${u.scalaNome || ''};${u.interno};0,000`);
   }
   return righe.join('\r\n');
+}
+
+// ============================================================================
+// GESTIONE MANUALE TABELLE MILLESIMALI (AMBITI, RIPARTIZIONE, QUADRATURA)
+// ============================================================================
+
+/** Tolleranza millesimale per quadratura esatta in inserimento manuale (0.001 ‰). */
+export const TOLLERANZA_QUADRATURA_MANUALE = 0.001;
+
+export interface FiltroAmbitoMillesimiInput {
+  ambito: AmbitoTabellaMillesimale;
+  palazzoId?: string | null;
+  scalaColonnaId?: string | null;
+  unitaSelezionateIds?: string[];
+}
+
+export interface ValidazioneTabellaMillesimaleInput {
+  nome: string;
+  totalePrevisto: number;
+  ambito: AmbitoTabellaMillesimale;
+  palazzoId?: string | null;
+  scalaColonnaId?: string | null;
+  unitaPartecipanti: UnitaDettaglioView[];
+}
+
+export interface EsitoValidazioneTabellaMillesimale {
+  valido: boolean;
+  errori: string[];
+}
+
+export interface QuotaManualeInput {
+  unitaId: string;
+  valoreInput: string;
+}
+
+export interface RisultatoQuadraturaManuale {
+  sommaMillesimi: number;
+  disavanzo: number;
+  isQuadrata: boolean;
+  righeInvalide: string[];
+  quoteParsed: Array<{ unitaId: string; valoreMillesimale: number }>;
+}
+
+/**
+ * Deduce l'ambito di applicazione di una tabella millesimale esistente
+ * a partire da palazzoId, scalaColonnaId e quote associate.
+ */
+export function deduciAmbitoTabella(
+  tabella: Pick<TabellaMillesimaleDettaglioView, 'palazzoId' | 'scalaColonnaId' | 'quote'>,
+  tutteUnita: UnitaDettaglioView[]
+): { ambito: AmbitoTabellaMillesimale; unitaSelezionateIds: string[] } {
+  if (tabella.scalaColonnaId) {
+    return { ambito: 'SCALA', unitaSelezionateIds: [] };
+  }
+  if (tabella.palazzoId) {
+    return { ambito: 'PALAZZO', unitaSelezionateIds: [] };
+  }
+  const quoteIds = tabella.quote.map((q) => q.unitaId);
+  if (quoteIds.length > 0 && tutteUnita.length > 0 && quoteIds.length < tutteUnita.length) {
+    return { ambito: 'PERSONALIZZATO', unitaSelezionateIds: quoteIds };
+  }
+  return { ambito: 'TUTTO_CONDOMINIO', unitaSelezionateIds: [] };
+}
+
+/**
+ * Filtra e ordina (Edificio, Scala, Interno) le unità partecipanti a una tabella millesimale
+ * in base all'ambito scelto dall'amministratore.
+ */
+export function filtraUnitaPerAmbito(
+  tutteUnita: UnitaDettaglioView[],
+  filtro: FiltroAmbitoMillesimiInput
+): UnitaDettaglioView[] {
+  let filtrate: UnitaDettaglioView[];
+
+  switch (filtro.ambito) {
+    case 'TUTTO_CONDOMINIO':
+      filtrate = [...tutteUnita];
+      break;
+    case 'PALAZZO':
+      filtrate = filtro.palazzoId
+        ? tutteUnita.filter((u) => u.palazzoId === filtro.palazzoId)
+        : [];
+      break;
+    case 'SCALA':
+      filtrate = filtro.scalaColonnaId
+        ? tutteUnita.filter((u) => u.scalaId === filtro.scalaColonnaId)
+        : [];
+      break;
+    case 'PERSONALIZZATO': {
+      const setIds = new Set(filtro.unitaSelezionateIds ?? []);
+      filtrate = tutteUnita.filter((u) => setIds.has(u.id));
+      break;
+    }
+    default:
+      filtrate = [];
+  }
+
+  return filtrate.sort((a, b) => {
+    if (a.palazzoNome !== b.palazzoNome) return a.palazzoNome.localeCompare(b.palazzoNome);
+    const scA = a.scalaNome || '';
+    const scB = b.scalaNome || '';
+    if (scA !== scB) return scA.localeCompare(scB);
+    return confrontaInterni(a.interno, b.interno);
+  });
+}
+
+/**
+ * Valida i dati generali e la coerenza dell'ambito di una tabella millesimale.
+ */
+export function validaTabellaMillesimale(
+  input: ValidazioneTabellaMillesimaleInput
+): EsitoValidazioneTabellaMillesimale {
+  const errori: string[] = [];
+
+  if (!input.nome || !input.nome.trim()) {
+    errori.push('Inserisci il nome della tabella millesimale.');
+  }
+
+  if (!Number.isFinite(input.totalePrevisto) || input.totalePrevisto <= 0) {
+    errori.push('Il totale millesimi previsto deve essere maggiore di zero.');
+  }
+
+  if (input.ambito === 'PALAZZO' && !input.palazzoId) {
+    errori.push('Seleziona il palazzo/edificio di riferimento.');
+  }
+
+  if (input.ambito === 'SCALA' && !input.scalaColonnaId) {
+    errori.push('Seleziona la scala o colonna di riferimento.');
+  }
+
+  if (input.ambito === 'PERSONALIZZATO' && input.unitaPartecipanti.length === 0) {
+    errori.push('Seleziona almeno un appartamento partecipante alla tabella.');
+  } else if (input.unitaPartecipanti.length === 0) {
+    errori.push('Nessuna unità partecipante trovata per l\'ambito selezionato.');
+  }
+
+  return {
+    valido: errori.length === 0,
+    errori,
+  };
+}
+
+/**
+ * Calcola la quadratura in tempo reale delle quote inserite manualmente.
+ * Tolleranza: 0.001 ‰.
+ */
+export function calcolaQuadraturaManuale(
+  quote: QuotaManualeInput[],
+  totalePrevisto: number = 1000
+): RisultatoQuadraturaManuale {
+  let somma = 0;
+  const righeInvalide: string[] = [];
+  const quoteParsed: Array<{ unitaId: string; valoreMillesimale: number }> = [];
+
+  for (const q of quote) {
+    const raw = (q.valoreInput ?? '').trim();
+    if (raw === '') {
+      quoteParsed.push({ unitaId: q.unitaId, valoreMillesimale: 0 });
+      continue;
+    }
+
+    const val = parseValoreMillesimale(raw);
+    if (val === null) {
+      righeInvalide.push(q.unitaId);
+      quoteParsed.push({ unitaId: q.unitaId, valoreMillesimale: 0 });
+    } else {
+      somma += val;
+      quoteParsed.push({ unitaId: q.unitaId, valoreMillesimale: val });
+    }
+  }
+
+  const sommaMillesimi = arrotonda3(somma);
+  const disavanzo = arrotonda3(totalePrevisto - sommaMillesimi);
+  const isQuadrata =
+    righeInvalide.length === 0 &&
+    Number.isFinite(totalePrevisto) &&
+    totalePrevisto > 0 &&
+    Math.abs(disavanzo) <= TOLLERANZA_QUADRATURA_MANUALE;
+
+  return {
+    sommaMillesimi,
+    disavanzo,
+    isQuadrata,
+    righeInvalide,
+    quoteParsed,
+  };
+}
+
+/**
+ * Distribuisce il totale millesimi previsto in parti uguali tra le unità selezionate,
+ * gestendo il resto matematico sull'ultima unità affinché la somma quadri esattamente.
+ */
+export function ripartisciEquamente(
+  unitaIds: string[],
+  totalePrevisto: number = 1000
+): Record<string, number> {
+  const risultato: Record<string, number> = {};
+  const n = unitaIds.length;
+  if (n === 0 || !Number.isFinite(totalePrevisto) || totalePrevisto <= 0) {
+    return risultato;
+  }
+
+  const totaleArrotondato = arrotonda3(totalePrevisto);
+  const quotaBase = arrotonda3(totaleArrotondato / n);
+
+  for (let i = 0; i < n; i++) {
+    const id = unitaIds[i];
+    if (!id) continue;
+    if (i < n - 1) {
+      risultato[id] = quotaBase;
+    } else {
+      risultato[id] = arrotonda3(totaleArrotondato - quotaBase * (n - 1));
+    }
+  }
+
+  return risultato;
+}
+
+/**
+ * Formatta un valore numerico millesimale per l'input testuale (es. 125.5 -> "125,500").
+ */
+export function formattaMillesimiInput(valore: number): string {
+  return arrotonda3(valore).toFixed(3).replace('.', ',');
 }
 

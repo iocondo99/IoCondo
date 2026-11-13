@@ -23,14 +23,14 @@ test('Portiere puro — navigazione desktop: voci attese senza voci contabili n�
   assert.ok(ids.includes('comunicazioni'), 'Comunicazioni deve essere presente');
   assert.ok(ids.includes('assemblee'), 'Assemblee deve essere presente');
   assert.ok(ids.includes('pacchi'), 'Registro pacchi deve essere presente');
-  assert.ok(ids.includes('ticket-aree-comuni'), 'Ticket aree comuni deve essere presente');
+  assert.ok(ids.includes('segnalazioni'), 'Segnalazioni deve essere presente');
   assert.ok(ids.includes('impostazioni'), 'Impostazioni deve essere presente');
   assert.ok(ids.includes('assistenza'), 'Assistenza deve essere presente');
 
   // Voci che NON devono essere presenti per un portiere puro
   assert.ok(!ids.includes('spese'), 'Spese NON deve essere presente per il portiere puro');
   assert.ok(!ids.includes('pagamenti'), 'Pagamenti NON deve essere presente per il portiere puro');
-  assert.ok(!ids.includes('segnalazioni'), 'Segnalazioni private NON deve essere presente per il portiere puro');
+  assert.ok(!ids.includes('ticket-aree-comuni'), 'Ticket aree comuni non deve più esistere');
 });
 
 test('Portiere puro — barra mobile: Registro pacchi promosso direttamente nella barra a 4 voci', () => {

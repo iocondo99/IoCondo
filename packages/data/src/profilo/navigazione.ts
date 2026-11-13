@@ -45,7 +45,7 @@ const ADMIN: readonly INavVoce[] = [
 
 /**
  * Condòmino e portiere nella stessa navigazione. Spese e Pagamenti solo a chi è condòmino (un portiere non
- * ha accesso contabile); Registro pacchi e Ticket aree comuni solo al portiere; Fornitori mai.
+ * ha accesso contabile); Registro pacchi solo al portiere; Segnalazioni a entrambi; Fornitori mai.
  */
 function residente({ ruoli, moduli }: ContestoNavigazione): INavVoce[] {
   const condomino = ruoli.has('CONDOMINO');
@@ -59,9 +59,8 @@ function residente({ ruoli, moduli }: ContestoNavigazione): INavVoce[] {
     moduli.abilita_assemblee !== false && voce('assemblee', 'Assemblee', 'users', '/assemblee'),
     (condomino || portiere) && moduli.abilita_prenotazioni && voce('prenotazioni', 'Spazi comuni', 'calendar-plus', '/prenotazioni'),
     moduli.abilita_raccolta_differenziata !== false && voce('raccolta-differenziata', 'Raccolta differenziata', 'calendar-days', '/raccolta-differenziata'),
-    condomino && moduli.abilita_ticket && voce('segnalazioni', 'Segnalazioni', 'wrench', '/segnalazioni'),
+    (condomino || portiere) && moduli.abilita_ticket && voce('segnalazioni', 'Segnalazioni', 'wrench', '/segnalazioni'),
     portiere && moduli.abilita_pacchi && voce('pacchi', 'Registro pacchi', 'package', '/pacchi'),
-    portiere && moduli.abilita_ticket && voce('ticket-aree-comuni', 'Ticket aree comuni', 'triangle-alert', '/ticket-aree-comuni'),
     voce('impostazioni', 'Impostazioni', 'settings', '/impostazioni'),
     voce('assistenza', 'Assistenza', 'circle-help', '/assistenza'),
   ];

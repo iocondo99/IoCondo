@@ -19,21 +19,23 @@ test('condòmino: voci complete, senza Fornitori né voci del portiere', () => {
   assert.ok(!ids(voci).includes('fornitori'));
 });
 
-test('portiere e condòmino: stesse voci più Registro pacchi e Ticket aree comuni', () => {
+test('portiere e condòmino: stesse voci più Registro pacchi, una sola voce Segnalazioni', () => {
   const voci = vociDi(residente(['CONDOMINO', 'PORTIERE']));
   assert.deepEqual(ids(voci), [
     'home', 'spese', 'pagamenti', 'documenti', 'comunicazioni', 'assemblee', 'prenotazioni', 'raccolta-differenziata', 'segnalazioni', 'pacchi',
-    'ticket-aree-comuni', 'impostazioni', 'assistenza',
+    'impostazioni', 'assistenza',
   ]);
+  assert.equal(voci.filter((v) => v.id === 'segnalazioni').length, 1);
+  assert.ok(!ids(voci).includes('ticket-aree-comuni'));
 });
 
-test('solo portiere: nessuna voce contabile né segnalazioni private condòmino', () => {
+test('solo portiere: nessuna voce contabile, ma Segnalazioni e Registro pacchi presenti', () => {
   const voci = ids(vociDi(residente(['PORTIERE'])));
   assert.ok(!voci.includes('spese'));
   assert.ok(!voci.includes('pagamenti'));
-  assert.ok(!voci.includes('segnalazioni'));
+  assert.ok(!voci.includes('ticket-aree-comuni'));
+  assert.ok(voci.includes('segnalazioni'));
   assert.ok(voci.includes('pacchi'));
-  assert.ok(voci.includes('ticket-aree-comuni'));
 });
 
 test('i moduli disattivati nascondono le voci collegate', () => {
@@ -63,7 +65,6 @@ test('i moduli disattivati nascondono le voci collegate', () => {
   assert.ok(!voci.includes('raccolta-differenziata'));
   assert.ok(!voci.includes('segnalazioni'));
   assert.ok(!voci.includes('pacchi'));
-  assert.ok(!voci.includes('ticket-aree-comuni'));
   // Voci di sistema essenziali sempre visibili
   assert.ok(voci.includes('home'));
   assert.ok(voci.includes('impostazioni'));
@@ -195,9 +196,8 @@ test('ibrido condòmino + portiere: combinazione toggle parziali', () => {
   // Pacchi e prenotazioni spenti
   assert.ok(!vociIbrido.includes('pacchi'));
   assert.ok(!vociIbrido.includes('prenotazioni'));
-  // Con abilita_ticket = false sia le segnalazioni private sia i ticket aree comuni sono spenti
+  // Con abilita_ticket = false la voce segnalazioni è spenta
   assert.ok(!vociIbrido.includes('segnalazioni'));
-  assert.ok(!vociIbrido.includes('ticket-aree-comuni'));
   // Altre sezioni attive
   assert.ok(vociIbrido.includes('spese'));
   assert.ok(vociIbrido.includes('pagamenti'));

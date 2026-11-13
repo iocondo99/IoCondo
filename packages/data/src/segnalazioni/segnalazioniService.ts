@@ -97,7 +97,7 @@ export type RisultatoAggiungiMessaggio =
   | { ok: false; errore: string };
 
 /**
- * Servizio per `/segnalazioni`, `/segnalazioni/[id]` (condòmino) e `/ticket-aree-comuni` (portiere).
+ * Servizio per la sezione unificata `/segnalazioni` e `/segnalazioni/[id]` (Condòmino e Portiere).
  * Basato sul modello ad ambiti condivisi (Condominio / Palazzo / Scala).
  * Non espone né permette la creazione di ticket privati legati alla singola unità 1-a-1.
  * Le foto sono servite solo con link firmati temporanei (`createSignedUrl`, 600 s).

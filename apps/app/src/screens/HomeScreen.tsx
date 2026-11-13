@@ -47,11 +47,11 @@ function HomeContenuto() {
   // Un portiere "puro" non ha accesso contabile (PRD, ruoli): niente spese né scadenze, e niente query.
   const vedeSpese = ruoli.has('CONDOMINO') && voci.some((v) => v.id === 'spese');
   const vedeComunicazioni = voci.some((v) => v.id === 'comunicazioni');
-  const puoSegnalare = voci.some((v) => v.id === 'segnalazioni' || v.id === 'ticket-aree-comuni');
+  const puoSegnalare = voci.some((v) => v.id === 'segnalazioni');
   const vedeDocumenti = voci.some((v) => v.id === 'documenti');
   const vedeAssemblea = voci.some((v) => v.id === 'assemblee');
-  const modalitaSegnalazione: ModalitaSegnalazioni = ruoli.has('CONDOMINO') ? 'condomino' : 'portiere';
-  const rottaConsulta = modalitaSegnalazione === 'condomino' ? '/segnalazioni' : '/ticket-aree-comuni';
+  const modalitaSegnalazione: ModalitaSegnalazioni = ruoli.has('PORTIERE') ? 'portiere' : 'condomino';
+  const rottaConsulta = '/segnalazioni';
 
   const [moduloSegnalazioneAperto, setModuloSegnalazioneAperto] = useState(false);
 
@@ -88,9 +88,9 @@ function HomeContenuto() {
   const alCreataSegnalazione = useCallback(
     (ticketId: string) => {
       setModuloSegnalazioneAperto(false);
-      router.push(`/${modalitaSegnalazione === 'portiere' ? 'ticket-aree-comuni' : 'segnalazioni'}/${ticketId}` as Href);
+      router.push(`/segnalazioni/${ticketId}` as Href);
     },
-    [modalitaSegnalazione, router],
+    [router],
   );
 
   const indirizzo = [condominio?.indirizzo, condominio?.citta].filter(Boolean).join(', ');
