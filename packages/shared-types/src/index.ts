@@ -89,6 +89,7 @@ export interface ICondominio {
   cap: string | null;
   provincia: string | null;
   iban_principale: string | null;
+  attivo: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -1152,7 +1153,7 @@ export interface Database {
       };
       condomini: {
         Row: Plain<ICondominio>;
-        Insert: Plain<Omit<ICondominio, 'id' | 'tipo' | 'codice_fiscale' | 'partita_iva' | 'indirizzo' | 'citta' | 'cap' | 'provincia' | 'iban_principale' | 'created_at' | 'updated_at'> & Partial<Pick<ICondominio, 'id' | 'tipo' | 'codice_fiscale' | 'partita_iva' | 'indirizzo' | 'citta' | 'cap' | 'provincia' | 'iban_principale' | 'created_at' | 'updated_at'>>>;
+        Insert: Plain<Omit<ICondominio, 'id' | 'tipo' | 'codice_fiscale' | 'partita_iva' | 'indirizzo' | 'citta' | 'cap' | 'provincia' | 'iban_principale' | 'attivo' | 'created_at' | 'updated_at'> & Partial<Pick<ICondominio, 'id' | 'tipo' | 'codice_fiscale' | 'partita_iva' | 'indirizzo' | 'citta' | 'cap' | 'provincia' | 'iban_principale' | 'attivo' | 'created_at' | 'updated_at'>>>;
         Update: Plain<Partial<ICondominio>>;
         Relationships: [];
       };

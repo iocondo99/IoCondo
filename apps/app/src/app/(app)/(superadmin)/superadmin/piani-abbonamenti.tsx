@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import React from 'react';
+import { SuperAdminPianiScreen } from '@/screens/SuperAdminPianiScreen';
 
 export default function PianiAbbonamentiPage() {
-  return <PaginaInArrivo voceId="piani-abbonamenti" />;
+  return <SuperAdminPianiScreen />;
 }

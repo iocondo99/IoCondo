@@ -44,6 +44,8 @@ export * from './raccoltaDifferenziata/raccoltaDifferenziataLogic';
 export * from './raccoltaDifferenziata/raccoltaDifferenziataService';
 export * from './prenotazioni/prenotazioniLogic';
 export * from './prenotazioni/prenotazioniService';
+export * from './superadmin/superadminLogic';
+export * from './superadmin/superadminService';
 
 // Risoluzione ambiguità esportazioni duplicate
 export { formattaDataItaliana } from './admin/invitiAdminLogic';

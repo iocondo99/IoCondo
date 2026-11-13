@@ -99,11 +99,18 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
 
   const profilo = caricamento.stato === 'pronto' ? caricamento.profilo : null;
   const condominioId = profilo ? scegliCondominio(profilo, preferenze?.condominioId) : null;
+  const condominioCorrente = profilo?.condomini.find((c) => c.id === condominioId) ?? null;
+  const condominioSospeso = Boolean(!profilo?.isSuperAdmin && condominioCorrente?.attivo === false);
   const vista = profilo ? scegliVista(profilo, condominioId, preferenze?.vista) : null;
 
   useEffect(() => {
     if (!condominioId) {
       setStatoModuli({ stato: 'nessuno' });
+      return undefined;
+    }
+    if (condominioSospeso) {
+      // Condominio sospeso: nessuna query operativa su configurazioni_condominio
+      setStatoModuli({ stato: 'pronto', moduli: DEFAULT_MODULI_ATTIVI });
       return undefined;
     }
     let attivo = true;
@@ -115,7 +122,7 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
     return () => {
       attivo = false;
     };
-  }, [condominioId, tentativo]);
+  }, [condominioId, condominioSospeso, tentativo]);
 
   const salva = useCallback((prossime: Preferenze) => {
     setPreferenze(prossime);

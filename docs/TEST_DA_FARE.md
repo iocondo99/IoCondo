@@ -1360,6 +1360,33 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 - [ ] **Cosa fare:** cliccare su `Ripristina predefiniti` e confermare l'operazione nel `ConfirmDialog`.
   **Risultato atteso:** l'override dedicato dell'edificio viene rimosso dal database e l'edificio torna immediatamente a ereditare i valori predefiniti del condominio, con `Toast` di notifica.
 
+---
+
+## R. Super Amministratore (`SUPER_ADMIN`) & Kill-Switch Condominio
+
+### R1 — Migrazione 13 e dati di prova
+- [ ] **Cosa fare:** eseguire `supabase/da-applicare/13_superadmin_saas_sospensione.sql` dal SQL Editor di Supabase, quindi eseguire `supabase/da-applicare/13_verifica.sql` e `supabase/seed-dev/superadmin_extra.sql`.
+  **Risultato atteso:** tutte le verifiche passano (colonna `condomini.attivo`, indice `idx_condomini_attivo`, `Piano Unico Piattaforma`, trigger `trg_condomini_attivo_only_superadmin` e policy aggiornate su `condomini`).
+
+### R2 — Dashboard Amministratori, KPI e Kill-Switch (`/superadmin/amministratori`)
+- [ ] **Cosa fare:** accedere con utente `is_superadmin = true` e aprire `/superadmin/amministratori`.
+  **Risultato atteso:** le 3 `StatCard` mostrano i KPI reali (condomini attivi/sospesi, amministratori accreditati, unità gestite) e l'elenco mostra amministratori, stato licenza SaaS e condomini con relativo switch.
+- [ ] **Cosa fare:** disattivare lo switch di `Condominio Test Sospensione` e confermare nel `ConfirmDialog`.
+  **Risultato atteso:** compare il `Toast` di conferma, il badge del condominio passa a `Sospeso` e i KPI si aggiornano immediatamente.
+
+### R3 — Guardia di Sospensione per Residenti e Amministratori
+- [ ] **Cosa fare:** accedere con un account residente o amministratore associato al condominio sospeso.
+  **Risultato atteso:** viene mostrata la schermata bloccante **"Servizio momentaneamente sospeso"** con l'icona `shield-alert`, il nome del condominio sospeso, l'eventuale selettore per passare a un altro condominio attivo e il pulsante "Esci dall'account"; nessuna chiamata alle tabelle operative (rate, ticket, comunicazioni, documenti) parte in rete.
+- [ ] **Cosa fare:** riattivare il condominio dal pannello `/superadmin/amministratori` e ricaricare la sessione del residente/amministratore.
+  **Risultato atteso:** l'accesso alle schermate operative torna immediatamente disponibile.
+
+### R4 — Piano Unico (`/superadmin/piani-abbonamenti`) e Fatture SaaS (`/superadmin/fatture`)
+- [ ] **Cosa fare:** aprire `/superadmin/piani-abbonamenti`, cliccare su "Modifica canone", aggiornare il prezzo mensile e salvare.
+  **Risultato atteso:** il nuovo canone viene salvato su `piani_abbonamento` e mostrato nella scheda del Piano Unico con `Toast` di conferma.
+- [ ] **Cosa fare:** aprire `/superadmin/fatture` e verificare elenco, totali e ricerca per amministratore.
+  **Risultato atteso:** le fatture SaaS vengono visualizzate con data, amministratore, importo formattato in Euro e stato.
+
+
 
 
 

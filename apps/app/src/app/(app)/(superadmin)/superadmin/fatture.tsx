@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import React from 'react';
+import { SuperAdminFattureScreen } from '@/screens/SuperAdminFattureScreen';
 
 export default function FatturePage() {
-  return <PaginaInArrivo voceId="fatture" />;
+  return <SuperAdminFattureScreen />;
 }

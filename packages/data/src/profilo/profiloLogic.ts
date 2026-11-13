@@ -14,6 +14,7 @@ export interface CondominioBreve {
   nome: string;
   indirizzo: string | null;
   citta: string | null;
+  attivo?: boolean;
 }
 
 export interface Assegnazione {

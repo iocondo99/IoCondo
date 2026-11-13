@@ -1,6 +1,6 @@
-import React from "react";
-import { PaginaInArrivo } from "@/components/layout/PaginaInArrivo";
+import React from 'react';
+import { SuperAdminAmministratoriScreen } from '@/screens/SuperAdminAmministratoriScreen';
 
 export default function AmministratoriPage() {
-  return <PaginaInArrivo voceId="amministratori" />;
+  return <SuperAdminAmministratoriScreen />;
 }

@@ -79,11 +79,23 @@ export function createProfiloService(db: TypedSupabaseClient) {
       const assegnazioni = risolviAssegnazioni(righeRuolo, condominioDiUnita, amministrati);
 
       const condominioIds = [...new Set(assegnazioni.map((a) => a.condominioId))];
-      const condomini: CondominioBreve[] = condominioIds.length
-        ? unwrap(
+      let condomini: CondominioBreve[] = [];
+      if (condominioIds.length > 0) {
+        const resConAttivo = await db
+          .from('condomini')
+          .select('id, nome, indirizzo, citta, attivo')
+          .in('id', condominioIds)
+          .order('nome');
+        if (resConAttivo.error) {
+          // Graceful degradation se la colonna `attivo` (migrazione 13) non è ancora stata applicata
+          const fallback = unwrap(
             await db.from('condomini').select('id, nome, indirizzo, citta').in('id', condominioIds).order('nome'),
-          )
-        : [];
+          );
+          condomini = fallback.map((c) => ({ ...c, attivo: true }));
+        } else {
+          condomini = (resConAttivo.data ?? []).map((c) => ({ ...c, attivo: c.attivo ?? true }));
+        }
+      }
 
       return {
         id: userId,

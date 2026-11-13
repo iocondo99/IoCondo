@@ -32,9 +32,13 @@ interface Props {
 export function GuardiaVista({ vista, ruoli }: Props) {
   const profilo = useProfilo();
   const router = useRouter();
+  const condominioSospeso =
+    profilo.stato === 'pronto' && !profilo.profilo?.isSuperAdmin && profilo.condominio?.attivo === false;
   const consentito =
     profilo.stato === 'pronto' &&
-    profilo.vista === vista && (!ruoli || ruoli.length === 0 || ruoli.some((r) => profilo.ruoli.has(r)));
+    !condominioSospeso &&
+    profilo.vista === vista &&
+    (!ruoli || ruoli.length === 0 || ruoli.some((r) => profilo.ruoli.has(r)));
   const casa = profilo.vista;
 
   return (
