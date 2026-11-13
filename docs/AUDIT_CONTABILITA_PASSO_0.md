@@ -1,6 +1,6 @@
 # Audit Schema Contabile e Piano di Migrazione — Passo 0 (`RC-O1` – `RC-O13`, `T18` – `T22`)
 
-Documento di allineamento preventivo dello schema contabile (`RC-O6`), redatto in sola lettura confrontando lo schema esistente (`01_init_schema.sql`, `02_rls_policies.sql`, `03_backend_triggers.sql`, `05_security_hardening.sql`, `06_fix_missing_cases.sql`, `07`–`09`) con il **Modello Obiettivo** (Sezione 3 di `requisiti_contabile_completo.txt`).
+Documento di allineamento preventivo dello schema contabile (`RC-O6`), redatto in sola lettura confrontando lo schema esistente (`01_init_schema.sql`, `02_rls_policies.sql`, `03_backend_triggers.sql`, `05_security_hardening.sql`, `06_fix_missing_cases.sql`, `07`–`09`) con il **Modello Obiettivo** (Sezione 3 di `requisiti_contabile_completo.txt`) .
 
 ---
 
