@@ -20,12 +20,14 @@ export interface NumeroEmergenza {
   disponibilita: string;
   descrizione: string;
   icona: 'wrench' | 'phone' | 'shield' | 'shield-alert';
+  visibile: boolean;
 }
 
 export interface NumeroAssistenzaOverride {
   id: string;
   titolo: string;
   numero: string;
+  visibile?: boolean;
 }
 
 export interface PolizzaFabbricato {
@@ -62,6 +64,7 @@ export const NUMERI_NAZIONALI_EMERGENZA: readonly NumeroEmergenza[] = [
     disponibilita: '24 ore su 24, 7 giorni su 7',
     descrizione: 'Per emergenze sanitarie, carabinieri, polizia di stato e soccorso pubblico immediato.',
     icona: 'shield-alert',
+    visibile: true,
   },
   {
     id: 'num-emergenza-115',
@@ -71,6 +74,7 @@ export const NUMERI_NAZIONALI_EMERGENZA: readonly NumeroEmergenza[] = [
     disponibilita: '24 ore su 24, 7 giorni su 7',
     descrizione: 'Soccorso tecnico urgente, incendi, allagamenti gravi e fughe di gas.',
     icona: 'shield-alert',
+    visibile: true,
   },
 ];
 
@@ -95,6 +99,7 @@ export function componiNumeriEmergenza(
       disponibilita: 'H24 per persone bloccate in cabina',
       descrizione: 'In caso di blocco impianto, fermata fuori piano o emergenza persone in cabina.',
       icona: 'wrench',
+      visibile: true,
     });
   } else {
     lista.push({
@@ -105,6 +110,7 @@ export function componiNumeriEmergenza(
       disponibilita: 'Reperibilità H24 urgenze',
       descrizione: 'Numero verde assistenza tecnica per sblocco cabina e guasti all’impianto ascensore.',
       icona: 'wrench',
+      visibile: true,
     });
   }
 
@@ -121,6 +127,7 @@ export function componiNumeriEmergenza(
       disponibilita: 'Reperibilità guasti urgenti parti comuni',
       descrizione: `Assistenza manutentiva specializzata (${fornitoreGuasti.categoria ?? 'Tecnico convenzionato'}).`,
       icona: 'wrench',
+      visibile: true,
     });
   } else {
     lista.push({
@@ -131,6 +138,7 @@ export function componiNumeriEmergenza(
       disponibilita: 'Reperibilità festivi e notturni',
       descrizione: 'Allagamenti colonne di scarico, rottura tubazioni e cancelli carrabili bloccati.',
       icona: 'wrench',
+      visibile: true,
     });
   }
 
@@ -144,6 +152,7 @@ export function componiNumeriEmergenza(
       disponibilita: 'Lun - Ven: 08:30 - 18:30',
       descrizione: `Denuncia sinistri polizza n. ${polizza.numeroPolizza ?? 'in vigore'}. Riferire gli estremi del fabbricato.`,
       icona: 'shield',
+      visibile: true,
     });
   }
 
@@ -193,9 +202,10 @@ export function parseNumeriAssistenzaOverrides(raw: unknown): NumeroAssistenzaOv
     const id = typeof rec.id === 'string' ? rec.id.trim() : '';
     const titolo = typeof rec.titolo === 'string' ? rec.titolo.trim() : '';
     const numero = typeof rec.numero === 'string' ? rec.numero.trim() : '';
+    const visibile = typeof rec.visibile === 'boolean' ? rec.visibile : undefined;
     if (!id) continue;
-    if (!titolo && !numero) continue;
-    risultato.push({ id, titolo, numero });
+    if (!titolo && !numero && visibile === undefined) continue;
+    risultato.push({ id, titolo, numero, ...(visibile !== undefined ? { visibile } : {}) });
   }
   return risultato;
 }
@@ -216,6 +226,7 @@ export function applicaOverrideNumeriEmergenza(
       ...item,
       titolo: ov.titolo || item.titolo,
       numero: ov.numero || item.numero,
+      visibile: typeof ov.visibile === 'boolean' ? ov.visibile : item.visibile,
     };
   });
 }
@@ -259,11 +270,13 @@ export function aggiornaListaOverrides(
   cardId: string,
   titolo: string,
   numero: string,
+  visibile = true,
 ): NumeroAssistenzaOverride[] {
   const nuovo: NumeroAssistenzaOverride = {
     id: cardId,
     titolo: titolo.trim(),
     numero: numero.trim(),
+    visibile,
   };
   const indice = esistenti.findIndex((o) => o.id === cardId);
   if (indice === -1) {

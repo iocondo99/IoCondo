@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Redirect, Stack, useGlobalSearchParams, type Href } from 'expo-router';
-import { homeDi, safeReturnPath, scegliCondominio, scegliVista } from '@iocondo/data';
+import { homeDi, safeReturnPath, scegliCondominio, scegliVista, vistePossibili } from '@iocondo/data';
 import { platformStorage } from '@iocondo/supabase-client/storage';
 import { SessionLoading } from '@/components/auth/SessionLoading';
 import { useAuth } from '@/context/AuthContext';
@@ -24,14 +24,10 @@ export default function PublicLayout() {
     }
   }
 
-  const [resolvedHome, setResolvedHome] = useState<string | null>(returnTo.current);
+  const [resolvedHome, setResolvedHome] = useState<string | null>(null);
 
   useEffect(() => {
     if (status !== 'authenticated' || !user) return;
-    if (returnTo.current) {
-      setResolvedHome(returnTo.current);
-      return;
-    }
     let active = true;
     Promise.all([
       services.profilo.carica(user.id, user.email),
@@ -41,7 +37,24 @@ export default function PublicLayout() {
         if (!active) return;
         const preferenze = preferenzeStr ? JSON.parse(preferenzeStr) : {};
         const condominioId = scegliCondominio(profilo, preferenze.condominioId);
+        const viste = vistePossibili(profilo, condominioId);
         const vista = scegliVista(profilo, condominioId, preferenze.vista);
+        const target = returnTo.current;
+        if (target) {
+          const pathPulito = target.split('?')[0] ?? target;
+          const consentita =
+            pathPulito === '/notifiche' ||
+            pathPulito === '/altro' ||
+            (pathPulito.startsWith('/superadmin') && viste.includes('SUPER_ADMIN')) ||
+            (pathPulito.startsWith('/admin') && viste.includes('ADMIN')) ||
+            (!pathPulito.startsWith('/superadmin') &&
+              !pathPulito.startsWith('/admin') &&
+              viste.includes('RESIDENTE'));
+          if (consentita) {
+            setResolvedHome(target);
+            return;
+          }
+        }
         setResolvedHome(vista ? homeDi(vista) : '/home');
       })
       .catch(() => {

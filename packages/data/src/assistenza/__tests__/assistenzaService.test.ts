@@ -229,7 +229,7 @@ describe('assistenzaService', () => {
     assert.equal(dati, null);
   });
 
-  it('aggiornaNumeroEmergenza: salva e applica titolo e numero personalizzati dall’amministratore', async () => {
+  it('aggiornaNumeroEmergenza: salva e applica titolo, numero e visibilità personalizzati dall’amministratore', async () => {
     const mockDb = creaMockDb({ withAdmin: true, withPolizza: false, withFornitori: false });
     const service = createAssistenzaService(mockDb);
 
@@ -237,12 +237,14 @@ describe('assistenzaService', () => {
       id: 'default-ascensore',
       titolo: 'Ascensori Italia H24',
       numero: '800 555 111',
+      visibile: false,
     });
 
     const asc = aggiornati.find((n) => n.id === 'default-ascensore');
     assert.ok(asc);
     assert.equal(asc.titolo, 'Ascensori Italia H24');
     assert.equal(asc.numero, '800 555 111');
+    assert.equal(asc.visibile, false);
   });
 });
 

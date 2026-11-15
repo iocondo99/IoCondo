@@ -104,10 +104,10 @@ test('costruisciContattiAmministrazione: compone contatti con dati completi o fa
   assert.equal(fallback.indirizzoStudio, 'Presso la sede del Condominio');
 });
 
-test('parseNumeriAssistenzaOverrides & applicaOverrideNumeriEmergenza: applica titolo e numero personalizzati', () => {
+test('parseNumeriAssistenzaOverrides & applicaOverrideNumeriEmergenza: applica titolo, numero e visibilità', () => {
   const base = componiNumeriEmergenza([], null);
   const parsed = parseNumeriAssistenzaOverrides([
-    { id: 'default-ascensore', titolo: 'Ascensori Rossi H24', numero: '800 999 000' },
+    { id: 'default-ascensore', titolo: 'Ascensori Rossi H24', numero: '800 999 000', visibile: false },
     { id: '', titolo: 'Invalido', numero: '123' },
     null,
   ]);
@@ -118,6 +118,7 @@ test('parseNumeriAssistenzaOverrides & applicaOverrideNumeriEmergenza: applica t
   assert.ok(asc);
   assert.equal(asc.titolo, 'Ascensori Rossi H24');
   assert.equal(asc.numero, '800 999 000');
+  assert.equal(asc.visibile, false);
 });
 
 test('validaModificaNumeroEmergenza & aggiornaListaOverrides: valida input e aggiorna lista', () => {
@@ -125,12 +126,14 @@ test('validaModificaNumeroEmergenza & aggiornaListaOverrides: valida input e agg
   assert.equal(validaModificaNumeroEmergenza({ titolo: 'Titolo valido', numero: '1' }).valido, false);
   assert.equal(validaModificaNumeroEmergenza({ titolo: 'Fabbro Rossi', numero: '+39 06 112233' }).valido, true);
 
-  const lista1 = aggiornaListaOverrides([], 'default-guasti', 'Fabbro Rossi', '+39 06 112233');
+  const lista1 = aggiornaListaOverrides([], 'default-guasti', 'Fabbro Rossi', '+39 06 112233', false);
   assert.equal(lista1.length, 1);
-  const lista2 = aggiornaListaOverrides(lista1, 'default-guasti', 'Fabbro Bianchi', '+39 06 445566');
+  assert.equal(lista1[0]?.visibile, false);
+  const lista2 = aggiornaListaOverrides(lista1, 'default-guasti', 'Fabbro Bianchi', '+39 06 445566', true);
   assert.equal(lista2.length, 1);
   assert.ok(lista2[0]);
   assert.equal(lista2[0].titolo, 'Fabbro Bianchi');
   assert.equal(lista2[0].numero, '+39 06 445566');
+  assert.equal(lista2[0].visibile, true);
 });
 

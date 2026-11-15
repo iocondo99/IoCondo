@@ -19,6 +19,7 @@ import {
   Modal,
   ModalActions,
   PageHeader,
+  Switch,
   borderWidths,
   colors,
   radii,
@@ -74,6 +75,7 @@ export function AssistenzaScreen() {
   const [cardInModifica, setCardInModifica] = useState<NumeroEmergenza | null>(null);
   const [titoloModifica, setTitoloModifica] = useState('');
   const [numeroModifica, setNumeroModifica] = useState('');
+  const [visibileModifica, setVisibileModifica] = useState(true);
   const [erroreTitolo, setErroreTitolo] = useState<string | undefined>(undefined);
   const [erroreNumero, setErroreNumero] = useState<string | undefined>(undefined);
   const [salvataggioInCorso, setSalvataggioInCorso] = useState(false);
@@ -113,6 +115,7 @@ export function AssistenzaScreen() {
     setCardInModifica(item);
     setTitoloModifica(item.titolo);
     setNumeroModifica(item.numero);
+    setVisibileModifica(item.visibile !== false);
     setErroreTitolo(undefined);
     setErroreNumero(undefined);
   };
@@ -144,6 +147,7 @@ export function AssistenzaScreen() {
         id: cardInModifica.id,
         titolo: titoloModifica,
         numero: numeroModifica,
+        visibile: visibileModifica,
       });
       setDati((prev) => (prev ? { ...prev, numeriEmergenza: numeriAggiornati } : prev));
       setCardInModifica(null);
@@ -211,6 +215,9 @@ export function AssistenzaScreen() {
   }
 
   const { amministrazione, numeriEmergenza } = dati;
+  const numeriVisibili = puoModificareNumeri
+    ? numeriEmergenza
+    : numeriEmergenza.filter((item) => item.visibile !== false);
 
   return (
     <View style={styles.pagina}>
@@ -351,24 +358,38 @@ export function AssistenzaScreen() {
             In caso di guasto urgente alle parti comuni (blocco ascensore, perdite idriche o cancelli bloccati), utilizza i seguenti recapiti dedicati:
           </Text>
 
+          {numeriVisibili.length === 0 ? (
+            <Text style={[textStyle('secondary', breakpoint), styles.descrizioneNumeri]}>
+              Nessun recapito di pronto intervento pubblicato dall’amministrazione.
+            </Text>
+          ) : (
           <View style={[styles.elencoNumeri, isDesktop && styles.elencoNumeriDesktop]}>
-            {numeriEmergenza.map((item) => (
+            {numeriVisibili.map((item) => (
               <View
                 key={item.id}
-                style={[styles.cardNumeroEmergenza, isDesktop && styles.cardNumeroEmergenzaDesktop]}
+                style={[
+                  styles.cardNumeroEmergenza,
+                  isDesktop && styles.cardNumeroEmergenzaDesktop,
+                  !item.visibile && styles.cardNumeroNascosta,
+                ]}
               >
                 <View style={styles.rigaNumeroSuperiore}>
                   <Icon name={item.icona} size="action" color={colors.brand.navy} />
-                  <Badge
-                    status={
-                      item.categoria === 'emergenza'
-                        ? 'scaduto'
-                        : item.categoria === 'ascensore'
-                          ? 'aperto'
-                          : 'in-corso'
-                    }
-                    label={item.disponibilita}
-                  />
+                  <View style={styles.badgesNumero}>
+                    {!item.visibile ? (
+                      <Badge status="scaduto" label="Nascosta ai residenti" />
+                    ) : null}
+                    <Badge
+                      status={
+                        item.categoria === 'emergenza'
+                          ? 'scaduto'
+                          : item.categoria === 'ascensore'
+                            ? 'aperto'
+                            : 'in-corso'
+                      }
+                      label={item.disponibilita}
+                    />
+                  </View>
                 </View>
 
                 <Text style={[textStyle('h4', breakpoint), styles.titoloNumero]}>
@@ -403,6 +424,7 @@ export function AssistenzaScreen() {
               </View>
             ))}
           </View>
+          )}
         </View>
       </Card>
 
@@ -462,6 +484,12 @@ export function AssistenzaScreen() {
             placeholder="Es. 800 123 456"
             error={erroreNumero}
             maxLength={40}
+          />
+          <Switch
+            checked={visibileModifica}
+            onChange={setVisibileModifica}
+            label="Visibile ai residenti"
+            helperText="Se disattivata, la card resta visibile solo all'amministratore."
           />
         </View>
 
@@ -604,10 +632,20 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 380,
   },
+  cardNumeroNascosta: {
+    backgroundColor: colors.background,
+    borderStyle: 'dashed',
+  },
   rigaNumeroSuperiore: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: space[2],
+    flexWrap: 'wrap',
+  },
+  badgesNumero: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: space[2],
     flexWrap: 'wrap',
   },

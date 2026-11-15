@@ -160,11 +160,11 @@ export function createAssistenzaService(db: TypedSupabaseClient) {
     },
 
     /**
-     * Aggiorna titolo e numero di una card dei numeri utili (solo amministratore del condominio).
+     * Aggiorna titolo, numero e visibilità di una card dei numeri utili (solo amministratore del condominio).
      */
     async aggiornaNumeroEmergenza(
       condominioId: string,
-      input: { id: string; titolo: string; numero: string },
+      input: { id: string; titolo: string; numero: string; visibile?: boolean },
     ): Promise<NumeroEmergenza[]> {
       const check = validaModificaNumeroEmergenza(input);
       if (!check.valido) {
@@ -189,7 +189,13 @@ export function createAssistenzaService(db: TypedSupabaseClient) {
 
       const existingRow = existingRes.data as { id: string; numeri_assistenza?: unknown } | null;
       const correnti = parseNumeriAssistenzaOverrides(existingRow?.numeri_assistenza);
-      const aggiornati = aggiornaListaOverrides(correnti, input.id, input.titolo, input.numero);
+      const aggiornati = aggiornaListaOverrides(
+        correnti,
+        input.id,
+        input.titolo,
+        input.numero,
+        input.visibile ?? true,
+      );
       const payloadJson = aggiornati as unknown as Json;
 
       if (existingRow?.id) {

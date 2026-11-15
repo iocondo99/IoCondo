@@ -43,15 +43,16 @@ export function ImpostazioniScreen() {
   const router = useRouter();
   const toast = useToast();
   const { signOut } = useAuth();
-  const { profilo, condominio, etichettaVista, riprova } = useProfilo();
+  const { profilo, condominio, vista, etichettaVista, riprova } = useProfilo();
   const { breakpoint, isDesktop, isMobile } = useBreakpoint();
+  const mostraDatiAppartamento = vista === 'RESIDENTE';
 
   // Stato Unità Immobiliare (Appartamento)
   const [unitaUtente, setUnitaUtente] = useState<DettagliUnitaUtente | null>(null);
 
   useEffect(() => {
     let attivo = true;
-    if (!profilo?.id || !condominio?.id) {
+    if (!mostraDatiAppartamento || !profilo?.id || !condominio?.id) {
       setUnitaUtente(null);
       return undefined;
     }
@@ -93,7 +94,7 @@ export function ImpostazioniScreen() {
     return () => {
       attivo = false;
     };
-  }, [profilo?.id, condominio?.id]);
+  }, [mostraDatiAppartamento, profilo?.id, condominio?.id]);
 
   // Stato Anagrafica
   const [nome, setNome] = useState(profilo?.nome ?? '');
@@ -301,7 +302,8 @@ export function ImpostazioniScreen() {
                 </View>
               </View>
 
-              {/* Riquadro Dati dell'Immobile / Appartamento */}
+              {/* Riquadro Dati dell'Immobile / Appartamento (solo per vista Residente) */}
+              {mostraDatiAppartamento ? (
               <View style={styles.bloccoAppartamento}>
                 <View style={[styles.rigaIntestazioneAppartamento, isMobile && styles.rigaIntestazioneAppartamentoMobile]}>
                   <View style={styles.rigaIntestazioneAppartamentoTop}>
@@ -364,6 +366,7 @@ export function ImpostazioniScreen() {
                   </View>
                 </View>
               </View>
+              ) : null}
 
               <View style={[styles.formCampi, isDesktop && styles.formCampiProfiloDesktop]}>
                 <Input
