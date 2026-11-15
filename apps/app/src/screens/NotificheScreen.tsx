@@ -50,6 +50,8 @@ function etichettaTipo(tipo: string | null): string {
       return 'Documenti';
     case 'PAGAMENTO':
     case 'RATA':
+    case 'BOLLETTINO_EMESSO':
+    case 'BOLLETTINO':
       return 'Pagamenti';
     case 'SPESA':
       return 'Spese';

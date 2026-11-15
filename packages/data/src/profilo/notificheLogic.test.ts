@@ -16,6 +16,12 @@ test('assemblea senza riferimento porta all\'elenco assemblee', () => {
   assert.equal(destinazioneNotifica(n, 'ADMIN'), '/admin/assemblee');
 });
 
+test('bollettino emesso: residente va a /pagamenti, admin al dettaglio in contabilità', () => {
+  const n = { tipo: 'BOLLETTINO_EMESSO', riferimento_tabella: 'bollettini', riferimento_id: ID };
+  assert.equal(destinazioneNotifica(n, 'RESIDENTE'), '/pagamenti');
+  assert.equal(destinazioneNotifica(n, 'ADMIN'), `/admin/contabilita?tab=bollettini&dettaglioId=${ID}`);
+});
+
 test('riferimento non valido o tipo sconosciuto: nessuna destinazione precisa', () => {
   assert.equal(
     destinazioneNotifica({ tipo: 'COMUNICAZIONE', riferimento_tabella: 'bacheca_post', riferimento_id: 'x' }, 'RESIDENTE'),

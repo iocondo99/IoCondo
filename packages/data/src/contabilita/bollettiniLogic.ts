@@ -2948,3 +2948,99 @@ export function individuaBollettiniImpattatiDaRicalcolo(
   }
   return impattati;
 }
+
+export interface NotificaBollettinoEmessoInsert {
+  utente_id: string;
+  condominio_id: string;
+  titolo: string;
+  corpo: string;
+  tipo: 'BOLLETTINO_EMESSO';
+  riferimento_tabella: 'bollettini';
+  riferimento_id: string;
+  letta: false;
+}
+
+export interface PreparaNotificheBollettinoEmessoInput {
+  bollettino: {
+    id: string;
+    condominio_id: string;
+    numero_progressivo: number;
+    anno: number;
+    totale_centesimi: number;
+    data_scadenza: string | null;
+    causale_versamento?: string | null;
+  };
+  descrizioniRighe?: readonly (string | null | undefined)[];
+  utentiDestinatari: readonly (string | null | undefined)[];
+  utentiGiaNotificati?: readonly string[];
+}
+
+function formattaImportoNotifica(centesimi: number): string {
+  return `${(normalizzaCentesimi(centesimi) / 100).toFixed(2).replace('.', ',')} €`;
+}
+
+function formattaDataScadenzaNotifica(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso.trim());
+  if (!match) return iso.trim() || null;
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+/**
+ * Costruisce le righe di notifica in-app (`public.notifiche`) per l'emissione di un bollettino,
+ * deduplicando i destinatari, scartando i valori nulli e saltando eventuali utenti già notificati.
+ */
+export function preparaNotificheBollettinoEmesso(
+  input: PreparaNotificheBollettinoEmessoInput,
+): NotificaBollettinoEmessoInsert[] {
+  const giaNotificati = new Set(
+    (input.utentiGiaNotificati ?? []).filter((id): id is string => typeof id === 'string' && id.trim().length > 0),
+  );
+
+  const utentiUnici: string[] = [];
+  const visti = new Set<string>();
+  for (const rawId of input.utentiDestinatari) {
+    if (typeof rawId !== 'string') continue;
+    const id = rawId.trim();
+    if (!id || visti.has(id) || giaNotificati.has(id)) continue;
+    visti.add(id);
+    utentiUnici.push(id);
+  }
+
+  if (utentiUnici.length === 0) return [];
+
+  const { bollettino } = input;
+  const titolo = `Nuovo bollettino emesso (${bollettino.numero_progressivo}/${bollettino.anno})`;
+
+  const descrizioni = Array.from(
+    new Set(
+      (input.descrizioniRighe ?? [])
+        .map((d) => (typeof d === 'string' ? d.trim() : ''))
+        .filter((d) => d.length > 0),
+    ),
+  );
+
+  const riferimento =
+    descrizioni.length > 0
+      ? descrizioni.slice(0, 2).join(', ') + (descrizioni.length > 2 ? ` (+${descrizioni.length - 2})` : '')
+      : bollettino.causale_versamento?.trim() || `Bollettino n. ${bollettino.numero_progressivo}/${bollettino.anno}`;
+
+  const importo = formattaImportoNotifica(bollettino.totale_centesimi);
+  const scadenza = formattaDataScadenzaNotifica(bollettino.data_scadenza);
+  const partiCorpo = [riferimento, `Importo: ${importo}`];
+  if (scadenza) {
+    partiCorpo.push(`Scadenza: ${scadenza}`);
+  }
+  const corpo = partiCorpo.join(' — ');
+
+  return utentiUnici.map((utenteId) => ({
+    utente_id: utenteId,
+    condominio_id: bollettino.condominio_id,
+    titolo,
+    corpo,
+    tipo: 'BOLLETTINO_EMESSO',
+    riferimento_tabella: 'bollettini',
+    riferimento_id: bollettino.id,
+    letta: false,
+  }));
+}

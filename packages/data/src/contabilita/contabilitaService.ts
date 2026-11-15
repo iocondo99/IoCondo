@@ -99,6 +99,7 @@ import {
   creaNuovaVersionePreventivo as creaNuovaVersionePreventivoLogic,
   emettiBollettino as emettiBollettinoLogic,
   generaPianoRate,
+  preparaNotificheBollettinoEmesso,
   rettificaBollettinoEmesso as rettificaBollettinoEmessoLogic,
   verificaBollettino as verificaBollettinoLogic,
   type ControlliPreEmissioneInput,
@@ -906,6 +907,99 @@ export function createContabilitaService(db: TypedSupabaseClient) {
       timestamp: evento.timestampIso,
     };
     return unwrap(await db.from('audit_logs').insert(payload).select('*').single());
+  }
+
+  /**
+   * Crea le notifiche in-app (`public.notifiche`) per i condòmini destinatari di un bollettino emesso,
+   * risolvendo gli `utente_id` dal bollettino o (se assente) da rate/anagrafiche/ruoli delle unità collegate,
+   * ed evitando duplicati se il bollettino fosse già stato notificato.
+   */
+  async function notificaEmissioneBollettino(
+    bollettino: IBollettino,
+    righe: readonly IBollettinoRiga[],
+  ): Promise<void> {
+    try {
+      const candidatiUtenteId: Array<string | null | undefined> = [bollettino.destinatario_utente_id];
+
+      if (!bollettino.destinatario_utente_id) {
+        const rataIds = Array.from(
+          new Set(
+            righe
+              .map((r) => r.rata_dettaglio_id)
+              .filter((id): id is string => typeof id === 'string' && id.length > 0),
+          ),
+        );
+        if (rataIds.length > 0) {
+          const { data: rateRows } = await db
+            .from('rate_dettaglio')
+            .select('utente_id')
+            .in('id', rataIds)
+            .eq('condominio_id', bollettino.condominio_id);
+          for (const rr of rateRows ?? []) {
+            if (rr.utente_id) candidatiUtenteId.push(rr.utente_id);
+          }
+        }
+
+        const unitaIds = Array.from(
+          new Set(
+            righe
+              .map((r) => r.unita_id)
+              .filter((id): id is string => typeof id === 'string' && id.length > 0),
+          ),
+        );
+        if (unitaIds.length > 0) {
+          const [anagraficheRes, ruoliRes] = await Promise.all([
+            db
+              .from('anagrafiche_unita')
+              .select('utente_id')
+              .in('unita_id', unitaIds)
+              .is('data_fine', null),
+            db
+              .from('utente_entita_ruolo')
+              .select('utente_id')
+              .eq('condominio_id', bollettino.condominio_id)
+              .in('unita_id', unitaIds),
+          ]);
+          for (const a of anagraficheRes.data ?? []) {
+            if (a.utente_id) candidatiUtenteId.push(a.utente_id);
+          }
+          for (const r of ruoliRes.data ?? []) {
+            if (r.utente_id) candidatiUtenteId.push(r.utente_id);
+          }
+        }
+      }
+
+      const utentiValidi = Array.from(
+        new Set(
+          candidatiUtenteId.filter(
+            (id): id is string => typeof id === 'string' && id.trim().length > 0,
+          ),
+        ),
+      );
+      if (utentiValidi.length === 0) return;
+
+      const { data: giaNotificati } = await db
+        .from('notifiche')
+        .select('utente_id')
+        .eq('condominio_id', bollettino.condominio_id)
+        .eq('tipo', 'BOLLETTINO_EMESSO')
+        .eq('riferimento_tabella', 'bollettini')
+        .eq('riferimento_id', bollettino.id)
+        .in('utente_id', utentiValidi);
+
+      const righeNotifiche = preparaNotificheBollettinoEmesso({
+        bollettino,
+        descrizioniRighe: righe.map((r) => r.descrizione),
+        utentiDestinatari: utentiValidi,
+        utentiGiaNotificati: (giaNotificati ?? []).map((n) => n.utente_id),
+      });
+
+      if (righeNotifiche.length > 0) {
+        await db.from('notifiche').insert(righeNotifiche);
+      }
+    } catch {
+      // L'eventuale errore di invio notifica in-app non deve annullare l'emissione contabile già confermata.
+    }
   }
 
   /**
@@ -2990,6 +3084,8 @@ export function createContabilitaService(db: TypedSupabaseClient) {
       }
 
       const auditLog = await registraEventoAudit(esito.eventoAudit);
+
+      await notificaEmissioneBollettino(bollettino, caricato.righe);
 
       return {
         bollettino,

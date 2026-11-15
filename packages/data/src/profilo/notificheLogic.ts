@@ -55,6 +55,10 @@ export function destinazioneNotifica(notifica: RiferimentoNotifica, vista: Vista
     if (admin) return id ? `/admin/contabilita?tab=bollettini&dettaglioId=${id}` : '/admin/contabilita';
     return id ? `/pagamenti/${id}` : '/pagamenti';
   }
+  if (tabella === 'bollettini' || tipo === 'BOLLETTINO_EMESSO' || tipo === 'BOLLETTINO') {
+    if (admin) return id ? `/admin/contabilita?tab=bollettini&dettaglioId=${id}` : '/admin/contabilita';
+    return '/pagamenti';
+  }
   if (tabella === 'spese' || tipo === 'SPESA') {
     if (admin) return id ? `/admin/contabilita?tab=registro&dettaglioId=${id}` : '/admin/contabilita';
     return id ? `/spese/${id}` : '/spese';

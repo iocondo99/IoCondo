@@ -21,6 +21,7 @@ import {
   individuaBollettiniImpattatiDaRicalcolo,
   normalizzaStatoBollettino,
   normalizzaStatoPreventivo,
+  preparaNotificheBollettinoEmesso,
   raggruppaRateInBollettini,
   registraIncassoSuBollettino,
   rettificaBollettinoEmesso,
@@ -988,5 +989,130 @@ describe('createContabilitaService — Preventivi, Piano Rate, Bollettini e Audi
     assert.equal(rettRes.esitoRettifica.saldoResiduoCent, 65_000);
     assert.equal(rettRes.nuovoBollettino.stato, 'PARZIALMENTE_PAGATO');
     assert.ok((store.audit_logs?.length ?? 0) >= 3);
+    // Verifica creazione notifica in-app all'emissione del bollettino di Mario Rossi
+    const notifiche = store.notifiche ?? [];
+    assert.equal(notifiche.length, 1);
+    assert.equal(notifiche[0]!.utente_id, 'prop-rossi');
+    assert.equal(notifiche[0]!.condominio_id, 'condo-1');
+    assert.equal(notifiche[0]!.tipo, 'BOLLETTINO_EMESSO');
+    assert.equal(notifiche[0]!.riferimento_tabella, 'bollettini');
+    assert.equal(notifiche[0]!.riferimento_id, emessoRes.bollettino.id);
+    assert.equal(notifiche[0]!.letta, false);
+    assert.match(String(notifiche[0]!.titolo), /Nuovo bollettino emesso/);
+    assert.match(String(notifiche[0]!.corpo), /800,00 €/);
+  });
+
+  it('crea notifiche senza duplicati, risolve utenti da anagrafiche/ruoli se destinatario_utente_id è null e ignora utenti senza account', async () => {
+    const { db, store } = creaMockSupabase();
+    const service = createContabilitaService(db);
+
+    // 1. Prepara bollettino VERIFICATO senza destinatario_utente_id, ma con unità avente due record (anagrafica + ruolo dello stesso utente + una riga senza utente)
+    store.bollettini = [
+      {
+        id: 'boll-no-uid',
+        condominio_id: 'condo-1',
+        esercizio_id: 'es-1',
+        anno: 2026,
+        numero_progressivo: 7,
+        destinatario_utente_id: null,
+        destinatario_soggetto_id: null,
+        intestazione_destinatario: 'Condomino Bianchi',
+        totale_centesimi: 15_000,
+        importo_pagato_centesimi: 0,
+        data_emissione: null,
+        data_scadenza: '2026-05-15',
+        stato: 'VERIFICATO',
+        causale_versamento: 'Rata 2/2026',
+        versione: 1,
+        versione_lock: 1,
+      },
+      {
+        id: 'boll-no-account',
+        condominio_id: 'condo-1',
+        esercizio_id: 'es-1',
+        anno: 2026,
+        numero_progressivo: 8,
+        destinatario_utente_id: null,
+        destinatario_soggetto_id: null,
+        intestazione_destinatario: 'Condomino Senza Account',
+        totale_centesimi: 20_000,
+        importo_pagato_centesimi: 0,
+        data_emissione: null,
+        data_scadenza: '2026-05-15',
+        stato: 'VERIFICATO',
+        causale_versamento: 'Rata 2/2026',
+        versione: 1,
+        versione_lock: 1,
+      },
+    ];
+    store.bollettini_righe = [
+      {
+        id: 'br-1',
+        condominio_id: 'condo-1',
+        bollettino_id: 'boll-no-uid',
+        rata_dettaglio_id: null,
+        unita_id: 'u-bianchi',
+        descrizione: 'Rata 2/2026 - Int. 4',
+        importo_centesimi: 15_000,
+        data_scadenza: '2026-05-15',
+      },
+      {
+        id: 'br-2',
+        condominio_id: 'condo-1',
+        bollettino_id: 'boll-no-account',
+        rata_dettaglio_id: null,
+        unita_id: 'u-senza-account',
+        descrizione: 'Rata 2/2026 - Int. 9',
+        importo_centesimi: 20_000,
+        data_scadenza: '2026-05-15',
+      },
+    ];
+    store.anagrafiche_unita = [
+      { id: 'au-1', unita_id: 'u-bianchi', utente_id: 'utente-bianchi', data_fine: null },
+      { id: 'au-2', unita_id: 'u-senza-account', utente_id: null, data_fine: null },
+    ];
+    store.utente_entita_ruolo = [
+      { id: 'uer-1', condominio_id: 'condo-1', unita_id: 'u-bianchi', utente_id: 'utente-bianchi' },
+    ];
+
+    // Emette boll-no-uid: deve creare 1 sola notifica per utente-bianchi (deduplicata tra anagrafica e ruolo)
+    await service.emettiBollettino({
+      bollettinoId: 'boll-no-uid',
+      condominioId: 'condo-1',
+      confermaEsplicitaAdmin: true,
+      confermatoDa: 'admin-1',
+      dataEmissione: '2026-04-01',
+    });
+
+    assert.equal(store.notifiche?.length, 1);
+    assert.equal(store.notifiche![0]!.utente_id, 'utente-bianchi');
+    assert.equal(store.notifiche![0]!.riferimento_id, 'boll-no-uid');
+    assert.match(String(store.notifiche![0]!.corpo), /150,00 €/);
+    assert.match(String(store.notifiche![0]!.corpo), /15\/05\/2026/);
+
+    // Emette boll-no-account: nessuna notifica creata, nessun errore
+    await service.emettiBollettino({
+      bollettinoId: 'boll-no-account',
+      condominioId: 'condo-1',
+      confermaEsplicitaAdmin: true,
+      confermatoDa: 'admin-1',
+      dataEmissione: '2026-04-01',
+    });
+    assert.equal(store.notifiche?.length, 1);
+
+    // Verifica logica pura anti-duplicato: se utente-bianchi è già notificato per boll-no-uid, non genera righe
+    const duplicate = preparaNotificheBollettinoEmesso({
+      bollettino: {
+        id: 'boll-no-uid',
+        condominio_id: 'condo-1',
+        numero_progressivo: 7,
+        anno: 2026,
+        totale_centesimi: 15_000,
+        data_scadenza: '2026-05-15',
+      },
+      utentiDestinatari: ['utente-bianchi', 'utente-bianchi', null, ''],
+      utentiGiaNotificati: ['utente-bianchi'],
+    });
+    assert.equal(duplicate.length, 0);
   });
 });
