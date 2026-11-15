@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { type DatiAssistenza } from '@iocondo/data';
+import {
+  validaModificaNumeroEmergenza,
+  type DatiAssistenza,
+  type NumeroEmergenza,
+} from '@iocondo/data';
 import {
   Badge,
   Breadcrumbs,
@@ -10,6 +14,7 @@ import {
   EmptyState,
   ErrorState,
   Icon,
+  Input,
   LoadingState,
   Modal,
   ModalActions,
@@ -20,6 +25,7 @@ import {
   space,
   textStyle,
   useBreakpoint,
+  useToast,
 } from '@iocondo/ui';
 import { useProfilo } from '@/context/ProfiloContext';
 import { services } from '@/services';
@@ -53,13 +59,24 @@ const FAQ_ITEMS = [
 
 export function AssistenzaScreen() {
   const router = useRouter();
-  const { condominio } = useProfilo();
+  const { condominio, vista, ruoli, profilo } = useProfilo();
   const { breakpoint, isDesktop } = useBreakpoint();
+  const toast = useToast();
+
+  const puoModificareNumeri =
+    vista === 'ADMIN' && (ruoli.has('ADMIN') || Boolean(profilo?.isSuperAdmin));
 
   const [dati, setDati] = useState<DatiAssistenza | null>(null);
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState(false);
   const [faqAperta, setFaqAperta] = useState(false);
+
+  const [cardInModifica, setCardInModifica] = useState<NumeroEmergenza | null>(null);
+  const [titoloModifica, setTitoloModifica] = useState('');
+  const [numeroModifica, setNumeroModifica] = useState('');
+  const [erroreTitolo, setErroreTitolo] = useState<string | undefined>(undefined);
+  const [erroreNumero, setErroreNumero] = useState<string | undefined>(undefined);
+  const [salvataggioInCorso, setSalvataggioInCorso] = useState(false);
 
   const caricaDati = useCallback(async () => {
     if (!condominio?.id) {
@@ -90,6 +107,55 @@ export function AssistenzaScreen() {
   const handleEmail = (email: string) => {
     const pulito = email.trim();
     void Linking.openURL(`mailto:${pulito}`).catch(() => undefined);
+  };
+
+  const apriModificaNumero = (item: NumeroEmergenza) => {
+    setCardInModifica(item);
+    setTitoloModifica(item.titolo);
+    setNumeroModifica(item.numero);
+    setErroreTitolo(undefined);
+    setErroreNumero(undefined);
+  };
+
+  const chiudiModificaNumero = () => {
+    if (salvataggioInCorso) return;
+    setCardInModifica(null);
+    setErroreTitolo(undefined);
+    setErroreNumero(undefined);
+  };
+
+  const handleSalvaNumero = async () => {
+    if (!condominio?.id || !cardInModifica) return;
+    const validazione = validaModificaNumeroEmergenza({
+      titolo: titoloModifica,
+      numero: numeroModifica,
+    });
+    if (!validazione.valido) {
+      setErroreTitolo(validazione.erroreTitolo);
+      setErroreNumero(validazione.erroreNumero);
+      return;
+    }
+
+    setSalvataggioInCorso(true);
+    setErroreTitolo(undefined);
+    setErroreNumero(undefined);
+    try {
+      const numeriAggiornati = await services.assistenza.aggiornaNumeroEmergenza(condominio.id, {
+        id: cardInModifica.id,
+        titolo: titoloModifica,
+        numero: numeroModifica,
+      });
+      setDati((prev) => (prev ? { ...prev, numeriEmergenza: numeriAggiornati } : prev));
+      setCardInModifica(null);
+      toast.show({ tone: 'success', message: 'Recapito aggiornato con successo.' });
+    } catch (err) {
+      toast.show({
+        tone: 'error',
+        message: err instanceof Error ? err.message : 'Errore durante il salvataggio del recapito.',
+      });
+    } finally {
+      setSalvataggioInCorso(false);
+    }
   };
 
   const breadcrumbs = [
@@ -292,12 +358,7 @@ export function AssistenzaScreen() {
                 style={[styles.cardNumeroEmergenza, isDesktop && styles.cardNumeroEmergenzaDesktop]}
               >
                 <View style={styles.rigaNumeroSuperiore}>
-                  <View style={styles.gruppoTitoloNumero}>
-                    <Icon name={item.icona} size="action" color={colors.brand.navy} />
-                    <Text style={[textStyle('h4', breakpoint), styles.titoloNumero]}>
-                      {item.titolo}
-                    </Text>
-                  </View>
+                  <Icon name={item.icona} size="action" color={colors.brand.navy} />
                   <Badge
                     status={
                       item.categoria === 'emergenza'
@@ -310,6 +371,10 @@ export function AssistenzaScreen() {
                   />
                 </View>
 
+                <Text style={[textStyle('h4', breakpoint), styles.titoloNumero]}>
+                  {item.titolo}
+                </Text>
+
                 <Text style={[textStyle('secondary', breakpoint), styles.descrizioneNumero]}>
                   {item.descrizione}
                 </Text>
@@ -318,12 +383,22 @@ export function AssistenzaScreen() {
                   <Text style={[textStyle('h3', breakpoint), styles.cifraNumero]}>
                     {item.numero}
                   </Text>
-                  <Button
-                    variant="secondary"
-                    label="Chiama ora"
-                    icon="phone"
-                    onPress={() => handleChiama(item.numero)}
-                  />
+                  <View style={styles.azioniNumero}>
+                    {puoModificareNumeri ? (
+                      <Button
+                        variant="text"
+                        label="Modifica"
+                        icon="pencil"
+                        onPress={() => apriModificaNumero(item)}
+                      />
+                    ) : null}
+                    <Button
+                      variant="secondary"
+                      label="Chiama ora"
+                      icon="phone"
+                      onPress={() => handleChiama(item.numero)}
+                    />
+                  </View>
                 </View>
               </View>
             ))}
@@ -355,6 +430,53 @@ export function AssistenzaScreen() {
             variant="secondary"
             label="Chiudi guida"
             onPress={() => setFaqAperta(false)}
+          />
+        </ModalActions>
+      </Modal>
+
+      {/* Modale Modifica Card Numero Utile (solo Amministratore) */}
+      <Modal
+        visible={cardInModifica !== null}
+        title="Modifica numero utile"
+        onClose={chiudiModificaNumero}
+      >
+        <View style={styles.formModificaNumero}>
+          <Input
+            label="Titolo della card"
+            value={titoloModifica}
+            onChangeText={(val) => {
+              setTitoloModifica(val);
+              if (erroreTitolo) setErroreTitolo(undefined);
+            }}
+            placeholder="Es. Pronto Intervento Ascensore"
+            error={erroreTitolo}
+            maxLength={120}
+          />
+          <Input
+            label="Numero di telefono"
+            value={numeroModifica}
+            onChangeText={(val) => {
+              setNumeroModifica(val);
+              if (erroreNumero) setErroreNumero(undefined);
+            }}
+            placeholder="Es. 800 123 456"
+            error={erroreNumero}
+            maxLength={40}
+          />
+        </View>
+
+        <ModalActions>
+          <Button
+            variant="secondary"
+            label="Annulla"
+            onPress={chiudiModificaNumero}
+            disabled={salvataggioInCorso}
+          />
+          <Button
+            variant="primary"
+            label="Salva"
+            onPress={() => void handleSalvaNumero()}
+            loading={salvataggioInCorso}
           />
         </ModalActions>
       </Modal>
@@ -489,14 +611,9 @@ const styles = StyleSheet.create({
     gap: space[2],
     flexWrap: 'wrap',
   },
-  gruppoTitoloNumero: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    flex: 1,
-  },
   titoloNumero: {
     color: colors.brand.navy,
+    width: '100%',
   },
   descrizioneNumero: {
     color: colors.text.secondary,
@@ -506,12 +623,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: space[3],
+    flexWrap: 'wrap',
     paddingTop: space[2],
     borderTopWidth: borderWidths.thin,
     borderTopColor: colors.border,
   },
+  azioniNumero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
   cifraNumero: {
     color: colors.text.primary,
+  },
+  formModificaNumero: {
+    gap: space[4],
   },
   bloccoFaq: {
     gap: space[4],

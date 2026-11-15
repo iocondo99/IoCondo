@@ -2,8 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   NUMERI_NAZIONALI_EMERGENZA,
+  aggiornaListaOverrides,
+  applicaOverrideNumeriEmergenza,
   componiNumeriEmergenza,
   costruisciContattiAmministrazione,
+  parseNumeriAssistenzaOverrides,
+  validaModificaNumeroEmergenza,
   type FornitoreEmergenzaRaw,
   type PolizzaFabbricato,
 } from '../assistenzaLogic.ts';
@@ -98,5 +102,35 @@ test('costruisciContattiAmministrazione: compone contatti con dati completi o fa
   assert.equal(fallback.nomeStudio, 'Studio Amministratore di Condominio');
   assert.equal(fallback.email, 'amministrazione@iocondo.it');
   assert.equal(fallback.indirizzoStudio, 'Presso la sede del Condominio');
+});
+
+test('parseNumeriAssistenzaOverrides & applicaOverrideNumeriEmergenza: applica titolo e numero personalizzati', () => {
+  const base = componiNumeriEmergenza([], null);
+  const parsed = parseNumeriAssistenzaOverrides([
+    { id: 'default-ascensore', titolo: 'Ascensori Rossi H24', numero: '800 999 000' },
+    { id: '', titolo: 'Invalido', numero: '123' },
+    null,
+  ]);
+  assert.equal(parsed.length, 1);
+
+  const aggiornati = applicaOverrideNumeriEmergenza(base, parsed);
+  const asc = aggiornati.find((n) => n.id === 'default-ascensore');
+  assert.ok(asc);
+  assert.equal(asc.titolo, 'Ascensori Rossi H24');
+  assert.equal(asc.numero, '800 999 000');
+});
+
+test('validaModificaNumeroEmergenza & aggiornaListaOverrides: valida input e aggiorna lista', () => {
+  assert.equal(validaModificaNumeroEmergenza({ titolo: 'A', numero: '123' }).valido, false);
+  assert.equal(validaModificaNumeroEmergenza({ titolo: 'Titolo valido', numero: '1' }).valido, false);
+  assert.equal(validaModificaNumeroEmergenza({ titolo: 'Fabbro Rossi', numero: '+39 06 112233' }).valido, true);
+
+  const lista1 = aggiornaListaOverrides([], 'default-guasti', 'Fabbro Rossi', '+39 06 112233');
+  assert.equal(lista1.length, 1);
+  const lista2 = aggiornaListaOverrides(lista1, 'default-guasti', 'Fabbro Bianchi', '+39 06 445566');
+  assert.equal(lista2.length, 1);
+  assert.ok(lista2[0]);
+  assert.equal(lista2[0].titolo, 'Fabbro Bianchi');
+  assert.equal(lista2[0].numero, '+39 06 445566');
 });
 

@@ -10,8 +10,12 @@ function creaMockDb(options: {
   withAdmin?: boolean;
   withPolizza?: boolean;
   withFornitori?: boolean;
+  overrides?: Array<{ id: string; titolo: string; numero: string }>;
 } = {}) {
   const { withAdmin = true, withPolizza = true, withFornitori = true } = options;
+  let configRow: { id: string; numeri_assistenza: unknown } | null = options.overrides
+    ? { id: 'cfg-1', numeri_assistenza: options.overrides }
+    : null;
 
   const mockDb = {
     from(table: string) {
@@ -142,6 +146,39 @@ function creaMockDb(options: {
           },
         };
       }
+      if (table === 'configurazioni_condominio') {
+        return {
+          select(_cols: string) {
+            return {
+              eq(_col: string, _val: string) {
+                return {
+                  is(_col2: string, _val2: null) {
+                    return {
+                      async maybeSingle() {
+                        return { data: configRow, error: null };
+                      },
+                    };
+                  },
+                };
+              },
+            };
+          },
+          update(payload: { numeri_assistenza: unknown }) {
+            return {
+              async eq(_col: string, _val: string) {
+                if (configRow) {
+                  configRow = { ...configRow, numeri_assistenza: payload.numeri_assistenza };
+                }
+                return { error: null };
+              },
+            };
+          },
+          async insert(payload: { numeri_assistenza: unknown }) {
+            configRow = { id: 'cfg-new', numeri_assistenza: payload.numeri_assistenza };
+            return { error: null };
+          },
+        };
+      }
       throw new Error(`Table ${table} not supported in mock`);
     },
   };
@@ -190,6 +227,22 @@ describe('assistenzaService', () => {
 
     const dati = await service.caricaDatiAssistenza('id-inesistente');
     assert.equal(dati, null);
+  });
+
+  it('aggiornaNumeroEmergenza: salva e applica titolo e numero personalizzati dall’amministratore', async () => {
+    const mockDb = creaMockDb({ withAdmin: true, withPolizza: false, withFornitori: false });
+    const service = createAssistenzaService(mockDb);
+
+    const aggiornati = await service.aggiornaNumeroEmergenza(COND_ID, {
+      id: 'default-ascensore',
+      titolo: 'Ascensori Italia H24',
+      numero: '800 555 111',
+    });
+
+    const asc = aggiornati.find((n) => n.id === 'default-ascensore');
+    assert.ok(asc);
+    assert.equal(asc.titolo, 'Ascensori Italia H24');
+    assert.equal(asc.numero, '800 555 111');
   });
 });
 

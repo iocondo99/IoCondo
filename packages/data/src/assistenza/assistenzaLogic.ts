@@ -22,6 +22,12 @@ export interface NumeroEmergenza {
   icona: 'wrench' | 'phone' | 'shield' | 'shield-alert';
 }
 
+export interface NumeroAssistenzaOverride {
+  id: string;
+  titolo: string;
+  numero: string;
+}
+
 export interface PolizzaFabbricato {
   id: string;
   compagnia: string;
@@ -173,5 +179,96 @@ export function costruisciContattiAmministrazione(input: {
     orariReperibilita: 'Lunedì – Venerdì: 09:00 – 13:00 e 15:00 – 18:30',
     indirizzoStudio,
   };
+}
+
+/**
+ * Estrae in sicurezza la lista degli override salvati nel campo JSONB `numeri_assistenza`.
+ */
+export function parseNumeriAssistenzaOverrides(raw: unknown): NumeroAssistenzaOverride[] {
+  if (!Array.isArray(raw)) return [];
+  const risultato: NumeroAssistenzaOverride[] = [];
+  for (const voce of raw) {
+    if (!voce || typeof voce !== 'object') continue;
+    const rec = voce as Record<string, unknown>;
+    const id = typeof rec.id === 'string' ? rec.id.trim() : '';
+    const titolo = typeof rec.titolo === 'string' ? rec.titolo.trim() : '';
+    const numero = typeof rec.numero === 'string' ? rec.numero.trim() : '';
+    if (!id) continue;
+    if (!titolo && !numero) continue;
+    risultato.push({ id, titolo, numero });
+  }
+  return risultato;
+}
+
+/**
+ * Applica gli override personalizzati dall'amministratore ai numeri di emergenza base.
+ */
+export function applicaOverrideNumeriEmergenza(
+  base: readonly NumeroEmergenza[],
+  overrides: readonly NumeroAssistenzaOverride[],
+): NumeroEmergenza[] {
+  if (overrides.length === 0) return [...base];
+  const mappa = new Map(overrides.map((o) => [o.id, o]));
+  return base.map((item) => {
+    const ov = mappa.get(item.id);
+    if (!ov) return item;
+    return {
+      ...item,
+      titolo: ov.titolo || item.titolo,
+      numero: ov.numero || item.numero,
+    };
+  });
+}
+
+/**
+ * Valida titolo e numero inseriti dall'amministratore prima del salvataggio.
+ */
+export function validaModificaNumeroEmergenza(input: {
+  titolo: string;
+  numero: string;
+}): { valido: boolean; erroreTitolo?: string; erroreNumero?: string } {
+  const titolo = input.titolo.trim();
+  const numero = input.numero.trim();
+  let erroreTitolo: string | undefined;
+  let erroreNumero: string | undefined;
+
+  if (titolo.length < 2) {
+    erroreTitolo = 'Inserisci un titolo di almeno 2 caratteri.';
+  } else if (titolo.length > 120) {
+    erroreTitolo = 'Il titolo non può superare 120 caratteri.';
+  }
+
+  if (numero.length < 2) {
+    erroreNumero = 'Inserisci un numero valido.';
+  } else if (numero.length > 40) {
+    erroreNumero = 'Il numero non può superare 40 caratteri.';
+  }
+
+  return {
+    valido: !erroreTitolo && !erroreNumero,
+    erroreTitolo,
+    erroreNumero,
+  };
+}
+
+/**
+ * Aggiorna o inserisce un override nella lista esistente in modo immutabile.
+ */
+export function aggiornaListaOverrides(
+  esistenti: readonly NumeroAssistenzaOverride[],
+  cardId: string,
+  titolo: string,
+  numero: string,
+): NumeroAssistenzaOverride[] {
+  const nuovo: NumeroAssistenzaOverride = {
+    id: cardId,
+    titolo: titolo.trim(),
+    numero: numero.trim(),
+  };
+  const indice = esistenti.findIndex((o) => o.id === cardId);
+  if (indice === -1) {
+    return [...esistenti, nuovo];
+  }
+  return esistenti.map((o, idx) => (idx === indice ? nuovo : o));
 }
 

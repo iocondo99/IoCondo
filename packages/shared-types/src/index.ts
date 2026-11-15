@@ -123,6 +123,7 @@ export interface IConfigurazioneCondominio {
   interessi_mora_tasso_annuo?: number;
   interessi_mora_giorni_tolleranza?: number;
   interessi_mora_fonte?: 'REGOLAMENTO' | 'DELIBERA' | 'LEGGE' | null;
+  numeri_assistenza?: Json | null;
 }
 
 export interface IScalaColonna {

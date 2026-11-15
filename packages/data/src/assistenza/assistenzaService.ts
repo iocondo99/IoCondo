@@ -1,13 +1,24 @@
 import type { TypedSupabaseClient } from '@iocondo/supabase-client';
+import type { Json } from '@iocondo/shared-types';
 import {
+  aggiornaListaOverrides,
+  applicaOverrideNumeriEmergenza,
   componiNumeriEmergenza,
   costruisciContattiAmministrazione,
+  parseNumeriAssistenzaOverrides,
+  validaModificaNumeroEmergenza,
   type ContattiAmministrazione,
   type DatiAssistenza,
   type FornitoreEmergenzaRaw,
+  type NumeroAssistenzaOverride,
   type NumeroEmergenza,
   type PolizzaFabbricato,
 } from './assistenzaLogic.ts';
+
+function isMissingNumeriColumnError(message: string): boolean {
+  const m = message.toLowerCase();
+  return m.includes('numeri_assistenza') && (m.includes('schema cache') || m.includes('does not exist') || m.includes('column'));
+}
 
 function unwrapMaybe<T>(res: { data: T; error: { message: string } | null }): NonNullable<T> | null {
   if (res.error) throw new Error(res.error.message);
@@ -104,6 +115,26 @@ export function createAssistenzaService(db: TypedSupabaseClient) {
     },
 
     /**
+     * Recupera gli override personalizzati (titolo e numero) configurati dall'amministratore.
+     */
+    async getOverridesNumeri(condominioId: string): Promise<NumeroAssistenzaOverride[]> {
+      try {
+        const res = await db
+          .from('configurazioni_condominio')
+          .select('numeri_assistenza')
+          .eq('condominio_id', condominioId)
+          .is('palazzo_id', null)
+          .maybeSingle();
+
+        if (res.error || !res.data) return [];
+        const rec = res.data as { numeri_assistenza?: unknown };
+        return parseNumeriAssistenzaOverrides(rec.numeri_assistenza);
+      } catch {
+        return [];
+      }
+    },
+
+    /**
      * Recupera i numeri utili e di pronto intervento condominiale.
      */
     async getNumeriEmergenza(condominioId: string): Promise<NumeroEmergenza[]> {
@@ -123,7 +154,79 @@ export function createAssistenzaService(db: TypedSupabaseClient) {
         // Se non accessibile (RLS condòmino), fornitori resta vuoto e si usano i default
       }
 
-      return componiNumeriEmergenza(fornitori, polizza);
+      const base = componiNumeriEmergenza(fornitori, polizza);
+      const overrides = await this.getOverridesNumeri(condominioId);
+      return applicaOverrideNumeriEmergenza(base, overrides);
+    },
+
+    /**
+     * Aggiorna titolo e numero di una card dei numeri utili (solo amministratore del condominio).
+     */
+    async aggiornaNumeroEmergenza(
+      condominioId: string,
+      input: { id: string; titolo: string; numero: string },
+    ): Promise<NumeroEmergenza[]> {
+      const check = validaModificaNumeroEmergenza(input);
+      if (!check.valido) {
+        throw new Error(check.erroreTitolo ?? check.erroreNumero ?? 'Dati non validi.');
+      }
+
+      const existingRes = await db
+        .from('configurazioni_condominio')
+        .select('id, numeri_assistenza')
+        .eq('condominio_id', condominioId)
+        .is('palazzo_id', null)
+        .maybeSingle();
+
+      if (existingRes.error) {
+        if (isMissingNumeriColumnError(existingRes.error.message)) {
+          throw new Error(
+            'La colonna numeri_assistenza non è ancora presente nel database. Applica la migrazione 16_assistenza_numeri_personalizzati.sql.',
+          );
+        }
+        throw new Error(existingRes.error.message);
+      }
+
+      const existingRow = existingRes.data as { id: string; numeri_assistenza?: unknown } | null;
+      const correnti = parseNumeriAssistenzaOverrides(existingRow?.numeri_assistenza);
+      const aggiornati = aggiornaListaOverrides(correnti, input.id, input.titolo, input.numero);
+      const payloadJson = aggiornati as unknown as Json;
+
+      if (existingRow?.id) {
+        const updRes = await db
+          .from('configurazioni_condominio')
+          .update({
+            numeri_assistenza: payloadJson,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingRow.id);
+        if (updRes.error) {
+          if (isMissingNumeriColumnError(updRes.error.message)) {
+            throw new Error(
+              'La colonna numeri_assistenza non è ancora presente nel database. Applica la migrazione 16_assistenza_numeri_personalizzati.sql.',
+            );
+          }
+          throw new Error(updRes.error.message);
+        }
+      } else {
+        const insRes = await db
+          .from('configurazioni_condominio')
+          .insert({
+            condominio_id: condominioId,
+            palazzo_id: null,
+            numeri_assistenza: payloadJson,
+          });
+        if (insRes.error) {
+          if (isMissingNumeriColumnError(insRes.error.message)) {
+            throw new Error(
+              'La colonna numeri_assistenza non è ancora presente nel database. Applica la migrazione 16_assistenza_numeri_personalizzati.sql.',
+            );
+          }
+          throw new Error(insRes.error.message);
+        }
+      }
+
+      return this.getNumeriEmergenza(condominioId);
     },
 
     /**
