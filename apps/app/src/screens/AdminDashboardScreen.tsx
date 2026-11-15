@@ -8,6 +8,7 @@ import {
 } from '@iocondo/data';
 import {
   Badge,
+  Alert,
   Breadcrumbs,
   Button,
   Card,
@@ -51,6 +52,34 @@ function AdminDashboardContenuto() {
   const [dati, setDati] = useState<AdminDashboardData | null>(null);
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState(false);
+
+  // Invio email di prova (destinatario fisso come primo collaudo del canale Resend).
+  const DESTINATARIO_PROVA = 'federico.tocci1999@gmail.com';
+  const [invioInCorso, setInvioInCorso] = useState(false);
+  const [esitoEmail, setEsitoEmail] = useState<{ tono: 'success' | 'error'; messaggio: string } | null>(null);
+
+  const inviaEmailProva = useCallback(async () => {
+    setInvioInCorso(true);
+    setEsitoEmail(null);
+    try {
+      await services.email.invia({
+        to: DESTINATARIO_PROVA,
+        subject: 'Email di prova da IoCondo',
+        html:
+          '<h2>Ciao!</h2><p>Questa &egrave; una email di prova inviata dalla Dashboard Amministratore di ' +
+          '<strong>IoCondo</strong> tramite Resend.</p><p>Se la ricevi, il canale email funziona correttamente.</p>',
+        text:
+          'Ciao! Questa e\u2019 una email di prova inviata dalla Dashboard Amministratore di IoCondo tramite Resend. ' +
+          'Se la ricevi, il canale email funziona correttamente.',
+      });
+      setEsitoEmail({ tono: 'success', messaggio: `Email inviata a ${DESTINATARIO_PROVA}.` });
+    } catch (e) {
+      const messaggio = e instanceof Error && e.message ? e.message : 'Invio non riuscito. Riprova.';
+      setEsitoEmail({ tono: 'error', messaggio });
+    } finally {
+      setInvioInCorso(false);
+    }
+  }, []);
 
   const caricaDati = useCallback(async () => {
     if (!condominio?.id) {
@@ -410,6 +439,20 @@ function AdminDashboardContenuto() {
                 onPress={() => router.push('/admin/manutenzione' as Href)}
                 accessibilityHint="Apri la manutenzione per gestire i ticket dei fornitori"
               />
+
+              <AzioneRapidaCard
+                icon="mail"
+                tile="violet"
+                titolo={invioInCorso ? 'Invio email in corso…' : 'Invia email di prova'}
+                descrizione={`Invia una email di collaudo a ${DESTINATARIO_PROVA}`}
+                onPress={inviaEmailProva}
+                disabled={invioInCorso}
+                accessibilityHint="Invia una email di prova per verificare il canale Resend"
+              />
+
+              {esitoEmail ? (
+                <Alert tone={esitoEmail.tono} message={esitoEmail.messaggio} />
+              ) : null}
             </View>
           </Card>
         </View>
@@ -419,12 +462,13 @@ function AdminDashboardContenuto() {
 }
 
 interface AzioneRapidaCardProps {
-  icon: 'message-circle' | 'coins' | 'wrench';
-  tile: 'blue' | 'teal' | 'navy';
+  icon: 'message-circle' | 'coins' | 'wrench' | 'mail';
+  tile: 'blue' | 'teal' | 'navy' | 'violet';
   titolo: string;
   descrizione: string;
   onPress: () => void;
   accessibilityHint: string;
+  disabled?: boolean;
 }
 
 function AzioneRapidaCard({
@@ -434,6 +478,7 @@ function AzioneRapidaCard({
   descrizione,
   onPress,
   accessibilityHint,
+  disabled = false,
 }: AzioneRapidaCardProps) {
   const palette = colors.tile[tile];
   const [focalizzato, setFocalizzato] = useState(false);
@@ -443,6 +488,8 @@ function AzioneRapidaCard({
       accessibilityRole="button"
       accessibilityLabel={`${titolo}: ${descrizione}`}
       accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       onFocus={() => setFocalizzato(true)}
       onBlur={() => setFocalizzato(false)}
@@ -451,6 +498,7 @@ function AzioneRapidaCard({
         hovered && styles.pulsanteAzioneRapidaHover,
         pressed && styles.pulsanteAzioneRapidaPressed,
         focalizzato && Platform.OS === 'web' && focusRing,
+        disabled && { opacity: 0.6 },
       ]}
     >
       <View style={[styles.iconaAzioneRapida, { backgroundColor: palette.background }]}>

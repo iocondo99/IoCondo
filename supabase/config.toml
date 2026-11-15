@@ -431,6 +431,10 @@ verify_jwt = false
 
 
 
-# Invito di una persona a un condominio: autenticato internamente da requireUser(req) per non bloccare preflight CORS OPTIONS
+
 [functions.invita-utente]
 verify_jwt = false
+
+# Invio email applicative via Resend: richiede un utente autenticato
+[functions.invia-email]
+verify_jwt = true

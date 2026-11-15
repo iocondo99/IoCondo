@@ -8,6 +8,7 @@ import { createCondominiService } from './condominiService';
 import { createDocumentiService } from '../documenti/documentiService';
 import { createFornitoreService } from './fornitoreService';
 import { createHomeService } from './homeService';
+import { createEmailService } from './emailService';
 import { createInvitiService } from './invitiService';
 import { createPacchiService } from '../pacchi/pacchiService';
 import { createPagamentiService } from '../pagamenti/pagamentiService';
@@ -56,6 +57,7 @@ export function createServices(db: TypedSupabaseClient) {
     ticket: createTicketService(db),
     fornitori: createFornitoreService(db),
     bacheca: createBachecaService(db),
+    email: createEmailService(db),
     comunicazioni: createComunicazioniService(db),
     documenti: createDocumentiService(db),
     segnalazioni: createSegnalazioniService(db),
@@ -77,6 +79,7 @@ export * from './authService';
 export * from './bachecaService';
 export * from '../comunicazioni/comunicazioniService';
 export * from './condominiService';
+export * from './emailService';
 export * from '../documenti/documentiService';
 export * from './fornitoreService';
 export * from './homeService';
