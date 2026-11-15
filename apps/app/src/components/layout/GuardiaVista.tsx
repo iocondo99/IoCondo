@@ -1,9 +1,10 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Slot, useRouter, type Href } from 'expo-router';
 import { homeDi, type Vista } from '@iocondo/data';
 import type { RuoloCodice } from '@iocondo/shared-types';
 import { NonAutorizzato, space } from '@iocondo/ui';
+import { SessionLoading } from '@/components/auth/SessionLoading';
 import { useProfilo } from '@/context/ProfiloContext';
 
 const AccessoContext = createContext(true);
@@ -34,16 +35,32 @@ export function GuardiaVista({ vista, ruoli }: Props) {
   const router = useRouter();
   const condominioSospeso =
     profilo.stato === 'pronto' && !profilo.profilo?.isSuperAdmin && profilo.condominio?.attivo === false;
+  const ruoloValido = !ruoli || ruoli.length === 0 || ruoli.some((r) => profilo.ruoli.has(r));
+  const puoPassareAllaVista =
+    profilo.stato === 'pronto' &&
+    !condominioSospeso &&
+    profilo.vista !== vista &&
+    profilo.viste.includes(vista) &&
+    ruoloValido;
+
+  useEffect(() => {
+    if (puoPassareAllaVista) {
+      profilo.setVista(vista);
+    }
+  }, [puoPassareAllaVista, profilo.setVista, vista]);
+
   const consentito =
     profilo.stato === 'pronto' &&
     !condominioSospeso &&
     profilo.vista === vista &&
-    (!ruoli || ruoli.length === 0 || ruoli.some((r) => profilo.ruoli.has(r)));
+    ruoloValido;
   const casa = profilo.vista;
 
   return (
     <AccessoContext.Provider value={consentito}>
-      {consentito || profilo.stato !== 'pronto' ? null : (
+      {puoPassareAllaVista ? (
+        <SessionLoading />
+      ) : consentito || profilo.stato !== 'pronto' ? null : (
         <NonAutorizzato
           action={
             casa

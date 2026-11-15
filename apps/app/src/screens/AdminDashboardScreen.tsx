@@ -39,7 +39,16 @@ export function AdminDashboardScreen() {
   const consentito = useAccessoConsentito();
   const { profilo, condominio } = useProfilo();
 
-  if (!consentito || !profilo || !condominio) return null;
+  if (!consentito || !profilo) return null;
+  if (!condominio) {
+    return (
+      <EmptyState
+        icon="building-2"
+        title="Nessun condominio selezionato"
+        description="Non risultano condomini attivi associati a questo account amministratore."
+      />
+    );
+  }
 
   return <AdminDashboardContenuto />;
 }
