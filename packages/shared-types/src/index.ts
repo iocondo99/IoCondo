@@ -1102,6 +1102,33 @@ export interface IConguaglioUnita {
   updated_at: string;
 }
 
+export interface ICodaEmail {
+  id: string;
+  condominio_id: string;
+  amministratore_id: string | null;
+  destinatario_utente_id: string | null;
+  destinatario_email: string;
+  destinatario_nome: string | null;
+  tipo_evento: 'BOLLETTINO_EMESSO' | 'CONVOCAZIONE_ASSEMBLEA' | 'COMUNICAZIONE_IMPORTANTE';
+  riferimento_tabella: string | null;
+  riferimento_id: string | null;
+  idempotency_key: string;
+  from_email: string;
+  reply_to_email: string | null;
+  oggetto: string;
+  html_body: string;
+  text_body: string;
+  stato: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'CANCELLED';
+  tentativi: number;
+  max_tentativi: number;
+  prossimo_tentativo_at: string;
+  provider_message_id: string | null;
+  ultimo_errore: string | null;
+  inviata_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============================== Database (formato supabase-js) ==============================
 /** Converte un'interfaccia in type-alias (richiesto da supabase-js: niente index-signature mancante). */
 type Plain<T> = { [K in keyof T]: T[K] };
@@ -1583,6 +1610,12 @@ export interface Database {
         Update: Plain<Partial<IConguaglioUnita>>;
         Relationships: [];
       };
+      coda_email: {
+        Row: Plain<ICodaEmail>;
+        Insert: Plain<Omit<ICodaEmail, 'id' | 'amministratore_id' | 'destinatario_utente_id' | 'destinatario_nome' | 'riferimento_tabella' | 'riferimento_id' | 'reply_to_email' | 'stato' | 'tentativi' | 'max_tentativi' | 'prossimo_tentativo_at' | 'provider_message_id' | 'ultimo_errore' | 'inviata_at' | 'created_at' | 'updated_at'> & Partial<Pick<ICodaEmail, 'id' | 'amministratore_id' | 'destinatario_utente_id' | 'destinatario_nome' | 'riferimento_tabella' | 'riferimento_id' | 'reply_to_email' | 'stato' | 'tentativi' | 'max_tentativi' | 'prossimo_tentativo_at' | 'provider_message_id' | 'ultimo_errore' | 'inviata_at' | 'created_at' | 'updated_at'>>>;
+        Update: Plain<Partial<ICodaEmail>>;
+        Relationships: [];
+      };
     };
     Views: {
       profili_pubblici: {
@@ -1595,6 +1628,7 @@ export interface Database {
       };
     };
     Functions: {
+      claim_coda_email_batch: { Args: { p_limit?: number }; Returns: Plain<ICodaEmail>[] };
       is_superadmin: { Args: Record<string, never>; Returns: boolean };
       is_admin_of: { Args: { p_cond: string }; Returns: boolean };
       has_cond_access: { Args: { p_cond: string }; Returns: boolean };

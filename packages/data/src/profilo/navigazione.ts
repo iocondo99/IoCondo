@@ -34,6 +34,7 @@ const ADMIN: readonly INavVoce[] = [
   voce('contabilita', 'Contabilità', 'calculator', '/admin/contabilita'),
   voce('manutenzione', 'Manutenzione', 'wrench', '/admin/manutenzione'),
   voce('comunicazioni', 'Comunicazioni', 'message-circle', '/admin/comunicazioni'),
+  voce('coda-email', 'Log & Coda Email', 'mail-plus', '/admin/coda-email'),
   voce('documenti', 'Documenti', 'file-text', '/admin/documenti'),
   voce('assemblee', 'Assemblee', 'users', '/admin/assemblee'),
   voce('prenotazioni', 'Spazi comuni', 'calendar-plus', '/admin/prenotazioni'),

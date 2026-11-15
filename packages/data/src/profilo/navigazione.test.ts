@@ -77,7 +77,7 @@ test('i moduli disattivati nascondono le voci collegate', () => {
 
 test('amministratore e super amministratore', () => {
   assert.deepEqual(ids(vociDi({ vista: 'ADMIN', ruoli: new Set(['ADMIN']), moduli: tutti })), [
-    'dashboard', 'struttura', 'inviti', 'contabilita', 'manutenzione', 'comunicazioni', 'documenti', 'assemblee', 'prenotazioni', 'raccolta-differenziata', 'moduli', 'impostazioni', 'assistenza',
+    'dashboard', 'struttura', 'inviti', 'contabilita', 'manutenzione', 'comunicazioni', 'coda-email', 'documenti', 'assemblee', 'prenotazioni', 'raccolta-differenziata', 'moduli', 'impostazioni', 'assistenza',
   ]);
   assert.deepEqual(ids(vociDi({ vista: 'SUPER_ADMIN', ruoli: new Set(), moduli: tutti })), [
     'amministratori', 'piani-abbonamenti', 'fatture', 'impostazioni',

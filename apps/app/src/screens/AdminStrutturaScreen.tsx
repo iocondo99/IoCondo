@@ -14,11 +14,7 @@ import {
   type TabellaMillesimaleDettaglioView,
   type PalazzoGruppoView,
   type ScalaGruppoView,
-  type RisultatoValidazioneCSV,
   type CondominoDisponibile,
-  validaImportMillesimiCSV,
-  generaTemplateCSVMillesimi,
-  parseValoreMillesimale,
   arrotonda3,
 } from '@iocondo/data';
 import {
@@ -41,12 +37,12 @@ import {
   Select,
   StatCard,
   Tabs,
-  Textarea,
   borderWidths,
   colors,
   radii,
   space,
   textStyle,
+  touchTarget,
   useBreakpoint,
   useToast,
   type BreadcrumbItem,
@@ -141,16 +137,13 @@ function AdminStrutturaContenuto() {
 
   const [unitaDettaglio, setUnitaDettaglio] = useState<UnitaDettaglioView | null>(null);
 
-  // Modale Import Millesimi CSV (UC-09)
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [modaleCSVAperta, setModaleCSVAperta] = useState(false);
-  const [tabellaCSVSelezionataId, setTabellaCSVSelezionataId] = useState<string>('');
-  const [testoCSV, setTestoCSV] = useState('');
-  const [esitoValidazioneCSV, setEsitoValidazioneCSV] = useState<RisultatoValidazioneCSV | null>(null);
-  const [importazioneInCorso, setImportazioneInCorso] = useState(false);
-  const [erroreImportCSV, setErroreImportCSV] = useState<string | null>(null);
-
+  // Stato espansione accordion tabelle millesimali
+  const [tabelleEspanse, setTabelleEspanse] = useState<Record<string, boolean>>({});
   const [tabellaDaEliminare, setTabellaDaEliminare] = useState<TabellaMillesimaleDettaglioView | null>(null);
+
+  const toggleTabellaEspansa = (tabellaId: string) => {
+    setTabelleEspanse((prev) => ({ ...prev, [tabellaId]: !prev[tabellaId] }));
+  };
 
   const caricaDati = useCallback(async () => {
     if (!condominio?.id) {
@@ -162,9 +155,6 @@ function AdminStrutturaContenuto() {
     try {
       const res = await services.struttura.caricaStrutturaCompleta(condominio.id);
       setDati(res);
-      if (res.tabelle.length > 0 && !tabellaCSVSelezionataId) {
-        setTabellaCSVSelezionataId(res.tabelle[0]!.id);
-      }
       try {
         const condomini = await services.struttura.listCondominiDisponibili(condominio.id);
         setCondominiDisponibili(condomini);
@@ -176,23 +166,11 @@ function AdminStrutturaContenuto() {
     } finally {
       setCaricamento(false);
     }
-  }, [condominio?.id, tabellaCSVSelezionataId, services.struttura]);
+  }, [condominio?.id, services.struttura]);
 
   useEffect(() => {
     caricaDati();
   }, [caricaDati]);
-
-  // Validazione CSV in tempo reale al cambio del testo o tabella selezionata
-  useEffect(() => {
-    if (!modaleCSVAperta || !testoCSV.trim() || !dati) {
-      setEsitoValidazioneCSV(null);
-      return;
-    }
-    const tab = dati.tabelle.find((t) => t.id === tabellaCSVSelezionataId);
-    const previsto = tab ? tab.totalePrevisto : 1000;
-    const res = validaImportMillesimiCSV(testoCSV, dati.tutteUnita, previsto);
-    setEsitoValidazioneCSV(res);
-  }, [testoCSV, tabellaCSVSelezionataId, modaleCSVAperta, dati]);
 
   const breadcrumbs: BreadcrumbItem[] = useMemo(
     () => [
@@ -233,14 +211,6 @@ function AdminStrutturaContenuto() {
   const opzioniTipologieSelect: SelectOption[] = useMemo(() => {
     if (!dati) return [];
     return dati.tipologie.map((t) => ({ value: t.id, label: t.descrizione }));
-  }, [dati]);
-
-  const opzioniTabelleCSVSelect: SelectOption[] = useMemo(() => {
-    if (!dati) return [];
-    return dati.tabelle.map((t) => ({
-      value: t.id,
-      label: `${t.nome} (tot. ${t.totalePrevisto} ‰)`,
-    }));
   }, [dati]);
 
   const opzioniTipoScala: SelectOption[] = useMemo(
@@ -591,91 +561,6 @@ function AdminStrutturaContenuto() {
     }
   };
 
-  // Gestione Import Millesimi CSV (UC-09)
-  const apriModaleCSV = (tabellaId?: string) => {
-    if (tabellaId) {
-      setTabellaCSVSelezionataId(tabellaId);
-    } else if (dati?.tabelle[0]) {
-      setTabellaCSVSelezionataId(dati.tabelle[0].id);
-    }
-    setTestoCSV('');
-    setEsitoValidazioneCSV(null);
-    setErroreImportCSV(null);
-    setModaleCSVAperta(true);
-  };
-
-  const scaricaTemplateCSV = () => {
-    if (!dati) return;
-    const template = generaTemplateCSVMillesimi(dati.tutteUnita);
-
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      try {
-        const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'template_millesimi.csv');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        toast.show({ message: 'Template CSV scaricato sul tuo dispositivo.', tone: 'info' });
-        return;
-      } catch {
-        // Fallback: copia testo nell'input
-      }
-    }
-
-    setTestoCSV(template);
-    toast.show({
-      message: 'Template CSV di esempio inserito nell’area di import.',
-      tone: 'info',
-    });
-  };
-
-  const caricaFileCSVWeb = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result;
-      if (typeof content === 'string') {
-        setTestoCSV(content);
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const applicaImportCSV = async () => {
-    if (!esitoValidazioneCSV || !esitoValidazioneCSV.puoSalvare || !tabellaCSVSelezionataId) return;
-
-    setImportazioneInCorso(true);
-    setErroreImportCSV(null);
-
-    try {
-      const quoteValide = esitoValidazioneCSV.righe
-        .filter((r) => r.valido && r.unitaId)
-        .map((r) => ({
-          unitaId: r.unitaId as string,
-          valoreMillesimale: r.valoreMillesimale,
-        }));
-
-      await services.struttura.salvaQuoteMillesimali(tabellaCSVSelezionataId, quoteValide);
-
-      const tab = dati?.tabelle.find((t) => t.id === tabellaCSVSelezionataId);
-      toast.show({
-        message: `Quote millesimali aggiornate con successo per "${tab?.nome || 'tabella'}".`,
-        tone: 'success',
-      });
-      setModaleCSVAperta(false);
-      caricaDati();
-    } catch {
-      setErroreImportCSV('Si è verificato un errore durante il salvataggio delle quote millesimali.');
-    } finally {
-      setImportazioneInCorso(false);
-    }
-  };
-
   const confermaEliminaTabella = async () => {
     if (!tabellaDaEliminare) return;
     const nomeEliminata = tabellaDaEliminare.nome;
@@ -951,13 +836,6 @@ function AdminStrutturaContenuto() {
               onPress={() => router.push('/admin/struttura/tabelle-millesimali/nuova' as Href)}
               accessibilityHint="Apre la pagina dedicata per creare una nuova tabella millesimale e compilare le quote"
             />
-            <Button
-              variant="secondary"
-              icon="upload"
-              label="Importa millesimi CSV"
-              onPress={() => apriModaleCSV()}
-              accessibilityHint="Importa le quote millesimali da un file CSV"
-            />
           </View>
 
           {dati.tabelle.length === 0 ? (
@@ -974,114 +852,132 @@ function AdminStrutturaContenuto() {
             </Card>
           ) : (
             dati.tabelle.map((tabella) => {
+              const isEspansa = Boolean(tabelleEspanse[tabella.id]);
               const statoBadge = tabella.isQuadrata ? 'success' : 'error';
               const labelQuadratura = tabella.isQuadrata
                 ? `Quadrata a ${tabella.totalePrevisto} ‰`
                 : `Disavanzo da correggere: ${tabella.disavanzo > 0 ? '+' : ''}${tabella.disavanzo.toFixed(3)} ‰`;
 
               return (
-                <Card
-                  key={tabella.id}
-                  title={tabella.nome}
-                  action={{
-                    label: 'Importa CSV quote',
-                    icon: 'upload',
-                    onPress: () => apriModaleCSV(tabella.id),
-                    accessibilityHint: `Importa o sovrascrivi quote da CSV per ${tabella.nome}`,
-                  }}
-                >
-                  <View style={styles.corpoTabellaMillesimi}>
-                    {/* Azioni gestione tabella */}
-                    <View style={styles.azioniTabellaMillesimi}>
-                      <Button
-                        variant="secondary"
-                        icon="pencil"
-                        label="Modifica"
-                        onPress={() => router.push(('/admin/struttura/tabelle-millesimali/' + tabella.id) as Href)}
-                        accessibilityHint={`Modifica impostazioni e quote di ${tabella.nome}`}
-                      />
-                      <Button
-                        variant="destructive"
-                        icon="trash-2"
-                        label="Elimina tabella"
-                        onPress={() => setTabellaDaEliminare(tabella)}
-                        accessibilityHint={`Elimina la tabella millesimale ${tabella.nome}`}
-                      />
-                    </View>
+                <Card key={tabella.id}>
+                  <Pressable
+                    onPress={() => toggleTabellaEspansa(tabella.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isEspansa }}
+                    accessibilityLabel={tabella.nome}
+                    accessibilityHint={
+                      isEspansa
+                        ? `Comprimi dettagli e quote di ${tabella.nome}`
+                        : `Espandi dettagli e quote di ${tabella.nome}`
+                    }
+                    style={styles.accordionTabellaHeader}
+                  >
+                    <Text style={[textStyle('h3', breakpoint), styles.titoloAccordionTabella]}>
+                      {tabella.nome}
+                    </Text>
+                    <Icon
+                      name={isEspansa ? 'chevron-up' : 'chevron-down'}
+                      size="action"
+                      color={colors.text.secondary}
+                    />
+                  </Pressable>
 
-                    {/* Barra di stato quadratura */}
-                    <View style={styles.barraStatoQuadratura}>
-                      <View style={styles.infoSommaMillesimi}>
-                        <Text style={[textStyle('secondary', breakpoint), styles.etichettaSomma]}>
-                          Somma calcolata quote:
-                        </Text>
-                        <Text style={[textStyle('h3', breakpoint), styles.valoreSomma]}>
-                          {tabella.totaleEffettivo.toFixed(3)} ‰
-                        </Text>
-                      </View>
-                      <Badge status={statoBadge} label={labelQuadratura} />
-                    </View>
-
-                    {/* Elenco quote per unità */}
-                    <View style={styles.listaQuote}>
-                      <View style={styles.testataTabellaQuote}>
-                        <Text style={[textStyle('label', breakpoint), styles.colQuoteUnita]}>
-                          Unità / Immobile
-                        </Text>
-                        <Text style={[textStyle('label', breakpoint), styles.colQuoteEdificio]}>
-                          Edificio & Scala
-                        </Text>
-                        <Text style={[textStyle('label', breakpoint), styles.colQuoteValore]}>
-                          Quota (‰)
-                        </Text>
-                        <Text style={[textStyle('label', breakpoint), styles.colQuotePercentuale]}>
-                          Quota (%)
-                        </Text>
+                  {isEspansa ? (
+                    <View style={styles.corpoTabellaMillesimi}>
+                      {/* Azioni gestione tabella */}
+                      <View style={styles.azioniTabellaMillesimi}>
+                        <Button
+                          variant="secondary"
+                          icon="pencil"
+                          label="Modifica"
+                          onPress={() =>
+                            router.push(('/admin/struttura/tabelle-millesimali/' + tabella.id) as Href)
+                          }
+                          accessibilityHint={`Modifica impostazioni e quote di ${tabella.nome}`}
+                        />
+                        <Button
+                          variant="destructive"
+                          icon="trash-2"
+                          label="Elimina tabella"
+                          onPress={() => setTabellaDaEliminare(tabella)}
+                          accessibilityHint={`Elimina la tabella millesimale ${tabella.nome}`}
+                        />
                       </View>
 
-                      {tabella.quote.length === 0 ? (
-                        <View style={styles.rigaVuotaQuote}>
-                          <Text style={[textStyle('secondary', breakpoint), styles.testoRigaVuota]}>
-                            Nessuna quota millesimale associata a questa tabella. Carica il file CSV per compilarla.
+                      {/* Barra di stato quadratura */}
+                      <View style={styles.barraStatoQuadratura}>
+                        <View style={styles.infoSommaMillesimi}>
+                          <Text style={[textStyle('secondary', breakpoint), styles.etichettaSomma]}>
+                            Somma calcolata quote:
+                          </Text>
+                          <Text style={[textStyle('h3', breakpoint), styles.valoreSomma]}>
+                            {tabella.totaleEffettivo.toFixed(3)} ‰
                           </Text>
                         </View>
-                      ) : (
-                        tabella.quote.map((q) => (
-                          <View key={q.unitaId} style={styles.rigaQuota}>
-                            <View style={styles.colQuoteUnita}>
-                              <Text style={[textStyle('body', breakpoint), styles.testoUnitaQuota]}>
-                                Int. {q.interno}
-                              </Text>
-                              <Text style={[textStyle('secondary', breakpoint), styles.testoTipologiaQuota]}>
-                                {q.tipologiaDescrizione}
-                              </Text>
-                            </View>
+                        <Badge status={statoBadge} label={labelQuadratura} />
+                      </View>
 
-                            <View style={styles.colQuoteEdificio}>
-                              <Text style={[textStyle('body', breakpoint)]}>
-                                {q.palazzoNome}
-                              </Text>
-                              <Text style={[textStyle('secondary', breakpoint), styles.testoSubEdificio]}>
-                                {q.scalaNome || 'Senza scala'}
-                              </Text>
-                            </View>
+                      {/* Elenco quote per unità */}
+                      <View style={styles.listaQuote}>
+                        <View style={styles.testataTabellaQuote}>
+                          <Text style={[textStyle('label', breakpoint), styles.colQuoteUnita]}>
+                            Unità / Immobile
+                          </Text>
+                          <Text style={[textStyle('label', breakpoint), styles.colQuoteEdificio]}>
+                            Edificio & Scala
+                          </Text>
+                          <Text style={[textStyle('label', breakpoint), styles.colQuoteValore]}>
+                            Quota (‰)
+                          </Text>
+                          <Text style={[textStyle('label', breakpoint), styles.colQuotePercentuale]}>
+                            Quota (%)
+                          </Text>
+                        </View>
 
-                            <View style={styles.colQuoteValore}>
-                              <Text style={[textStyle('h4', breakpoint), styles.testoMillesimi]}>
-                                {q.valoreMillesimale.toFixed(3)} ‰
-                              </Text>
-                            </View>
-
-                            <View style={styles.colQuotePercentuale}>
-                              <Text style={[textStyle('secondary', breakpoint), styles.testoPercentuale]}>
-                                {q.percentuale.toFixed(2)} %
-                              </Text>
-                            </View>
+                        {tabella.quote.length === 0 ? (
+                          <View style={styles.rigaVuotaQuote}>
+                            <Text style={[textStyle('secondary', breakpoint), styles.testoRigaVuota]}>
+                              Nessuna quota millesimale associata a questa tabella. Clicca su Modifica per compilarla o importare da CSV.
+                            </Text>
                           </View>
-                        ))
-                      )}
+                        ) : (
+                          tabella.quote.map((q) => (
+                            <View key={q.unitaId} style={styles.rigaQuota}>
+                              <View style={styles.colQuoteUnita}>
+                                <Text style={[textStyle('body', breakpoint), styles.testoUnitaQuota]}>
+                                  Int. {q.interno}
+                                </Text>
+                                <Text style={[textStyle('secondary', breakpoint), styles.testoTipologiaQuota]}>
+                                  {q.tipologiaDescrizione}
+                                </Text>
+                              </View>
+
+                              <View style={styles.colQuoteEdificio}>
+                                <Text style={[textStyle('body', breakpoint)]}>
+                                  {q.palazzoNome}
+                                </Text>
+                                <Text style={[textStyle('secondary', breakpoint), styles.testoSubEdificio]}>
+                                  {q.scalaNome || 'Senza scala'}
+                                </Text>
+                              </View>
+
+                              <View style={styles.colQuoteValore}>
+                                <Text style={[textStyle('h4', breakpoint), styles.testoMillesimi]}>
+                                  {q.valoreMillesimale.toFixed(3)} ‰
+                                </Text>
+                              </View>
+
+                              <View style={styles.colQuotePercentuale}>
+                                <Text style={[textStyle('secondary', breakpoint), styles.testoPercentuale]}>
+                                  {q.percentuale.toFixed(2)} %
+                                </Text>
+                              </View>
+                            </View>
+                          ))
+                        )}
+                      </View>
                     </View>
-                  </View>
+                  ) : null}
                 </Card>
               );
             })
@@ -1100,11 +996,6 @@ function AdminStrutturaContenuto() {
       <PageHeader
         title="Struttura del Condominio"
         subtitle={`Gestione edifici, scale, unità immobiliari e ripartizione tabelle millesimali per ${condominio?.nome ?? ''}.`}
-        action={{
-          label: 'Importa millesimi CSV',
-          icon: 'upload',
-          onPress: () => apriModaleCSV(),
-        }}
       />
 
       {/* Pulsanti azioni rapide di testata */}
@@ -1176,173 +1067,6 @@ function AdminStrutturaContenuto() {
         value={tabAttivo}
         onChange={(val) => setTabAttivo(val as 'edifici' | 'millesimi')}
       />
-
-      {/* ==================================================================== */}
-      {/* MODALE IMPORT MILLESIMI CSV (UC-09) */}
-      {/* ==================================================================== */}
-      <Modal
-        visible={modaleCSVAperta}
-        onClose={() => setModaleCSVAperta(false)}
-        title="Importa millesimi da file CSV"
-        description="Carica il file CSV con le colonne obbligatorie (Scala, Interno, Millesimi). La somma deve quadrare esattamente a 1000,000 ‰."
-        dismissible={!importazioneInCorso}
-        actions={
-          <ModalActions>
-            <Button
-              variant="secondary"
-              label="Annulla"
-              onPress={() => setModaleCSVAperta(false)}
-              disabled={importazioneInCorso}
-            />
-            <Button
-              variant="primary"
-              label="Applica e salva quote"
-              icon="check"
-              onPress={applicaImportCSV}
-              disabled={!esitoValidazioneCSV || !esitoValidazioneCSV.puoSalvare || importazioneInCorso}
-              loading={importazioneInCorso}
-            />
-          </ModalActions>
-        }
-      >
-        <View style={styles.corpoModaleCSV}>
-            {erroreImportCSV ? <Alert tone="error" message={erroreImportCSV} /> : null}
-
-            {/* Selezione tabella di destinazione */}
-            <Select
-              label="Tabella millesimale di destinazione *"
-              options={opzioniTabelleCSVSelect}
-              value={tabellaCSVSelezionataId}
-              onChange={setTabellaCSVSelezionataId}
-              disabled={importazioneInCorso}
-            />
-
-            {/* Azioni template e upload */}
-            <View style={styles.bloccoAzioniTemplate}>
-              <Button
-                variant="secondary"
-                label="Scarica template CSV"
-                icon="file-text"
-                onPress={scaricaTemplateCSV}
-                accessibilityHint="Scarica il file CSV di esempio con le unità attuali precompilate"
-              />
-
-              {Platform.OS === 'web' ? (
-                <View style={styles.contenitoreInputFileWeb}>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv,text/csv,text/plain"
-                    style={{ display: 'none' }}
-                    onChange={caricaFileCSVWeb}
-                  />
-                  <Button
-                    variant="secondary"
-                    label="Sfoglia file CSV"
-                    icon="upload"
-                    onPress={() => fileInputRef.current?.click()}
-                    accessibilityHint="Sfoglia e carica un file CSV dal tuo dispositivo"
-                    disabled={importazioneInCorso}
-                  />
-                </View>
-              ) : null}
-            </View>
-
-            {/* Area inserimento / visualizzazione testo CSV */}
-            <Textarea
-              label="Dati CSV (separati da virgola o punto e virgola) *"
-              helperText="Incolla o modifica qui il contenuto CSV oppure carica il file dal pulsante sopra"
-              value={testoCSV}
-              onChangeText={setTestoCSV}
-              placeholder={'Scala;Interno;Millesimi\nScala A;1;250,000\nScala A;2;250,000\n...'}
-              minHeight={120}
-              disabled={importazioneInCorso}
-            />
-
-            {/* Anteprima e validazione in tempo reale */}
-            {esitoValidazioneCSV ? (
-              <View style={styles.bloccoAnteprimaValidazione}>
-                <View style={styles.riepilogoQuadraturaCSV}>
-                  <View style={styles.rigaQuadratura}>
-                    <Text style={[textStyle('secondary', breakpoint)]}>Totale millesimi importati:</Text>
-                    <Text
-                      style={[
-                        textStyle('h3', breakpoint),
-                        esitoValidazioneCSV.isQuadrata ? styles.sommaValida : styles.sommaInvalida,
-                      ]}
-                    >
-                      {esitoValidazioneCSV.sommaMillesimi.toFixed(3)} ‰
-                    </Text>
-                  </View>
-
-                  <Badge
-                    status={esitoValidazioneCSV.isQuadrata ? 'success' : 'error'}
-                    label={
-                      esitoValidazioneCSV.isQuadrata
-                        ? 'Quadrata a 1000 ‰'
-                        : `Disavanzo: ${esitoValidazioneCSV.disavanzo > 0 ? '+' : ''}${esitoValidazioneCSV.disavanzo.toFixed(3)} ‰`
-                    }
-                  />
-                </View>
-
-                {esitoValidazioneCSV.erroriGlobali.length > 0 ? (
-                  <Alert
-                    tone={esitoValidazioneCSV.isQuadrata ? 'warning' : 'error'}
-                    title="Avvisi di validazione"
-                    message={esitoValidazioneCSV.erroriGlobali.join('\n')}
-                  />
-                ) : null}
-
-                {/* Tabella anteprima righe */}
-                <Text style={[textStyle('h4', breakpoint), styles.titoloAnteprima]}>
-                  Anteprima righe ({esitoValidazioneCSV.righeValide} valide su {esitoValidazioneCSV.totaleRighe})
-                </Text>
-
-                <View style={styles.tabellaRigheCSV}>
-                  <View style={styles.testataRigheCSV}>
-                    <Text style={[textStyle('label', breakpoint), styles.colRigaNum]}>Riga</Text>
-                    <Text style={[textStyle('label', breakpoint), styles.colRigaScala]}>Scala</Text>
-                    <Text style={[textStyle('label', breakpoint), styles.colRigaInterno]}>Interno</Text>
-                    <Text style={[textStyle('label', breakpoint), styles.colRigaQuota]}>Quota (‰)</Text>
-                    <Text style={[textStyle('label', breakpoint), styles.colRigaEsito]}>Esito</Text>
-                  </View>
-
-                  {esitoValidazioneCSV.righe.map((riga) => (
-                    <View
-                      key={riga.rigaNumero}
-                      style={[styles.rigaAnteprimaCSV, !riga.valido && styles.rigaAnteprimaErrore]}
-                    >
-                      <Text style={[textStyle('body', breakpoint), styles.colRigaNum]}>
-                        #{riga.rigaNumero}
-                      </Text>
-                      <Text style={[textStyle('body', breakpoint), styles.colRigaScala]}>
-                        {riga.scala || '—'}
-                      </Text>
-                      <Text style={[textStyle('body', breakpoint), styles.colRigaInterno]}>
-                        {riga.interno || '—'}
-                      </Text>
-                      <Text style={[textStyle('h4', breakpoint), styles.colRigaQuota]}>
-                        {riga.valoreMillesimale.toFixed(3)} ‰
-                      </Text>
-                      <View style={styles.colRigaEsito}>
-                        {riga.valido ? (
-                          <Badge status="success" label="Valida" />
-                        ) : (
-                          <View style={styles.bloccoErroreRiga}>
-                            <Badge status="error" label="Errore" />
-                            <Text style={[textStyle('secondary', breakpoint), styles.messaggioErroreRiga]}>
-                              {riga.errori.join(', ')}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-          </View>
-      </Modal>
 
       {/* ==================================================================== */}
       {/* MODALE AGGIUNGI EDIFICIO */}
@@ -2402,5 +2126,16 @@ const styles = StyleSheet.create({
   testoSommaRealTime: {
     color: colors.brand.navy,
     fontWeight: '600',
+  },
+  accordionTabellaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[3],
+    minHeight: touchTarget.control,
+  },
+  titoloAccordionTabella: {
+    color: colors.brand.navy,
+    flex: 1,
   },
 });

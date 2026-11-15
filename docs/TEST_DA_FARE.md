@@ -1386,6 +1386,24 @@ Voci note ma non urgenti: verificale prima di passare a utenti reali.
 - [ ] **Cosa fare:** aprire `/superadmin/fatture` e verificare elenco, totali e ricerca per amministratore.
   **Risultato atteso:** le fatture SaaS vengono visualizzate con data, amministratore, importo formattato in Euro e stato.
 
+---
+
+## S. Coda Email & Invii tramite Resend
+
+### S1 — Collegamento e inizializzazione Resend / Supabase (da fare)
+- [ ] **Cosa fare:** verificare su Resend un dominio mittente tramite record DNS (DKIM/SPF) e creare la API Key (*Sending access*).
+  **Risultato atteso:** il dominio risulta **Verified** su Resend.
+- [ ] **Cosa fare:** eseguire `supabase/da-applicare/14_coda_email_resend.sql` nel SQL Editor di Supabase, impostare i Secrets `RESEND_API_KEY` e `RESEND_SENDER_DOMAIN` su Supabase e fare il deploy di `accoda-email` e `invia-coda-email` (`npx supabase functions deploy accoda-email` e `npx supabase functions deploy invia-coda-email`).
+  **Risultato atteso:** tabella `public.coda_email`, RLS e `claim_coda_email_batch` attivi su DB e entrambe le Edge Functions pubblicate.
+
+### S2 — Verifica flussi e schermata `/admin/coda-email`
+- [ ] **Cosa fare:** accedere come Amministratore e aprire `/admin/coda-email` ("Log & Coda Email").
+  **Risultato atteso:** l'anteprima in sola lettura mostra `From` (`<nome_cognome> <amministratore.<slug>@...>`) e `Reply-To` ricavati dall'account dell'amministratore.
+- [ ] **Cosa fare:** eseguire un invio per ciascuno dei 3 flussi: emissione bollettino (`/admin/contabilita`), convocazione assemblea (`/admin/assemblee` o `/admin/assemblee/[id]`) e comunicazione importante con invio email (`/admin/comunicazioni`).
+  **Risultato atteso:** le email vengono accodate senza duplicati (`idempotency_key`), inviate tramite Resend e visibili in `/admin/coda-email` con stato `Inviata`.
+- [ ] **Cosa fare:** testare i pulsanti **"Elabora coda ora"** e **"Riprova fallite"** in `/admin/coda-email`.
+  **Risultato atteso:** la coda viene elaborata correttamente e le eventuali email `Fallite` vengono rimesse in coda e ritentate.
+
 
 
 

@@ -103,6 +103,7 @@ function AdminComunicazioniContenuto() {
   const [palazzoInput, setPalazzoInput] = useState<string>('');
   const [corpoInput, setCorpoInput] = useState('');
   const [isPinnedInput, setIsPinnedInput] = useState(false);
+  const [inviaEmailImportante, setInviaEmailImportante] = useState(false);
   const [erroreTitolo, setErroreTitolo] = useState<string | undefined>(undefined);
   const [erroreCorpo, setErroreCorpo] = useState<string | undefined>(undefined);
   const [erroreModale, setErroreModale] = useState<string | null>(null);
@@ -196,6 +197,7 @@ function AdminComunicazioniContenuto() {
     setPalazzoInput('');
     setCorpoInput('');
     setIsPinnedInput(false);
+    setInviaEmailImportante(false);
     setErroreTitolo(undefined);
     setErroreCorpo(undefined);
     setErroreModale(null);
@@ -210,6 +212,7 @@ function AdminComunicazioniContenuto() {
     setPalazzoInput(post.palazzoId ?? '');
     setCorpoInput(post.corpo);
     setIsPinnedInput(post.isPinned);
+    setInviaEmailImportante(false);
     setErroreTitolo(undefined);
     setErroreCorpo(undefined);
     setErroreModale(null);
@@ -247,13 +250,28 @@ function AdminComunicazioniContenuto() {
           palazzoId: palazzoInput.trim() ? palazzoInput.trim() : null,
           isPinned: isPinnedInput,
         });
+        let notaEmail = '';
+        if (inviaEmailImportante) {
+          try {
+            const esitoEmail = await services.codaEmail.accodaEmail({
+              condominioId: condominio.id,
+              tipoEvento: 'COMUNICAZIONE_IMPORTANTE',
+              riferimentoId: comunicazioneInModifica.id,
+            });
+            if (esitoEmail.accodate > 0) {
+              notaEmail = ` Email accodate: ${esitoEmail.accodate}.`;
+            }
+          } catch {
+            notaEmail = ' (Invio email non accodato.)';
+          }
+        }
         toast.show({
           tone: 'success',
-          message: 'Comunicazione aggiornata con successo.',
+          message: `Comunicazione aggiornata con successo.${notaEmail}`,
         });
       } else {
         // Creazione con notifiche automatiche
-        await services.comunicazioniAdmin.create({
+        const { id: postId } = await services.comunicazioniAdmin.create({
           condominioId: condominio.id,
           autoreId: profilo?.id ?? null,
           titolo: titoloInput.trim(),
@@ -261,9 +279,24 @@ function AdminComunicazioniContenuto() {
           palazzoId: palazzoInput.trim() ? palazzoInput.trim() : null,
           isPinned: isPinnedInput,
         });
+        let notaEmail = '';
+        if (inviaEmailImportante) {
+          try {
+            const esitoEmail = await services.codaEmail.accodaEmail({
+              condominioId: condominio.id,
+              tipoEvento: 'COMUNICAZIONE_IMPORTANTE',
+              riferimentoId: postId,
+            });
+            if (esitoEmail.accodate > 0) {
+              notaEmail = ` Email accodate: ${esitoEmail.accodate}.`;
+            }
+          } catch {
+            notaEmail = ' (Invio email non accodato.)';
+          }
+        }
         toast.show({
           tone: 'success',
-          message: 'Comunicazione pubblicata e notifiche inviate ai residenti.',
+          message: `Comunicazione pubblicata e notifiche inviate ai residenti.${notaEmail}`,
         });
       }
 
@@ -700,7 +733,19 @@ function AdminComunicazioniContenuto() {
             label="Fissa in evidenza in cima alla bacheca"
             helperText="L'avviso comparirà sempre per primo prima degli altri post ordinari."
             checked={isPinnedInput}
-            onChange={setIsPinnedInput}
+            onChange={(checked) => {
+              setIsPinnedInput(checked);
+              if (checked) setInviaEmailImportante(true);
+            }}
+            disabled={salvataggioInCorso}
+          />
+
+          {/* Checkbox Invio Email Comunicazione Importante */}
+          <Checkbox
+            label="Invia anche per email (comunicazione importante)"
+            helperText="Accoda l'email ai soli destinatari dell'ambito selezionato (condominio o palazzo)."
+            checked={inviaEmailImportante}
+            onChange={setInviaEmailImportante}
             disabled={salvataggioInCorso}
           />
         </View>

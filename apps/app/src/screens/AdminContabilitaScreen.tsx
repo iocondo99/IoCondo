@@ -1136,10 +1136,25 @@ function AdminContabilitaContenuto() {
         confermaEsplicitaAdmin: true,
         confermatoDa: profilo.id,
       });
+
+      let notaEmail = '';
+      try {
+        const esitoEmail = await services.codaEmail.accodaEmail({
+          condominioId: condominio.id,
+          tipoEvento: 'BOLLETTINO_EMESSO',
+          riferimentoId: bollettinoSelezionato.id,
+        });
+        if (esitoEmail.accodate > 0) {
+          notaEmail = ' Email accodata per l’invio.';
+        }
+      } catch {
+        notaEmail = ' (Invio email non accodato: verifica configurazione coda email.)';
+      }
+
       setModaleAttiva(null);
       toast.show({
         tone: 'success',
-        message: `Bollettino n. ${bollettinoSelezionato.numero_progressivo}/${bollettinoSelezionato.anno} verificato ed emesso.`,
+        message: `Bollettino n. ${bollettinoSelezionato.numero_progressivo}/${bollettinoSelezionato.anno} verificato ed emesso.${notaEmail}`,
       });
       await caricaDati(esercizioAttivo?.id);
     } catch (err) {

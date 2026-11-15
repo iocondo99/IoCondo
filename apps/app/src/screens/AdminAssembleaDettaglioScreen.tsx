@@ -89,6 +89,7 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
   const [dettaglio, setDettaglio] = useState<DettaglioAssembleaAdminResult | null>(null);
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState(false);
+  const [invioEmailInCorso, setInvioEmailInCorso] = useState(false);
 
   // Convocazione attiva per il calcolo del Quorum Costitutivo (1ª o 2ª conv)
   const [convocazioneAttiva, setConvocazioneAttiva] = useState<ConvocazioneAttiva>('SECONDA');
@@ -346,6 +347,32 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
     }
   };
 
+  const handleInviaConvocazioneEmail = async () => {
+    if (!condominio?.id || !dettaglio || invioEmailInCorso) return;
+    setInvioEmailInCorso(true);
+    try {
+      const esito = await services.codaEmail.accodaEmail({
+        condominioId: condominio.id,
+        tipoEvento: 'CONVOCAZIONE_ASSEMBLEA',
+        riferimentoId: dettaglio.assemblea.id,
+      });
+      toast.show({
+        tone: 'success',
+        message:
+          esito.accodate > 0
+            ? `Convocazione accodata per ${esito.accodate} destinatari.`
+            : 'Nessuna nuova email da accodare (già inviate o indirizzi assenti).',
+      });
+    } catch (err) {
+      toast.show({
+        tone: 'error',
+        message: err instanceof Error ? err.message : 'Impossibile accodare le email di convocazione.',
+      });
+    } finally {
+      setInvioEmailInCorso(false);
+    }
+  };
+
   // Controllo Votazione Punto ODG (Apri / Chiudi)
   const handleToggleVotazionePunto = async (punto: PuntoOdgAdminView) => {
     try {
@@ -555,6 +582,16 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
               icon="share-2"
               onPress={handleCondividiConvocazione}
             />
+
+            {assemblea.stato === 'CONVOCATA' && (
+              <Button
+                variant="secondary"
+                label="Invia convocazione via email"
+                icon="mail"
+                onPress={handleInviaConvocazioneEmail}
+                loading={invioEmailInCorso}
+              />
+            )}
 
             {assemblea.stato === 'CONVOCATA' && (
               <Button

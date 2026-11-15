@@ -112,6 +112,7 @@ function AdminAssembleeContenuto() {
 
   // Modale Nuova Assemblea
   const [modaleNuovaAperta, setModaleNuovaAperta] = useState(false);
+  const [inviaEmailConvocazione, setInviaEmailConvocazione] = useState(true);
   const [tipoScelto, setTipoScelto] = useState<TipoAssembleaAdmin>('ORDINARIA');
   const [modalitaScelta, setModalitaScelta] = useState<ModalitaAssembleaAdmin>('IBRIDA');
   const [dataPrimaConv, setDataPrimaConv] = useState('');
@@ -243,9 +244,28 @@ function AdminAssembleeContenuto() {
         throw new Error(res.errore || 'Errore durante la creazione.');
       }
 
+      let notaEmail = '';
+      if (!salvaComeBozza && inviaEmailConvocazione) {
+        try {
+          const esitoEmail = await services.codaEmail.accodaEmail({
+            condominioId: condominio.id,
+            tipoEvento: 'CONVOCAZIONE_ASSEMBLEA',
+            riferimentoId: res.id,
+            secondaConvocazione: dataSecondaConv ? new Date(dataSecondaConv).toISOString() : null,
+          });
+          if (esitoEmail.accodate > 0) {
+            notaEmail = ` (${esitoEmail.accodate} email accodate)`;
+          }
+        } catch {
+          notaEmail = ' (Convocazione salvata; accodamento email non riuscito.)';
+        }
+      }
+
       toast.show({
         tone: 'success',
-        message: salvaComeBozza ? 'Bozza assemblea salvata.' : 'Assemblea convocata con successo!',
+        message: salvaComeBozza
+          ? 'Bozza assemblea salvata.'
+          : `Assemblea convocata con successo!${notaEmail}`,
       });
       setModaleNuovaAperta(false);
       void caricaDati();
@@ -524,7 +544,7 @@ function AdminAssembleeContenuto() {
             ]}
           >
             <View style={[styles.checkboxBox, salvaComeBozza && styles.checkboxAttivo]}>
-              {salvaComeBozza && <Icon name="check" size="indicator" color="#FFFFFF" />}
+              {salvaComeBozza && <Icon name="check" size="indicator" color={colors.surface} />}
             </View>
             <View style={styles.checkboxTestoContainer}>
               <Text style={styles.checkboxLabel}>Salva come bozza</Text>
@@ -533,6 +553,28 @@ function AdminAssembleeContenuto() {
               </Text>
             </View>
           </Pressable>
+
+          {!salvaComeBozza && (
+            <Pressable
+              role="checkbox"
+              aria-checked={inviaEmailConvocazione}
+              onPress={() => setInviaEmailConvocazione(!inviaEmailConvocazione)}
+              style={({ pressed }) => [
+                styles.checkboxRiga,
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={[styles.checkboxBox, inviaEmailConvocazione && styles.checkboxAttivo]}>
+                {inviaEmailConvocazione && <Icon name="check" size="indicator" color={colors.surface} />}
+              </View>
+              <View style={styles.checkboxTestoContainer}>
+                <Text style={styles.checkboxLabel}>Invia convocazione via email</Text>
+                <Text style={styles.checkboxDesc}>
+                  Accoda automaticamente l’email di convocazione ai condòmini con indirizzo valido.
+                </Text>
+              </View>
+            </Pressable>
+          )}
 
           <ModalActions>
             <Button

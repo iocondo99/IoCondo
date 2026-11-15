@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
@@ -6,8 +6,10 @@ import {
   deduciAmbitoTabella,
   filtraUnitaPerAmbito,
   formattaMillesimiInput,
+  generaTemplateCSVMillesimi,
   parseValoreMillesimale,
   ripartisciEquamente,
+  validaImportMillesimiCSV,
   validaTabellaMillesimale,
   type AmbitoTabellaMillesimale,
   type StrutturaAdminData,
@@ -27,6 +29,7 @@ import {
   PageHeader,
   SearchBar,
   Select,
+  Textarea,
   borderWidths,
   colors,
   focusRingInset,
@@ -126,6 +129,11 @@ function AdminEditorTabellaMillesimaleContenuto({ tabellaId }: { tabellaId?: str
   const [quoteInput, setQuoteInput] = useState<Record<string, string>>({});
   const [erroreForm, setErroreForm] = useState<string | null>(null);
   const [salvataggioInCorso, setSalvataggioInCorso] = useState(false);
+
+  // Stato pannello inline Import CSV
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pannelloCSVAperto, setPannelloCSVAperto] = useState(false);
+  const [testoCSV, setTestoCSV] = useState('');
 
   const caricaDati = useCallback(async () => {
     if (!condominio?.id) return;
@@ -315,6 +323,74 @@ function AdminEditorTabellaMillesimaleContenuto({ tabellaId }: { tabellaId?: str
       return next;
     });
     setErroreForm(null);
+  };
+
+  const esitoValidazioneCSV = useMemo(() => {
+    if (!pannelloCSVAperto || !testoCSV.trim() || !dati) return null;
+    const targetUnita = unitaPartecipanti.length > 0 ? unitaPartecipanti : dati.tutteUnita;
+    return validaImportMillesimiCSV(testoCSV, targetUnita, totalePrevistoNum);
+  }, [pannelloCSVAperto, testoCSV, dati, unitaPartecipanti, totalePrevistoNum]);
+
+  const scaricaTemplateCSV = () => {
+    if (!dati) return;
+    const targetUnita = unitaPartecipanti.length > 0 ? unitaPartecipanti : dati.tutteUnita;
+    const template = generaTemplateCSVMillesimi(targetUnita);
+
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      try {
+        const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'template_millesimi.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.show({ message: 'Template CSV scaricato sul tuo dispositivo.', tone: 'info' });
+        return;
+      } catch {
+        // Fallback: inserisce nell'area di testo
+      }
+    }
+
+    setTestoCSV(template);
+    toast.show({
+      message: 'Template CSV di esempio inserito nell’area di import.',
+      tone: 'info',
+    });
+  };
+
+  const caricaFileCSVWeb = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result;
+      if (typeof content === 'string') {
+        setTestoCSV(content);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const applicaQuoteDaCSV = () => {
+    if (!esitoValidazioneCSV || esitoValidazioneCSV.righeValide === 0) return;
+    setQuoteInput((prev) => {
+      const next = { ...prev };
+      for (const riga of esitoValidazioneCSV.righe) {
+        if (riga.valido && riga.unitaId) {
+          next[riga.unitaId] = formattaMillesimiInput(riga.valoreMillesimale);
+        }
+      }
+      return next;
+    });
+    setErroreForm(null);
+    setPannelloCSVAperto(false);
+    toast.show({
+      message: `${esitoValidazioneCSV.righeValide} quote importate dal CSV. Verifica la quadratura e salva.`,
+      tone: 'success',
+    });
   };
 
   const tornaAllaLista = () => {
@@ -514,6 +590,14 @@ function AdminEditorTabellaMillesimaleContenuto({ tabellaId }: { tabellaId?: str
               disabled={unitaPartecipanti.length === 0 || salvataggioInCorso}
               accessibilityHint="Riporta a zero tutte le quote delle unità partecipanti"
             />
+            <Button
+              variant="secondary"
+              icon="upload"
+              label={pannelloCSVAperto ? 'Chiudi import CSV' : 'Importa da CSV'}
+              onPress={() => setPannelloCSVAperto((prev) => !prev)}
+              disabled={unitaPartecipanti.length === 0 || salvataggioInCorso}
+              accessibilityHint="Apre il pannello per importare le quote da un file CSV"
+            />
           </View>
 
           {!quadratura.isQuadrata && unitaPartecipanti.length > 0 ? (
@@ -662,6 +746,98 @@ function AdminEditorTabellaMillesimaleContenuto({ tabellaId }: { tabellaId?: str
           ) : null}
         </View>
       </Card>
+
+      {/* Pannello inline Importa Quote da CSV */}
+      {pannelloCSVAperto ? (
+        <Card title="Importa quote millesimali da file CSV" headingLevel={2}>
+          <View style={styles.sezioneForm}>
+            <View style={styles.stickyActionsRow}>
+              <Button
+                variant="secondary"
+                icon="file-text"
+                label="Scarica template CSV"
+                onPress={scaricaTemplateCSV}
+                disabled={salvataggioInCorso}
+              />
+              {Platform.OS === 'web' ? (
+                <View>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv,text/plain"
+                    style={{ display: 'none' }}
+                    onChange={caricaFileCSVWeb}
+                  />
+                  <Button
+                    variant="secondary"
+                    icon="upload"
+                    label="Sfoglia file CSV"
+                    onPress={() => fileInputRef.current?.click()}
+                    disabled={salvataggioInCorso}
+                  />
+                </View>
+              ) : null}
+            </View>
+
+            <Textarea
+              label="Contenuto CSV (Scala;Interno;Millesimi)"
+              helperText="Carica un file CSV oppure incolla qui le righe. Le quote valide verranno compilate nella griglia sottostante."
+              value={testoCSV}
+              onChangeText={setTestoCSV}
+              placeholder={'Scala;Interno;Millesimi\nScala A;1;500,000\nScala A;2;500,000'}
+              minHeight={110}
+              disabled={salvataggioInCorso}
+            />
+
+            {esitoValidazioneCSV ? (
+              <View style={styles.boxCsvAnteprima}>
+                <View style={styles.stickyTopRow}>
+                  <Text style={[textStyle('secondary', breakpoint), styles.testoNormale]}>
+                    Righe valide: {esitoValidazioneCSV.righeValide} su {esitoValidazioneCSV.totaleRighe} · Somma:{' '}
+                    {esitoValidazioneCSV.sommaMillesimi.toFixed(3)} ‰
+                  </Text>
+                  <Badge
+                    status={esitoValidazioneCSV.isQuadrata ? 'success' : 'warning'}
+                    label={
+                      esitoValidazioneCSV.isQuadrata
+                        ? `Quadrata a ${totalePrevistoNum.toFixed(3)} ‰`
+                        : `Disavanzo: ${esitoValidazioneCSV.disavanzo > 0 ? '+' : ''}${esitoValidazioneCSV.disavanzo.toFixed(3)} ‰`
+                    }
+                  />
+                </View>
+
+                {esitoValidazioneCSV.erroriGlobali.length > 0 ? (
+                  <Alert
+                    tone="warning"
+                    message={esitoValidazioneCSV.erroriGlobali.join('\n')}
+                  />
+                ) : null}
+
+                {esitoValidazioneCSV.righeErrate > 0 ? (
+                  <Alert
+                    tone="error"
+                    message={esitoValidazioneCSV.righe
+                      .filter((r) => !r.valido)
+                      .slice(0, 5)
+                      .map((r) => `Riga #${r.rigaNumero} (Int. ${r.interno || '—'}): ${r.errori.join(', ')}`)
+                      .join('\n')}
+                  />
+                ) : null}
+
+                <View style={styles.stickyActionsRow}>
+                  <Button
+                    variant="primary"
+                    icon="check"
+                    label="Applica quote CSV nella griglia"
+                    onPress={applicaQuoteDaCSV}
+                    disabled={esitoValidazioneCSV.righeValide === 0 || salvataggioInCorso}
+                  />
+                </View>
+              </View>
+            ) : null}
+          </View>
+        </Card>
+      ) : null}
 
       {/* Sezione 2 — Griglia Completa di Inserimento Quote Millesimali */}
       <Card title={`2. Quote millesimali per unità (${unitaPartecipanti.length})`} headingLevel={2}>
@@ -1004,5 +1180,13 @@ const styles = StyleSheet.create({
     paddingTop: space[2],
     borderTopWidth: borderWidths.thin,
     borderTopColor: colors.border,
+  },
+  boxCsvAnteprima: {
+    gap: space[3],
+    padding: space[4],
+    backgroundColor: colors.background,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
+    borderRadius: radii.card,
   },
 });

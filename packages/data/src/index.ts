@@ -46,8 +46,11 @@ export * from './prenotazioni/prenotazioniLogic';
 export * from './prenotazioni/prenotazioniService';
 export * from './superadmin/superadminLogic';
 export * from './superadmin/superadminService';
+export * from './email/codaEmailLogic';
+export * from './email/codaEmailService';
 
 // Risoluzione ambiguità esportazioni duplicate
 export { formattaDataItaliana } from './admin/invitiAdminLogic';
 export type { PrioritaTicket, StatoTicket } from './segnalazioni/segnalazioniLogic';
 export { ordinaComunicazioni } from './comunicazioni/comunicazioniLogic';
+export { isEmailValida } from './admin/invitiAdminLogic';

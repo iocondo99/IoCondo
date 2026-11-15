@@ -50,3 +50,11 @@ function safeEqual(a: string, b: string): boolean {
 export function requireServiceCaller(req: Request): void {
   if (!safeEqual(bearer(req), SERVICE_ROLE_KEY)) throw new HttpError(401, 'Chiamante non autorizzato');
 }
+
+/** Verifica non-throwing se la richiesta è firmata con la service_role key. */
+export function isServiceCaller(req: Request): boolean {
+  const h = req.headers.get('Authorization') ?? '';
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  if (!m) return false;
+  return safeEqual(m[1]!, SERVICE_ROLE_KEY);
+}
