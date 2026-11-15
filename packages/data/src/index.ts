@@ -46,6 +46,8 @@ export * from './prenotazioni/prenotazioniLogic';
 export * from './prenotazioni/prenotazioniService';
 export * from './superadmin/superadminLogic';
 export * from './superadmin/superadminService';
+export * from './superadmin/telemetriaLogic';
+export * from './superadmin/telemetriaService';
 export * from './email/codaEmailLogic';
 export * from './email/codaEmailService';
 

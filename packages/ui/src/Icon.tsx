@@ -2,6 +2,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import {
+  Activity,
   Apple,
   ArrowDown,
   ArrowLeft,
@@ -25,6 +26,7 @@ import {
   Clock,
   Coins,
   CreditCard,
+  Database,
   Download,
   File,
   FileText,
@@ -50,6 +52,7 @@ import {
   Play,
   RefreshCw,
   Search,
+  Server,
   Settings,
   Share2,
   Square,
@@ -95,12 +98,17 @@ import {
   BadgePercent,
   PiggyBank,
   RotateCcw,
+  BarChart3,
   type LucideIcon,
 } from 'lucide-react-native';
 import { colors, iconSizes, iconStrokeWidth, type IconSizeName } from './tokens';
 
 /** Icone previste dalla sezione 9. Unica libreria ammessa: Lucide. */
 export const iconMap = {
+  activity: Activity,
+  'bar-chart-3': BarChart3,
+  database: Database,
+  server: Server,
   home: House,
   coins: Coins,
   'credit-card': CreditCard,

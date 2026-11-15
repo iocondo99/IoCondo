@@ -1,6 +1,7 @@
 import { createBrowserClient, createServerClient } from '@supabase/ssr';
 import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import type { Database } from '@iocondo/shared-types';
+import { createTelemetryFetch, TelemetryCollector } from './telemetry.ts';
 
 /**
  * UNICO punto del monorepo in cui si crea un client Supabase.
@@ -23,20 +24,65 @@ function assertConfig({ url, anonKey }: SupabaseConfig) {
   }
 }
 
+export interface TelemetryOptions {
+  enabled?: boolean;
+  flushIntervalMs?: number;
+}
+
 /** Client generico (React Native / script). Su mobile passare `auth.storage` (AsyncStorage). */
 export function createSupabaseClient(
   config: SupabaseConfig,
-  options?: { auth?: Record<string, unknown> },
+  options?: { auth?: Record<string, unknown>; telemetry?: boolean | TelemetryOptions },
 ): TypedSupabaseClient {
   assertConfig(config);
-  return createSupabaseJsClient<Database>(config.url, config.anonKey, {
+
+  const telemetryCfg =
+    options?.telemetry === true
+      ? { enabled: true }
+      : typeof options?.telemetry === 'object'
+        ? options.telemetry
+        : undefined;
+
+  let collector: TelemetryCollector | null = null;
+  let customFetch: typeof fetch | undefined;
+
+  if (telemetryCfg?.enabled && typeof globalThis.fetch === 'function') {
+    collector = new TelemetryCollector({
+      flushIntervalMs: telemetryCfg.flushIntervalMs,
+      autoStart: true,
+    });
+    customFetch = createTelemetryFetch(collector, globalThis.fetch.bind(globalThis));
+  }
+
+  const client = createSupabaseJsClient<Database>(config.url, config.anonKey, {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
       ...(options?.auth ?? {}),
     },
+    ...(customFetch ? { global: { fetch: customFetch } } : {}),
   });
+
+  if (collector) {
+    collector.setFlushHandler(async (batch) => {
+      const { data } = await client.auth.getSession();
+      if (!data.session?.user?.id) return;
+      const rpcClient = client as unknown as {
+        rpc: (fn: string, params: Record<string, unknown>) => Promise<{ error: unknown }>;
+      };
+      await rpcClient.rpc('registra_telemetria_batch', {
+        p_get: batch.get,
+        p_insert: batch.insert,
+        p_put: batch.put_patch,
+        p_delete: batch.delete,
+        p_edge: batch.edge_fn,
+        p_errori: batch.errori,
+      });
+    });
+  }
+
+  return client;
 }
 
 /** Client per il browser (Next.js client components): sessione in cookie. */
@@ -60,3 +106,4 @@ export function createServerSupabase(config: SupabaseConfig, cookies: CookieAdap
 export * from './errors.ts';
 export type { Database } from '@iocondo/shared-types';
 export * from './helpers.ts';
+export * from './telemetry.ts';

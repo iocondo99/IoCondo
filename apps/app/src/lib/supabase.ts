@@ -12,5 +12,8 @@ export const supabase = createSupabaseClient(
     url: process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
     anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'public-anon-placeholder-key',
   },
-  { auth: { storage: platformStorage } },
+  {
+    auth: { storage: platformStorage },
+    telemetry: true,
+  },
 );

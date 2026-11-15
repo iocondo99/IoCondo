@@ -10,6 +10,7 @@ declare module 'lucide-react-native' {
 
   export type LucideIcon = ComponentType<LucideProps>;
 
+  export const Activity: LucideIcon;
   export const Apple: LucideIcon;
   export const ArrowDown: LucideIcon;
   export const ArrowLeft: LucideIcon;
@@ -17,6 +18,7 @@ declare module 'lucide-react-native' {
   export const ArrowUp: LucideIcon;
   export const ArrowUpDown: LucideIcon;
   export const BadgePercent: LucideIcon;
+  export const BarChart3: LucideIcon;
   export const Bell: LucideIcon;
   export const Building2: LucideIcon;
   export const Calculator: LucideIcon;
@@ -36,6 +38,7 @@ declare module 'lucide-react-native' {
   export const Coins: LucideIcon;
   export const Copy: LucideIcon;
   export const CreditCard: LucideIcon;
+  export const Database: LucideIcon;
   export const Download: LucideIcon;
   export const Ellipsis: LucideIcon;
   export const ExternalLink: LucideIcon;
@@ -79,6 +82,7 @@ declare module 'lucide-react-native' {
   export const RefreshCw: LucideIcon;
   export const RotateCcw: LucideIcon;
   export const Search: LucideIcon;
+  export const Server: LucideIcon;
   export const Settings: LucideIcon;
   export const Share2: LucideIcon;
   export const Shield: LucideIcon;

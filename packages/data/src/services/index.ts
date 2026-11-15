@@ -28,6 +28,7 @@ import { createContabilitaService } from '../contabilita/contabilitaService';
 import { createRaccoltaDifferenziataService } from '../raccoltaDifferenziata/raccoltaDifferenziataService';
 import { createPrenotazioniService } from '../prenotazioni/prenotazioniService';
 import { createSuperAdminService } from '../superadmin/superadminService';
+import { createTelemetriaService } from '../superadmin/telemetriaService';
 import { createCodaEmailService } from '../email/codaEmailService';
 
 /** Compone tutti i service su un client dato: il client lo crea l'app (nessun singleton qui). */
@@ -47,6 +48,7 @@ export function createServices(db: TypedSupabaseClient) {
     raccoltaDifferenziata: createRaccoltaDifferenziataService(db),
     prenotazioni: createPrenotazioniService(db),
     superadmin: createSuperAdminService(db),
+    telemetria: createTelemetriaService(db),
     codaEmail: createCodaEmailService(db),
     rate: createRateService(db),
     pagamenti: createPagamentiService(db),
@@ -96,5 +98,6 @@ export * from '../contabilita/contabilitaService';
 export * from '../raccoltaDifferenziata/raccoltaDifferenziataService';
 export * from '../prenotazioni/prenotazioniService';
 export * from '../superadmin/superadminService';
+export * from '../superadmin/telemetriaService';
 export * from '../email/codaEmailService';
 export * from './ticketService';
