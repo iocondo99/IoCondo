@@ -5,7 +5,6 @@
   "installCommand": "npm install",
   "buildCommand": "if [ -d apps/app ]; then cd apps/app && npx expo export -p web --output-dir ../../dist; else npx expo export -p web --output-dir dist; fi",
   "outputDirectory": "dist",
-  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/(.*)",
