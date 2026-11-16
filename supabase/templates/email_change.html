@@ -20,12 +20,12 @@
               <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 20px 0;">
                 <tr>
                   <td style="border-radius:8px;background-color:#0A79AB;">
-                    <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:8px;">Conferma cambio email</a>
+                    <a href="{{ .SiteURL }}/imposta-password?token_hash={{ .TokenHash }}&type=email_change" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:8px;">Conferma cambio email</a>
                   </td>
                 </tr>
               </table>
               <p style="margin:0 0 8px 0;color:#475569;font-size:14px;">Se il pulsante non funziona, copia e incolla questo indirizzo nel browser:</p>
-              <p style="margin:0;word-break:break-all;font-size:13px;color:#0A79AB;">{{ .ConfirmationURL }}</p>
+              <p style="margin:0;word-break:break-all;font-size:13px;color:#0A79AB;">{{ .SiteURL }}/imposta-password?token_hash={{ .TokenHash }}&type=email_change</p>
             </td>
           </tr>
           <tr>
