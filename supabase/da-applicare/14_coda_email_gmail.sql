@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migrazione 14: Coda Email Persistente con Resend e Mittente Amministratore
+-- Migrazione 14: Coda Email Persistente con invio SMTP Gmail e Mittente Amministratore
 -- =============================================================================
 -- Idempotente: rieseguibile senza errori.
 -- Non eseguire direttamente da agente: applicare a mano dal SQL Editor di Supabase.

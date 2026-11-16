@@ -6,14 +6,14 @@ export type StatoCodaEmail = ICodaEmail['stato'];
 export interface MittenteAmministratoreInput {
   nomeCognome?: string | null;
   email?: string | null;
-  senderDomain: string;
 }
 
 export interface MittenteAmministratore {
+  /** Nome mostrato come mittente (es. "Mario Rossi (IoCondo)"). */
   nomeVisualizzato: string;
-  slug: string;
-  localPart: string;
+  /** Valore mostrato come `From` (display name; la casella reale è quella Gmail dell'app). */
   fromEmail: string;
+  /** Email reale dell'amministratore, usata come Reply-To. */
   replyToEmail: string | null;
 }
 
@@ -72,43 +72,6 @@ export function isEmailValida(email: string | null | undefined): email is string
   return trimmed.length <= 320 && EMAIL_REGEX.test(trimmed);
 }
 
-/**
- * Normalizza una stringa (nome e cognome o parte locale email) in uno slug sicuro `[a-z0-9.]`.
- * Esempio: "Mario Rossi" -> "mario.rossi", "Nicolò D'Angelo" -> "nicolo.dangelo".
- */
-export function sanitizzaSlugTesto(valore: string | null | undefined): string {
-  if (typeof valore !== 'string') return '';
-  return valore
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/['’`]/g, '')
-    .replace(/[\s_-]+/g, '.')
-    .replace(/[^a-z0-9.]/g, '')
-    .replace(/\.{2,}/g, '.')
-    .replace(/^\.+|\.+$/g, '');
-}
-
-/**
- * Ricava lo slug per il mittente amministratore a partire da `utenti.nome_cognome`,
- * con fallback sulla parte locale di `utenti.email` o su `"amministratore"`.
- */
-export function sanitizzaSlugAmministratore(
-  nomeCognome?: string | null,
-  email?: string | null,
-): string {
-  const slugNome = sanitizzaSlugTesto(nomeCognome);
-  if (slugNome) return slugNome;
-
-  if (typeof email === 'string' && email.includes('@')) {
-    const local = email.split('@')[0] ?? '';
-    const slugEmail = sanitizzaSlugTesto(local);
-    if (slugEmail) return slugEmail;
-  }
-
-  return 'amministratore';
-}
-
 function pulisciNomeHeader(nomeCognome?: string | null): string {
   if (typeof nomeCognome !== 'string') return 'Amministratore Condominio';
   const pulito = nomeCognome
@@ -118,35 +81,29 @@ function pulisciNomeHeader(nomeCognome?: string | null): string {
   return pulito || 'Amministratore Condominio';
 }
 
-function pulisciDominio(domain: string): string {
-  const pulito = domain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-  return pulito || 'iocondo.it';
-}
-
 /**
- * Costruisce `From` e `Reply-To` a partire dai dati reali dell'amministratore.
- * Esempio: `Mario Rossi <amministratore.mario.rossi@iocondo.it>` con Reply-To `mario.rossi@studio.it`.
+ * Anteprima del mittente mostrato all'amministratore: nome visualizzato e Reply-To.
+ * La casella reale di invio è sempre quella Gmail dell'app (configurata lato server).
+ * Esempio: nome "Mario Rossi (IoCondo)", Reply-To `mario.rossi@studio.it`.
  */
 export function costruisciMittenteAmministratore(
   input: MittenteAmministratoreInput,
 ): MittenteAmministratore {
-  const nomeVisualizzato = pulisciNomeHeader(input.nomeCognome);
-  const slug = sanitizzaSlugAmministratore(input.nomeCognome, input.email);
-  const localPart = slug === 'amministratore' ? 'amministratore' : `amministratore.${slug}`;
-  const domain = pulisciDominio(input.senderDomain);
+  // Il mittente reale è sempre la casella Gmail dell'app (lato server): qui serve
+  // solo l'anteprima del nome mostrato e il Reply-To all'email dell'amministratore.
+  const nome = pulisciNomeHeader(input.nomeCognome);
+  const nomeVisualizzato = nome === 'Amministratore Condominio' ? nome : `${nome} (IoCondo)`;
   const replyToEmail = isEmailValida(input.email) ? input.email.trim().toLowerCase() : null;
 
   return {
     nomeVisualizzato,
-    slug,
-    localPart,
-    fromEmail: `${nomeVisualizzato} <${localPart}@${domain}>`,
+    fromEmail: nomeVisualizzato,
     replyToEmail,
   };
 }
 
 /**
- * Chiave deterministica di idempotenza per evitare duplicati in `coda_email` e su Resend.
+ * Chiave deterministica di idempotenza per evitare duplicati in `coda_email` e invii ripetuti.
  */
 export function costruisciIdempotencyKey(
   tipoEvento: TipoEventoEmail,

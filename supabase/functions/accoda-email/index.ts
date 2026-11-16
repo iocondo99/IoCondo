@@ -422,11 +422,6 @@ serve(async (req) => {
     throw new HttpError(400, 'riferimento_id obbligatorio');
   }
 
-  const senderDomain = Deno.env.get('RESEND_SENDER_DOMAIN');
-  if (!senderDomain) {
-    throw new HttpError(500, 'Configurazione email incompleta lato server');
-  }
-
   let callerUserId: string | null = null;
   if (!isServiceCaller(req)) {
     const { user, db: userDb } = await requireUser(req);
@@ -464,7 +459,6 @@ serve(async (req) => {
   const mittente = costruisciMittenteAmministratore({
     nomeCognome: nomeCognomeAdmin,
     email: emailAdmin,
-    senderDomain,
   });
 
   let risultato: { righe: RigaCodaInsert[]; saltateSenzaEmail: number };

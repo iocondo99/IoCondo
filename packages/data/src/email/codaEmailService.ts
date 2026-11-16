@@ -63,7 +63,6 @@ export function createCodaEmailService(db: TypedSupabaseClient) {
     async getAnteprimaMittente(
       condominioId: string,
       utenteCorrenteId?: string | null,
-      senderDomainPreview = 'iocondo.it',
     ): Promise<AnteprimaMittenteAdmin> {
       const { data: condominio } = await db
         .from('condomini')
@@ -91,7 +90,6 @@ export function createCodaEmailService(db: TypedSupabaseClient) {
         mittente: costruisciMittenteAmministratore({
           nomeCognome,
           email,
-          senderDomain: senderDomainPreview,
         }),
       };
     },

@@ -40,7 +40,7 @@ Il server email predefinito di Supabase (documentazione ufficiale, Auth → SMTP
   "Email address not authorized";
 - ha un limite di **2 email all'ora** per progetto ed è "best effort", pensato solo per prove.
 
-Per invitare persone vere configura un SMTP (Authentication → Emails → SMTP Settings: Resend, Postmark, SES, ecc.).
+Per invitare persone vere configura un SMTP (Authentication → Emails → SMTP Settings con l'account Gmail dedicato).
 Poi rialza il limite di invio email (Authentication → Rate limits).
 
 ## 5. Edge Function

@@ -10,46 +10,31 @@ import {
   generaTemplateComunicazioneImportante,
   generaTemplateConvocazioneAssemblea,
   isEmailValida,
-  sanitizzaSlugAmministratore,
 } from './codaEmailLogic.ts';
 
-test('sanitizzaSlugAmministratore: normalizza accenti, spazi e caratteri speciali', () => {
-  assert.equal(sanitizzaSlugAmministratore('Mario Rossi', 'mario@studio.it'), 'mario.rossi');
-  assert.equal(sanitizzaSlugAmministratore("Nicolò D'Angelo", 'n@studio.it'), 'nicolo.dangelo');
-  assert.equal(sanitizzaSlugAmministratore('  Anna-Maria   De_Luca!! ', null), 'anna.maria.de.luca');
-});
-
-test('sanitizzaSlugAmministratore: fallback su parte locale email e su amministratore', () => {
-  assert.equal(sanitizzaSlugAmministratore(null, 'Studio.Bianchi+pec@esempio.it'), 'studio.bianchipec');
-  assert.equal(sanitizzaSlugAmministratore('   ', 'info@condomini.it'), 'info');
-  assert.equal(sanitizzaSlugAmministratore(null, null), 'amministratore');
-  assert.equal(sanitizzaSlugAmministratore('!!!', '---'), 'amministratore');
-});
-
-test('costruisciMittenteAmministratore: genera From, localPart e Reply-To conformi', () => {
+test('costruisciMittenteAmministratore: nome mostrato (IoCondo) e Reply-To conformi', () => {
   const m = costruisciMittenteAmministratore({
     nomeCognome: 'Mario Rossi',
     email: 'Mario.Rossi@Studio.IT ',
-    senderDomain: 'notifiche.iocondo.it',
   });
-  assert.equal(m.fromEmail, 'Mario Rossi <amministratore.mario.rossi@notifiche.iocondo.it>');
+  assert.equal(m.nomeVisualizzato, 'Mario Rossi (IoCondo)');
+  assert.equal(m.fromEmail, 'Mario Rossi (IoCondo)');
   assert.equal(m.replyToEmail, 'mario.rossi@studio.it');
 
   const fallback = costruisciMittenteAmministratore({
     nomeCognome: null,
     email: null,
-    senderDomain: 'iocondo.it',
   });
-  assert.equal(fallback.fromEmail, 'Amministratore Condominio <amministratore@iocondo.it>');
+  assert.equal(fallback.fromEmail, 'Amministratore Condominio');
   assert.equal(fallback.replyToEmail, null);
 
   const injectionSafe = costruisciMittenteAmministratore({
     nomeCognome: 'Mario\r\n<script>Rossi',
     email: 'non-valida',
-    senderDomain: 'https://IOCONDO.IT/',
   });
   assert.ok(!injectionSafe.fromEmail.includes('\n'));
   assert.ok(!injectionSafe.fromEmail.includes('\r'));
+  assert.ok(!injectionSafe.fromEmail.includes('<'));
   assert.equal(injectionSafe.replyToEmail, null);
 });
 
@@ -57,7 +42,6 @@ test('generaTemplateBollettinoEmesso: include dati, escape HTML e nota footer', 
   const mittente = costruisciMittenteAmministratore({
     nomeCognome: 'Laura Verdi',
     email: 'laura.verdi@studio.it',
-    senderDomain: 'iocondo.it',
   });
   const res = generaTemplateBollettinoEmesso(
     {
@@ -89,7 +73,6 @@ test('generaTemplateConvocazioneAssemblea: include convocazioni, luogo e ODG', (
   const mittente = costruisciMittenteAmministratore({
     nomeCognome: 'Mario Rossi',
     email: 'mario@rossi.it',
-    senderDomain: 'iocondo.it',
   });
   const res = generaTemplateConvocazioneAssemblea(
     {
@@ -117,7 +100,6 @@ test('generaTemplateComunicazioneImportante: include ambito, titolo e corpo', ()
   const mittente = costruisciMittenteAmministratore({
     nomeCognome: 'Mario Rossi',
     email: 'mario@rossi.it',
-    senderDomain: 'iocondo.it',
   });
   const res = generaTemplateComunicazioneImportante(
     {

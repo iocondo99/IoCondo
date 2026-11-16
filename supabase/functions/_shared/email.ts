@@ -1,12 +1,19 @@
-// Utility pure per la gestione email Resend nelle Edge Functions (mittente amministratore, template HTML/testo, backoff).
+// Utility pure per la gestione email nelle Edge Functions (mittente amministratore, template HTML/testo, backoff).
+// Canale di invio: SMTP Gmail (vedi inviaViaGmail in fondo al file).
+
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
 export type TipoEventoEmail = 'BOLLETTINO_EMESSO' | 'CONVOCAZIONE_ASSEMBLEA' | 'COMUNICAZIONE_IMPORTANTE';
 
 export interface MittenteAmministratore {
+  /** Nome mostrato come mittente (es. "Mario Rossi (IoCondo)"). */
   nomeVisualizzato: string;
-  slug: string;
-  localPart: string;
+  /**
+   * Valore salvato in `coda_email.from_email`: qui è il solo display name,
+   * perché la casella reale è sempre GMAIL_USER e viene imposta da inviaViaGmail.
+   */
   fromEmail: string;
+  /** Email reale dell'amministratore, usata come Reply-To. */
   replyToEmail: string | null;
 }
 
@@ -24,32 +31,7 @@ export function isEmailValida(email: string | null | undefined): email is string
   return trimmed.length <= 320 && EMAIL_REGEX.test(trimmed);
 }
 
-export function sanitizzaSlugTesto(valore: string | null | undefined): string {
-  if (typeof valore !== 'string') return '';
-  return valore
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/['’`]/g, '')
-    .replace(/[\s_-]+/g, '.')
-    .replace(/[^a-z0-9.]/g, '')
-    .replace(/\.{2,}/g, '.')
-    .replace(/^\.+|\.+$/g, '');
-}
 
-export function sanitizzaSlugAmministratore(
-  nomeCognome?: string | null,
-  email?: string | null,
-): string {
-  const slugNome = sanitizzaSlugTesto(nomeCognome);
-  if (slugNome) return slugNome;
-  if (typeof email === 'string' && email.includes('@')) {
-    const local = email.split('@')[0] ?? '';
-    const slugEmail = sanitizzaSlugTesto(local);
-    if (slugEmail) return slugEmail;
-  }
-  return 'amministratore';
-}
 
 function pulisciNomeHeader(nomeCognome?: string | null): string {
   if (typeof nomeCognome !== 'string') return 'Amministratore Condominio';
@@ -60,27 +42,22 @@ function pulisciNomeHeader(nomeCognome?: string | null): string {
   return pulito || 'Amministratore Condominio';
 }
 
-function pulisciDominio(domain: string): string {
-  const pulito = domain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-  return pulito || 'iocondo.it';
-}
 
 export function costruisciMittenteAmministratore(input: {
   nomeCognome?: string | null;
   email?: string | null;
-  senderDomain: string;
 }): MittenteAmministratore {
-  const nomeVisualizzato = pulisciNomeHeader(input.nomeCognome);
-  const slug = sanitizzaSlugAmministratore(input.nomeCognome, input.email);
-  const localPart = slug === 'amministratore' ? 'amministratore' : `amministratore.${slug}`;
-  const domain = pulisciDominio(input.senderDomain);
+  // Il mittente reale è sempre la casella Gmail dell'app (GMAIL_USER): Gmail non
+  // consente di spoofare un altro indirizzo. Conserviamo solo il nome mostrato
+  // dell'amministratore e usiamo la sua email come Reply-To.
+  const nome = pulisciNomeHeader(input.nomeCognome);
+  const nomeVisualizzato = nome === 'Amministratore Condominio' ? nome : `${nome} (IoCondo)`;
   const replyToEmail = isEmailValida(input.email) ? input.email.trim().toLowerCase() : null;
 
   return {
     nomeVisualizzato,
-    slug,
-    localPart,
-    fromEmail: `${nomeVisualizzato} <${localPart}@${domain}>`,
+    // Solo display name: inviaViaGmail aggiunge la casella reale <GMAIL_USER>.
+    fromEmail: nomeVisualizzato,
     replyToEmail,
   };
 }
@@ -386,4 +363,96 @@ export function generaTemplateComunicazioneImportante(
     }),
     textBody: textLines.join('\n'),
   };
+}
+
+
+// ---------------------------------------------------------------------------
+// Invio via SMTP Gmail (denomailer) — canale unico per TUTTE le email dell'app.
+// Le credenziali vivono solo come secret della funzione, mai nel client né in git:
+//   GMAIL_USER          -> account Gmail dedicato (es. iocondo.noreply@gmail.com)
+//   GMAIL_APP_PASSWORD  -> App Password (16 caratteri) generata da Google con 2FA attiva
+//   EMAIL_FROM          -> (opzionale) mittente di default, es. "IoCondo <iocondo.noreply@gmail.com>"
+// ---------------------------------------------------------------------------
+
+export interface GmailMessaggio {
+  to: string;
+  subject: string;
+  html?: string;
+  text?: string;
+  /** Mittente mostrato. Se assente usa EMAIL_FROM o GMAIL_USER. */
+  from?: string;
+  /** Reply-To opzionale (es. email reale dell'amministratore). */
+  replyTo?: string | null;
+}
+
+interface GmailCredenziali {
+  user: string;
+  password: string;
+  from: string;
+}
+
+/** Legge le credenziali Gmail dai secret. Senza di esse l'invio non è possibile. */
+export function leggiCredenzialiGmail(): GmailCredenziali {
+  const user = (Deno.env.get('GMAIL_USER') ?? '').trim();
+  const password = (Deno.env.get('GMAIL_APP_PASSWORD') ?? '').trim();
+  if (!user || !password) {
+    console.error('GMAIL_USER o GMAIL_APP_PASSWORD mancanti');
+    throw new Error('Servizio email non configurato.');
+  }
+  const from = (Deno.env.get('EMAIL_FROM') ?? '').trim() || user;
+  return { user, password, from };
+}
+
+/**
+ * Determina l'header From effettivo. La casella reale è SEMPRE quella Gmail
+ * autenticata (GMAIL_USER / EMAIL_FROM): Gmail non consente di inviare da un
+ * altro indirizzo. Se `from` è un semplice display name (senza <indirizzo>),
+ * lo si abbina alla casella reale -> `Nome Mittente <casella-gmail>`.
+ */
+function risolviFrom(from: string | undefined, fallbackReale: string): string {
+  const v = (from ?? '').trim();
+  if (!v) return fallbackReale;
+  if (v.includes('<') && v.includes('>')) return v; // già completo: casella esplicita
+  // Estrae la casella reale dal fallback (puo' essere "Nome <casella>" o "casella").
+  const match = fallbackReale.match(/<([^>]+)>/);
+  const casella = (match ? match[1] : fallbackReale).trim();
+  const nomePulito = v.replace(/[\r\n<>"]/g, ' ').replace(/\s+/g, ' ').trim();
+  return `${nomePulito} <${casella}>`;
+}
+
+/**
+ * Invia una singola email via SMTP Gmail (TLS, porta 465). Apre e chiude la
+ * connessione per invocazione. Rilancia in caso di errore così il chiamante
+ * può gestire retry/stato. Nessun dato personale nei log.
+ */
+export async function inviaViaGmail(
+  messaggio: GmailMessaggio,
+  credenziali: GmailCredenziali = leggiCredenzialiGmail(),
+): Promise<void> {
+  const client = new SMTPClient({
+    connection: {
+      hostname: 'smtp.gmail.com',
+      port: 465,
+      tls: true,
+      auth: { username: credenziali.user, password: credenziali.password },
+    },
+  });
+
+  try {
+    await client.send({
+      from: risolviFrom(messaggio.from, credenziali.from),
+      to: messaggio.to,
+      subject: messaggio.subject,
+      // denomailer: 'content' per il testo, 'html' per la versione HTML.
+      content: messaggio.text ?? "Questa email richiede un client che supporti l'HTML.",
+      ...(messaggio.html ? { html: messaggio.html } : {}),
+      ...(messaggio.replyTo ? { replyTo: messaggio.replyTo } : {}),
+    });
+  } finally {
+    try {
+      await client.close();
+    } catch {
+      /* chiusura best-effort */
+    }
+  }
 }

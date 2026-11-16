@@ -80,7 +80,7 @@ export function AdminCodaEmailScreen() {
       <View style={styles.pagina}>
         <PageHeader
           title="Log & Coda Email"
-          subtitle="Monitoraggio degli invii automatici tramite Resend e configurazione mittente del condominio."
+          subtitle="Monitoraggio degli invii automatici tramite Gmail e configurazione mittente del condominio."
         />
         <NonAutorizzato />
       </View>
@@ -261,7 +261,7 @@ function AdminCodaEmailContenuto({
     <View style={styles.pagina}>
       <PageHeader
         title="Log & Coda Email"
-        subtitle="Stato degli invii massivi tramite Resend e anteprima del mittente generato per il condominio attivo."
+        subtitle="Stato degli invii massivi tramite Gmail e anteprima del mittente generato per il condominio attivo."
         breadcrumbs={[
           { label: 'Home', onPress: () => router.push('/admin/dashboard') },
           { label: 'Log & Coda Email' },
@@ -288,7 +288,7 @@ function AdminCodaEmailContenuto({
       <Card style={styles.cardMittente}>
         <Text style={styles.titoloSezione}>Mittente automatico del condominio (sola lettura)</Text>
         <Text style={styles.descrizioneSezione}>
-          Ricavato dai dati del tuo account amministratore. Il dominio di invio effettivo è configurato nei Secrets lato server (RESEND_SENDER_DOMAIN).
+          Ricavato dai dati del tuo account amministratore. Le email vengono inviate dalla casella Gmail dell'app; il tuo indirizzo resta come Reply-To, così i condòmini rispondono a te.
         </Text>
         <View style={[styles.grigliaMittente, isMobile && styles.colonnaMobile]}>
           <View style={styles.boxMittente}>
@@ -324,7 +324,7 @@ function AdminCodaEmailContenuto({
             tile="teal"
             title="Inviate"
             value={String(riepilogo.inviate)}
-            description="Consegnate al provider Resend"
+            description="Consegnate tramite Gmail"
             loading={caricamento}
           />
         </View>
@@ -431,7 +431,7 @@ function AdminCodaEmailContenuto({
             </View>
             {dettaglioRiga.provider_message_id ? (
               <View style={styles.rigaDettaglio}>
-                <Text style={styles.labelDettaglio}>ID messaggio Resend</Text>
+                <Text style={styles.labelDettaglio}>ID messaggio provider</Text>
                 <Text style={styles.valoreDettaglio} selectable>
                   {dettaglioRiga.provider_message_id}
                 </Text>

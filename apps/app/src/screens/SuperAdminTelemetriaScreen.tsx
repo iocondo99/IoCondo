@@ -390,7 +390,7 @@ function SuperAdminTelemetriaContenuto() {
         <View style={styles.separatore} />
 
         <View style={styles.codaEmailBox}>
-          <Text style={styles.h4}>Coda Email (Resend)</Text>
+          <Text style={styles.h4}>Coda Email (Gmail)</Text>
           {codaEmail.disponibile ? (
             <View style={styles.codaEmailContenuto}>
               <Text style={styles.cellaSecondaria}>

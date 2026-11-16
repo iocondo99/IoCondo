@@ -12,8 +12,8 @@ Ambiente verificato:
 - **L'app è pronta per essere consegnata a un condòmino vero?**
   - **Lato interfaccia e logica client: quasi pronta (`PARZIALE` in produzione)** — L'esperienza del condòmino è ordinata, chiara, responsive (desktop e smartphone 390px con barra inferiore e zero overflow orizzontale), senza dati finti nella Home né errori console/HTTP sulle rotte principali (`/home`, `/pagamenti`, `/comunicazioni`, `/assemblee`, `/segnalazioni`).
   - **Blocchi prima della consegna a utenti reali**:
-    1. Applicare su Supabase le migrazioni SQL in `supabase/da-applicare/` ancora pendenti (in particolare `11_moduli_condominio_estesi.sql` per i toggle estesi, `12_ticket_ambiti_comuni.sql` per l'isolamento Scala A vs Scala B nelle segnalazioni, `13_superadmin_saas_sospensione.sql` per il blocco condominio sospeso, `14_coda_email_resend.sql` e `16_assistenza_numeri_personalizzati.sql`).
-    2. Completare il flusso inviti/email (`invita-utente` + Resend), altrimenti un condòmino reale non può ricevere l'email di invito e impostare la password.
+    1. Applicare su Supabase le migrazioni SQL in `supabase/da-applicare/` ancora pendenti (in particolare `11_moduli_condominio_estesi.sql` per i toggle estesi, `12_ticket_ambiti_comuni.sql` per l'isolamento Scala A vs Scala B nelle segnalazioni, `13_superadmin_saas_sospensione.sql` per il blocco condominio sospeso, `14_coda_email_gmail.sql` e `16_assistenza_numeri_personalizzati.sql`).
+    2. Completare il flusso inviti/email (`invita-utente` + Gmail), altrimenti un condòmino reale non può ricevere l'email di invito e impostare la password.
     3. Verifica finale su DB reale con **due account condòmino distinti** (es. Scala A vs Scala B) per validare l'isolamento RLS post-migrazioni.
 
 ---
@@ -55,7 +55,7 @@ Ambiente verificato:
 
 ### `CRITICO`
 1. **Onboarding condòmini reali non ancora attivo**:
-   - Senza deploy di `invita-utente`, `08_inviti_sicuri.sql` e configurazione SMTP/Resend (`14_coda_email_resend.sql`), un nuovo condòmino non può ricevere l'invito né attivare l'account.
+   - Senza deploy di `invita-utente`, `08_inviti_sicuri.sql` e configurazione SMTP/Gmail (`14_coda_email_gmail.sql`), un nuovo condòmino non può ricevere l'invito né attivare l'account.
 2. **Isolamento RLS Scala A vs Scala B su Segnalazioni subordinato alla migrazione `12`**:
    - Il codice client è già aggiornato, ma l'effettivo blocco lato Postgres (`has_scala_access`) dipende dall'applicazione di `supabase/da-applicare/12_ticket_ambiti_comuni.sql`.
 
@@ -78,7 +78,7 @@ Ambiente verificato:
 ## 5. Prossimi 5 passi consigliati prima del rilascio ai condòmini
 
 1. **Applicare le migrazioni SQL pendenti su Supabase** (`08`, `11`, `12`, `13`, `14`, `16`) e verificarle con gli script `*_verifica.sql`.
-2. **Deployare Edge Functions e Resend** (`invita-utente`, `accoda-email`, `invia-coda-email`, Redirect URLs Auth e template email in italiano).
+2. **Deployare Edge Functions e Gmail** (`invita-utente`, `accoda-email`, `invia-coda-email`, Redirect URLs Auth e template email in italiano).
 3. **Eseguire il test RLS incrociato con 2 account condòmino reali** (es. Scala A vs Scala B) su Pagamenti, Documenti, Comunicazioni e Segnalazioni.
 4. **Rimuovere il fallback fittizio (`Palazzo A / Int. 1`) in `ImpostazioniScreen.tsx`**, mostrando uno stato chiaro *"Nessuna unità associata"* quando `unitaList` è vuoto.
 5. **Caricare almeno un bollettino PDF e un verbale reale nel bucket privato** per collaudare end-to-end il download con link firmato prima dell'apertura ai condòmini.

@@ -17,7 +17,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sqlFiles = [
   resolve(root, 'supabase/migrations/01_init_schema.sql'),
   resolve(root, 'supabase/da-applicare/10_contabilita_schema_modello_obiettivo.sql'),
-  resolve(root, 'supabase/da-applicare/14_coda_email_resend.sql'),
+  resolve(root, 'supabase/da-applicare/14_coda_email_gmail.sql'),
 ];
 const outPath = resolve(root, 'packages/shared-types/src/index.ts');
 
@@ -52,7 +52,7 @@ const SING = {
   preventivi: 'Preventivo', riparti: 'Riparto', spese: 'Spesa', letture: 'Lettura', contatori: 'Contatore',
   bollettini: 'Bollettino', righe: 'Riga', scadenziario: 'Scadenziario', recupero: 'Recupero',
   crediti: 'Credito', conguagli: 'Conguaglio', unita: 'Unita',
-  // Coda email Resend
+  // Coda email (Gmail)
   coda: 'Coda', email: 'Email',
 };
 const pascal = (s) => s.charAt(0).toUpperCase() + s.slice(1);

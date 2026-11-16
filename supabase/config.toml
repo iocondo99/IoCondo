@@ -435,6 +435,6 @@ verify_jwt = false
 [functions.invita-utente]
 verify_jwt = false
 
-# Invio email applicative via Resend: richiede un utente autenticato
+# Invio email applicative via SMTP Gmail: richiede un utente autenticato
 [functions.invia-email]
 verify_jwt = true

@@ -13,7 +13,7 @@ Prima di iniziare, leggi `AGENTS.md`, `DESIGN_SYSTEM.md`, `docs/PIANO_LAVORO.md`
    - Creazione manuale **pagina completa** delle tabelle millesimali (non modale), importazione, modifica e validazione somme/quote.
 4. **Contabilità, Spese, Ripartizione & Bollettini**:
    - Inserimento spese/fatture, ripartizione su millesimi, emissione bollettini/rate, riconciliazione/stato pagamenti.
-   - Verifica che all'emissione bollettini vengano create sia la **notifica in-app (`public.notifiche`)** sia l'eventuale **coda email Resend**.
+   - Verifica che all'emissione bollettini vengano create sia la **notifica in-app (`public.notifiche`)** sia l'eventuale **coda email Gmail**.
 5. **Comunicazioni, Assemblee & Notifiche/Email**:
    - Pubblicazione comunicazioni (per tutto il condominio o per singolo palazzo/scala), flag "Importante" -> notifica in-app + email.
    - Creazione e convocazione assemblee, ordine del giorno, deleghe, votazioni/verbale -> notifica in-app + email.

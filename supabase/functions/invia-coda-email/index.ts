@@ -1,9 +1,9 @@
 // POST /functions/v1/invia-coda-email
-// Worker batch per l'invio delle email accodate in `public.coda_email` tramite Resend.
+// Worker batch per l'invio delle email accodate in `public.coda_email` tramite SMTP Gmail.
 // Protetto con service_role (cron / webhook / accoda-email) oppure admin del condominio (azioni manuali UI).
 import { HttpError, isUuid, json, serve } from '../_shared/http.ts';
 import { adminClient, isServiceCaller, requireUser } from '../_shared/auth.ts';
-import { calcolaProssimoTentativoIso } from '../_shared/email.ts';
+import { calcolaProssimoTentativoIso, inviaViaGmail, leggiCredenzialiGmail } from '../_shared/email.ts';
 
 interface InviaCodaPayload {
   condominio_id?: string;
@@ -25,7 +25,6 @@ interface RigaCodaRow {
   max_tentativi: number;
 }
 
-const RESEND_API_URL = 'https://api.resend.com/emails';
 const RATE_LIMIT_DELAY_MS = 550;
 
 function sleep(ms: number): Promise<void> {
@@ -46,9 +45,12 @@ serve(async (req) => {
     }
   }
 
-  const resendApiKey = Deno.env.get('RESEND_API_KEY');
-  if (!resendApiKey) {
-    throw new HttpError(500, 'Configurazione Resend incompleta lato server');
+  // Verifica anticipata delle credenziali Gmail: se mancano, niente batch.
+  let gmail: ReturnType<typeof leggiCredenzialiGmail>;
+  try {
+    gmail = leggiCredenzialiGmail();
+  } catch {
+    throw new HttpError(500, 'Configurazione email (Gmail) incompleta lato server');
   }
 
   const db = adminClient();
@@ -95,62 +97,32 @@ serve(async (req) => {
     if (i > 0) await sleep(RATE_LIMIT_DELAY_MS);
 
     try {
-      const resendBody: Record<string, unknown> = {
-        from: row.from_email,
-        to: [row.destinatario_email],
-        subject: row.oggetto,
-        html: row.html_body,
-        text: row.text_body,
-      };
-      if (row.reply_to_email) {
-        resendBody.reply_to = row.reply_to_email;
-      }
-
-      const res = await fetch(RESEND_API_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json',
-          'Idempotency-Key': row.idempotency_key,
+      // Invio tramite SMTP Gmail (stesso canale della email di prova).
+      await inviaViaGmail(
+        {
+          from: row.from_email,
+          to: row.destinatario_email,
+          subject: row.oggetto,
+          html: row.html_body,
+          text: row.text_body,
+          replyTo: row.reply_to_email,
         },
-        body: JSON.stringify(resendBody),
-      });
-
-      if (res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { id?: string };
-        await db
-          .from('coda_email')
-          .update({
-            stato: 'SENT',
-            provider_message_id: body.id ?? null,
-            inviata_at: new Date().toISOString(),
-            ultimo_errore: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', row.id);
-        sent++;
-        continue;
-      }
-
-      const errText = (await res.text().catch(() => '')).slice(0, 500);
-      const nextAttempt = (row.tentativi ?? 0) + 1;
-      const exhausted = nextAttempt >= (row.max_tentativi ?? 5);
+        gmail,
+      );
 
       await db
         .from('coda_email')
         .update({
-          stato: exhausted ? 'FAILED' : 'PENDING',
-          tentativi: nextAttempt,
-          prossimo_tentativo_at: exhausted
-            ? new Date().toISOString()
-            : calcolaProssimoTentativoIso(nextAttempt),
-          ultimo_errore: `HTTP ${res.status}${errText ? `: ${errText}` : ''}`,
+          stato: 'SENT',
+          // SMTP non restituisce un id messaggio del provider.
+          provider_message_id: null,
+          inviata_at: new Date().toISOString(),
+          ultimo_errore: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', row.id);
-
-      if (exhausted) failed++;
-      else retried++;
+      sent++;
+      continue;
     } catch (err) {
       const msg = err instanceof Error ? err.message.slice(0, 500) : 'Errore di rete';
       const nextAttempt = (row.tentativi ?? 0) + 1;
