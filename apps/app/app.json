@@ -6,6 +6,14 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "backgroundColor": "#0D3B66",
+    "primaryColor": "#0D3B66",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D3B66"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "it.iocondo.condomino",
@@ -16,6 +24,10 @@
     },
     "android": {
       "package": "it.iocondo.condomino",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D3B66"
+      },
       "permissions": [
         "CAMERA",
         "VIBRATE",
@@ -24,7 +36,16 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/favicon.png",
+      "name": "ioCondo",
+      "shortName": "ioCondo",
+      "lang": "it",
+      "themeColor": "#0D3B66",
+      "backgroundColor": "#0D3B66",
+      "display": "standalone",
+      "orientation": "portrait",
+      "startUrl": "/"
     },
     "plugins": [
       "expo-router",

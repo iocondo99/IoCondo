@@ -215,10 +215,19 @@ const styles = StyleSheet.create({
   titleRowWithActions: { minHeight: touchTarget.comfortable, paddingRight: touchTarget.comfortable },
   title: { flex: 1, minWidth: 0 },
   status: { alignSelf: 'flex-start' },
-  titleText: { color: colors.brand.navy },
+  titleText: {
+    color: colors.brand.navy,
+    // Senza questo su web il titolo lungo esce dalla scheda invece di andare a capo.
+    flexShrink: 1,
+    ...Platform.select({
+      web: { wordBreak: 'break-word', overflowWrap: 'anywhere' } as unknown as ViewStyle,
+      default: {},
+    }),
+  },
   detail: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space[3] },
   detailLabel: { color: colors.text.secondary },
   detailValue: { flexShrink: 1, alignItems: 'flex-end' },
-  chevron: { alignSelf: 'flex-end' },
+  // La freccia non si restringe e non viene spinta fuori dal titolo lungo.
+  chevron: { flexShrink: 0, alignSelf: 'center' },
   actions: { position: 'absolute', top: space[1], right: space[1] },
 });

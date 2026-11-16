@@ -89,7 +89,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       ) : (
         /* BARRA SUPERIORE (Tablet e Smartphone < 1200px) */
         <View style={styles.bar}>
-          <BrandMark compact={isMobile} noTagline />
+          <BrandMark noTagline />
           <BarReturnLink isMobile={isMobile} onPress={() => router.push('/')} />
         </View>
       )}
@@ -316,15 +316,18 @@ function BarReturnLink({ isMobile, onPress }: { isMobile: boolean; onPress: () =
         size="action"
         color={hovered ? colors.tile.teal.background : colors.text.inverse}
       />
-      <Text
-        style={[
-          textStyle('button', breakpoint),
-          styles.barButtonText,
-          hovered && styles.barButtonTextHovered,
-        ]}
-      >
-        {isMobile ? 'Presentazione' : 'Torna alla presentazione'}
-      </Text>
+      {/* Su smartphone resta solo la freccia; il testo (e l'etichetta accessibile sul Pressable) spiega l'azione. */}
+      {isMobile ? null : (
+        <Text
+          style={[
+            textStyle('button', breakpoint),
+            styles.barButtonText,
+            hovered && styles.barButtonTextHovered,
+          ]}
+        >
+          Torna alla presentazione
+        </Text>
+      )}
     </Pressable>
   );
 }

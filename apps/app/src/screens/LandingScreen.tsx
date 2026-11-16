@@ -166,6 +166,8 @@ export function LandingScreen() {
   const { breakpoint, isDesktop, isTablet, isMobile } = useBreakpoint();
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [logoFocused, setLogoFocused] = useState(false);
+  // Larghezza naturale del CTA primario: il secondario sarà 50px più stretto (25px per lato).
+  const [primaryCtaWidth, setPrimaryCtaWidth] = useState<number | null>(null);
   const sectionPositions = useRef<Record<string, number>>({});
 
   const recordSectionY = (key: string) => (event: LayoutChangeEvent) => {
@@ -259,23 +261,38 @@ export function LandingScreen() {
             </Text>
 
             {/* Gruppo pulsanti CTA */}
-            <View style={[styles.ctaGroup, isMobile && styles.ctaGroupMobile]}>
-              <Button
-                variant="primary"
-                label="Entra nel tuo condominio"
-                icon="arrow-right"
-                iconPosition="end"
-                onPress={() => router.push('/login')}
-                fullWidth={isMobile}
-              />
-              <Button
-                variant="secondary"
-                label="Scopri le funzionalità"
-                icon="chevron-down"
-                iconPosition="end"
-                onPress={() => scrollToSection('funzionalita')}
-                fullWidth={isMobile}
-              />
+            <View style={[styles.ctaGroup, !isDesktop && styles.ctaGroupMobile]}>
+              {/* Wrapper centrato: annulla l'alignSelf:'flex-start' interno del Button
+                  (a larghezza-contenuto) e tiene ciascun CTA centrato nella colonna. */}
+              <View
+                style={styles.ctaItem}
+                onLayout={(e) => setPrimaryCtaWidth(e.nativeEvent.layout.width)}
+              >
+                <Button
+                  variant="primary"
+                  label="Entra nel tuo condominio"
+                  icon="arrow-right"
+                  iconPosition="end"
+                  onPress={() => router.push('/login')}
+                />
+              </View>
+              <View
+                style={[
+                  styles.ctaItem,
+                  primaryCtaWidth != null
+                    ? { width: Math.max(touchTarget.comfortable, primaryCtaWidth - 50) }
+                    : null,
+                ]}
+              >
+                <Button
+                  variant="secondary"
+                  label="Scopri le funzionalità"
+                  icon="chevron-down"
+                  iconPosition="end"
+                  onPress={() => scrollToSection('funzionalita')}
+                  fullWidth={primaryCtaWidth != null}
+                />
+              </View>
             </View>
           </View>
         </View>
@@ -649,6 +666,8 @@ const styles = StyleSheet.create({
   ctaGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    // alignItems vale per l'asse incrociato: in riga centra in verticale,
+    // in colonna (mobile/tablet) centra orizzontalmente i pulsanti a larghezza contenuto.
     alignItems: 'center',
     justifyContent: 'center',
     gap: space[4],
@@ -656,7 +675,14 @@ const styles = StyleSheet.create({
   },
   ctaGroupMobile: {
     flexDirection: 'column',
-    width: '100%',
+    // Colonna stretta e centrata: i pulsanti restano a larghezza-contenuto
+    // (non full-width) e sono centrati orizzontalmente con spazio ai lati.
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  // Ogni CTA sta in un contenitore che si centra nella colonna.
+  ctaItem: {
+    alignItems: 'center',
   },
   sectionContainer: {
     width: '100%',
