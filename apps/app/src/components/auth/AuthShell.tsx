@@ -13,8 +13,8 @@ import {
   textStyle,
   touchTarget,
   useBreakpoint,
-  Button,
   Icon,
+  IconButton,
 } from '@iocondo/ui';
 import { BrandMark } from '@/components/Brand';
 
@@ -104,12 +104,12 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           {/* Pulsante di ritorno visibile sopra la card su desktop */}
           {isDesktop && (
             <View style={styles.backRowDesktop}>
-              <Button
-                variant="text"
-                label="Torna alla presentazione"
+              {/* Solo la freccia: l'etichetta accessibile spiega comunque l'azione. */}
+              <IconButton
+                variant="ghost"
                 icon="arrow-left"
                 onPress={() => router.push('/')}
-                accessibilityHint="Torna alla Landing Page di presentazione"
+                accessibilityLabel="Torna alla presentazione di ioCondo"
               />
             </View>
           )}
