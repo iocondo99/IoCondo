@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useRouter, type Href } from 'expo-router';
 import {
   calcolaKpiPiattaforma,
   filtraAmministratori,
@@ -50,6 +51,7 @@ export function SuperAdminAmministratoriScreen() {
 }
 
 function SuperAdminAmministratoriContenuto() {
+  const router = useRouter();
   const toast = useToast();
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
@@ -295,11 +297,20 @@ function SuperAdminAmministratoriContenuto() {
         title="Amministratori e Condomini"
         subtitle="Gestisci gli amministratori accreditati, le licenze SaaS e lo stato di attivazione dei condomini."
         action={{
-          label: 'Nuovo amministratore',
-          icon: 'user-plus',
-          onPress: apriModaleInvito,
+          label: 'Nuovo condominio',
+          icon: 'building-2',
+          onPress: () => router.push('/superadmin/nuovo-condominio' as Href),
         }}
       />
+
+      <View style={styles.barraAzioni}>
+        <Button
+          variant="secondary"
+          icon="user-plus"
+          label="Invita solo amministratore"
+          onPress={apriModaleInvito}
+        />
+      </View>
 
       <GrigliaSchede>
         <StatCard
@@ -437,6 +448,7 @@ function SuperAdminAmministratoriContenuto() {
 
 const styles = StyleSheet.create({
   root: { gap: space[6] },
+  barraAzioni: { flexDirection: 'row', justifyContent: 'flex-start' },
   controlli: { gap: space[3] },
   cellaAdmin: { gap: space[1] },
   nomeAdmin: { color: colors.text.primary },

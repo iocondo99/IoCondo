@@ -185,6 +185,60 @@ export function validaInvitoAmministratore(
   return Object.keys(errori).length > 0 ? errori : null;
 }
 
+export interface NuovoCondominioAdminInput {
+  nomeCondominio: string;
+  indirizzo: string;
+  citta: string;
+  cap?: string;
+  provincia?: string;
+  codiceFiscale?: string;
+  adminEmail: string;
+  adminNomeCognome: string;
+  adminTelefono?: string;
+}
+
+export interface ErroriNuovoCondominioAdmin {
+  nomeCondominio?: string;
+  indirizzo?: string;
+  citta?: string;
+  provincia?: string;
+  adminEmail?: string;
+  adminNomeCognome?: string;
+}
+
+export interface RisultatoCreazioneCondominioAdmin {
+  condominioId: string;
+  condominioNome: string;
+  giaRegistrato: boolean;
+  messaggio: string;
+}
+
+export function validaNuovoCondominioEAdmin(
+  input: NuovoCondominioAdminInput,
+): ErroriNuovoCondominioAdmin | null {
+  const errori: ErroriNuovoCondominioAdmin = {};
+
+  if (input.nomeCondominio.trim().length < 2) {
+    errori.nomeCondominio = 'Inserisci il nome del condominio (almeno 2 caratteri).';
+  }
+  if (input.indirizzo.trim().length < 3) {
+    errori.indirizzo = 'Inserisci l’indirizzo del condominio.';
+  }
+  if (input.citta.trim().length < 2) {
+    errori.citta = 'Inserisci la città.';
+  }
+  const prov = input.provincia?.trim() ?? '';
+  if (prov.length > 0 && prov.length !== 2) {
+    errori.provincia = 'La provincia deve essere di 2 lettere (es. RM).';
+  }
+
+  const errAdmin = validaInvitoAmministratore(input.adminEmail, input.adminNomeCognome);
+  if (errAdmin?.email) errori.adminEmail = errAdmin.email;
+  if (errAdmin?.nomeCognome) errori.adminNomeCognome = errAdmin.nomeCognome;
+
+  return Object.keys(errori).length > 0 ? errori : null;
+}
+
 export function validaPianoUnico(
   prezzoMensile: string | number,
   nome: string,

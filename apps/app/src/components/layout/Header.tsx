@@ -7,7 +7,6 @@ import {
   Dropdown,
   Icon,
   NotificationPanel,
-  SearchBar,
   borderWidths,
   colors,
   layout,
@@ -79,18 +78,6 @@ export function Header() {
       style={[styles.root, { minHeight: isMobile ? layout.compactHeaderHeight : layout.headerHeight }]}
     >
       {isMobile ? <BrandMark tone="light" noTagline /> : null}
-      {isDesktop ? (
-        <View style={styles.ricerca}>
-          {/* La ricerca non ha ancora dati da cercare: resta disattivata e lo dice, invece di sembrare rotta. */}
-          <SearchBar
-            value=""
-            onChangeText={() => undefined}
-            disabled
-            label="Cerca, non ancora disponibile"
-            placeholder="La ricerca sarà disponibile a breve"
-          />
-        </View>
-      ) : null}
       <View style={styles.spazio} />
 
       {!isMobile && condomini.length === 1 ? (

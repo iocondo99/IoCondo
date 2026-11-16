@@ -64,6 +64,21 @@ Legenda stati: la spunta vale solo se il test è passato sul database reale (non
   email/ora col server predefinito).
   **Risultato atteso:** l'email di invito arriva nella casella del destinatario.
 
+- [ ] **Cosa fare (dopo configurazione SMTP / dominio):** verificare il template
+  email "Invite user" in Authentication → Email Templates affinché il link punti
+  a `{{ .SiteURL }}/imposta-password?token_hash={{ .TokenHash }}&type=invite`
+  (con `Site URL` = `https://io-condo-nine.vercel.app` e Redirect URLs
+  `/imposta-password`, `/reimposta-password`).
+  **Risultato atteso:** l'utente invitato clicca sul link e atterra su
+  `/imposta-password` senza errori di redirect.
+
+- [ ] **Cosa fare (dopo commit & push su `main` / deploy Vercel):** da
+  `https://io-condo-nine.vercel.app/admin/struttura` o `/admin/inviti` aprire
+  **"Aggiungi nuovo condòmino"**, collegare Palazzo / Scala o Colonna / Unità
+  e inviare un invito a un indirizzo di prova.
+  **Risultato atteso:** l'unità viene collegata, parte `invita-utente`, arriva
+  l'email di invito e il condòmino imposta la password su `/imposta-password`.
+
 ---
 
 ## B. Prove senza migrazione attiva (si possono fare già ora)

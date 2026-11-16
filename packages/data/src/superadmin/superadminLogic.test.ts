@@ -6,6 +6,7 @@ import {
   calcolaStatoLicenza,
   filtraAmministratori,
   validaInvitoAmministratore,
+  validaNuovoCondominioEAdmin,
   validaPianoUnico,
   type AmministratoreConCondomini,
 } from './superadminLogic.ts';
@@ -119,5 +120,32 @@ describe('superadminLogic', () => {
     assert.equal(calcolaNuovaScadenzaLicenza('2027-01-10', 12, oggi), '2028-01-10');
     assert.equal(calcolaNuovaScadenzaLicenza('2025-01-01', 6, oggi), '2027-05-13');
     assert.equal(calcolaNuovaScadenzaLicenza(null, 1, oggi), '2026-12-13');
+  });
+
+  it('validaNuovoCondominioEAdmin controlla dati condominio e amministratore', () => {
+    const err = validaNuovoCondominioEAdmin({
+      nomeCondominio: 'A',
+      indirizzo: 'Vi',
+      citta: 'R',
+      provincia: 'ROMA',
+      adminEmail: 'non-valida',
+      adminNomeCognome: 'A',
+    });
+    assert.ok(err?.nomeCondominio);
+    assert.ok(err?.indirizzo);
+    assert.ok(err?.citta);
+    assert.ok(err?.provincia);
+    assert.ok(err?.adminEmail);
+    assert.ok(err?.adminNomeCognome);
+
+    const ok = validaNuovoCondominioEAdmin({
+      nomeCondominio: 'Condominio Sole',
+      indirizzo: 'Via Roma 10',
+      citta: 'Roma',
+      provincia: 'RM',
+      adminEmail: 'admin@studio.it',
+      adminNomeCognome: 'Mario Rossi',
+    });
+    assert.equal(ok, null);
   });
 });

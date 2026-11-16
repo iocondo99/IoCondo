@@ -44,6 +44,7 @@ import {
   type SelectOption,
 } from '@iocondo/ui';
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
+import { NuovoCondominoModal } from '@/components/admin/NuovoCondominoModal';
 import { useProfilo } from '@/context/ProfiloContext';
 import { services } from '@/services';
 
@@ -95,6 +96,7 @@ function AdminInvitiContenuto() {
 
   // Modale "Invia nuovo invito"
   const [modaleAperta, setModaleAperta] = useState(false);
+  const [modaleNuovoCondominoAperta, setModaleNuovoCondominoAperta] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [ruoloInput, setRuoloInput] = useState<RuoloInvitabileAdmin>('CONDOMINO');
   const [unitaInput, setUnitaInput] = useState<string>('');
@@ -422,6 +424,15 @@ function AdminInvitiContenuto() {
         }}
       />
 
+      <View style={styles.barraAzioneRapida}>
+        <Button
+          variant="secondary"
+          icon="user-plus"
+          label="Aggiungi nuovo condòmino (Palazzo / Scala / Unità)"
+          onPress={() => setModaleNuovoCondominoAperta(true)}
+        />
+      </View>
+
       {/* 3 StatCard Ufficiali */}
       <View style={styles.schede}>
         <View style={styles.scheda}>
@@ -646,6 +657,15 @@ function AdminInvitiContenuto() {
         onConfirm={confermaRevoca}
         onCancel={() => setInvitoDaRevocare(null)}
       />
+
+      {condominio ? (
+        <NuovoCondominoModal
+          visible={modaleNuovoCondominoAperta}
+          condominioId={condominio.id}
+          onClose={() => setModaleNuovoCondominoAperta(false)}
+          onSuccess={() => void caricaDati()}
+        />
+      ) : null}
     </View>
   );
 }
@@ -654,6 +674,10 @@ const styles = StyleSheet.create({
   pagina: {
     alignSelf: 'stretch',
     gap: space[6],
+  },
+  barraAzioneRapida: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
   },
   schede: {
     flexDirection: 'row',

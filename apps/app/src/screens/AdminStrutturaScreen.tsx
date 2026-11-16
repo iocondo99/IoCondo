@@ -51,6 +51,7 @@ import {
   type TabItem,
 } from '@iocondo/ui';
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
+import { NuovoCondominoModal } from '@/components/admin/NuovoCondominoModal';
 import { useProfilo } from '@/context/ProfiloContext';
 import { services } from '@/services';
 
@@ -426,6 +427,7 @@ function AdminStrutturaContenuto() {
   };
 
   // Gestione creazione/modifica Unità
+  const [modaleNuovoCondominoAperta, setModaleNuovoCondominoAperta] = useState(false);
   const apriModaleNuovaUnita = (prefillPalazzoId?: string) => {
     setUnitaInModifica(null);
     setPalazzoSelezionatoId(prefillPalazzoId || (dati?.palazzi[0]?.id ?? ''));
@@ -1021,6 +1023,13 @@ function AdminStrutturaContenuto() {
           onPress={() => apriModaleNuovaUnita()}
           accessibilityHint="Apre il modulo per inserire una nuova unità immobiliare"
         />
+        <Button
+          variant="primary"
+          icon="user-plus"
+          label="Aggiungi nuovo condòmino"
+          onPress={() => setModaleNuovoCondominoAperta(true)}
+          accessibilityHint="Apre il modulo guidato per collegare un nuovo condòmino a palazzo, scala/colonna e unità e inviare l'invito"
+        />
       </View>
 
       {/* 3. 3 StatCard obbligatorie */}
@@ -1595,6 +1604,16 @@ function AdminStrutturaContenuto() {
         onConfirm={confermaEliminaTabella}
         onCancel={() => setTabellaDaEliminare(null)}
       />
+
+      {condominio ? (
+        <NuovoCondominoModal
+          visible={modaleNuovoCondominoAperta}
+          condominioId={condominio.id}
+          strutturaIniziale={dati}
+          onClose={() => setModaleNuovoCondominoAperta(false)}
+          onSuccess={() => void caricaDati()}
+        />
+      ) : null}
     </View>
   );
 }

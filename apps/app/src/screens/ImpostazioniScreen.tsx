@@ -61,33 +61,11 @@ export function ImpostazioniScreen() {
       .caricaUnitaCondominio(profilo.id, condominio.id)
       .then((unitaList) => {
         if (!attivo) return;
-        if (unitaList && unitaList.length > 0) {
-          setUnitaUtente(unitaList[0] ?? null);
-        } else {
-          setUnitaUtente({
-            unitaId: 'default',
-            palazzo: 'Palazzo A',
-            interno: '1',
-            piano: 1,
-            mq: 80,
-            tipoPossesso: 'PROPRIETARIO',
-            quotaPossesso: 100,
-            millesimi: 125.5,
-          });
-        }
+        setUnitaUtente(unitaList && unitaList.length > 0 ? (unitaList[0] ?? null) : null);
       })
       .catch(() => {
         if (attivo) {
-          setUnitaUtente({
-            unitaId: 'default',
-            palazzo: 'Palazzo A',
-            interno: '1',
-            piano: 1,
-            mq: 80,
-            tipoPossesso: 'PROPRIETARIO',
-            quotaPossesso: 100,
-            millesimi: 125.5,
-          });
+          setUnitaUtente(null);
         }
       });
 
@@ -333,38 +311,44 @@ export function ImpostazioniScreen() {
                   ) : null}
                 </View>
 
-                <View style={[styles.grigliaDatiAppartamento, isMobile && styles.grigliaDatiAppartamentoMobile]}>
-                  <View style={styles.tesseraDatoAppartamento}>
-                    <Text style={[textStyle('secondary', breakpoint), styles.etichettaDatoAppartamento]}>
-                      Edificio / Palazzina
-                    </Text>
-                    <Text style={[textStyle('body', breakpoint), styles.valoreDatoAppartamento]}>
-                      {unitaUtente?.palazzo ?? 'Palazzo A'}
-                      {unitaUtente?.scala ? ` • ${unitaUtente.scala}` : ''}
-                    </Text>
-                  </View>
+                {unitaUtente ? (
+                  <View style={[styles.grigliaDatiAppartamento, isMobile && styles.grigliaDatiAppartamentoMobile]}>
+                    <View style={styles.tesseraDatoAppartamento}>
+                      <Text style={[textStyle('secondary', breakpoint), styles.etichettaDatoAppartamento]}>
+                        Edificio / Palazzina
+                      </Text>
+                      <Text style={[textStyle('body', breakpoint), styles.valoreDatoAppartamento]}>
+                        {unitaUtente.palazzo}
+                        {unitaUtente.scala ? ` • ${unitaUtente.scala}` : ''}
+                      </Text>
+                    </View>
 
-                  <View style={styles.tesseraDatoAppartamento}>
-                    <Text style={[textStyle('secondary', breakpoint), styles.etichettaDatoAppartamento]}>
-                      Interno e Piano
-                    </Text>
-                    <Text style={[textStyle('body', breakpoint), styles.valoreDatoAppartamento]}>
-                      Int. {unitaUtente?.interno ?? '1'}
-                      {unitaUtente?.piano !== undefined && unitaUtente?.piano !== null
-                        ? ` • Piano ${unitaUtente.piano}`
-                        : ' • Piano 1'}
-                    </Text>
-                  </View>
+                    <View style={styles.tesseraDatoAppartamento}>
+                      <Text style={[textStyle('secondary', breakpoint), styles.etichettaDatoAppartamento]}>
+                        Interno e Piano
+                      </Text>
+                      <Text style={[textStyle('body', breakpoint), styles.valoreDatoAppartamento]}>
+                        Int. {unitaUtente.interno}
+                        {unitaUtente.piano !== undefined && unitaUtente.piano !== null
+                          ? ` • Piano ${unitaUtente.piano}`
+                          : ''}
+                      </Text>
+                    </View>
 
-                  <View style={styles.tesseraDatoAppartamento}>
-                    <Text style={[textStyle('secondary', breakpoint), styles.etichettaDatoAppartamento]}>
-                      Quota millesimale
-                    </Text>
-                    <Text style={[textStyle('body', breakpoint), styles.valoreDatoAppartamentoMillesimi]}>
-                      {(unitaUtente?.millesimi ?? 125.5).toFixed(3).replace('.', ',')} ‰
-                    </Text>
+                    <View style={styles.tesseraDatoAppartamento}>
+                      <Text style={[textStyle('secondary', breakpoint), styles.etichettaDatoAppartamento]}>
+                        Quota millesimale
+                      </Text>
+                      <Text style={[textStyle('body', breakpoint), styles.valoreDatoAppartamentoMillesimi]}>
+                        {(unitaUtente.millesimi ?? 0).toFixed(3).replace('.', ',')} ‰
+                      </Text>
+                    </View>
                   </View>
-                </View>
+                ) : (
+                  <Text style={[textStyle('secondary', breakpoint), styles.sottotitoloSezioneAppartamento]}>
+                    Nessuna unità immobiliare associata al tuo account in questo condominio.
+                  </Text>
+                )}
               </View>
               ) : null}
 

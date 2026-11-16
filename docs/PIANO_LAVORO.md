@@ -83,8 +83,9 @@ Tutte le regole di sicurezza, ambiente aziendale, comandi, architettura e stile 
   - impostare i Secrets su Supabase: `RESEND_API_KEY` e `RESEND_SENDER_DOMAIN`;
   - fare il deploy delle Edge Functions (`npx supabase functions deploy accoda-email` e `npx supabase functions deploy invia-coda-email`);
   - *(opzionale)* configurare `pg_cron` per l'esecuzione periodica dei retry automatici di `invia-coda-email`.
-- Funzione `invita-utente`: non pubblicata (`npx supabase functions deploy invita-utente`, a cura dell'utente).
-- Configurazione Supabase Auth per gli inviti: Redirect URLs (`/imposta-password`, `/reimposta-password`), template email in italiano, segreto `APP_URL`, SMTP o membro del team per le email di prova.
+- **Configurazione Supabase Auth & SMTP per gli inviti** (da completare quando si collega il dominio/SMTP):
+  - verificare in *Authentication → Email Templates → Invite user* che il link punti a `{{ .SiteURL }}/imposta-password?token_hash={{ .TokenHash }}&type=invite` (con Redirect URLs `/imposta-password` e `/reimposta-password` su `https://io-condo-nine.vercel.app`);
+  - configurare SMTP custom (o usare un membro del team per test) e pubblicare su Vercel le ultime modifiche (`NuovoCondominoModal`), poi testare il flusso end-to-end da `/admin/struttura` o `/admin/inviti`.
 - Migrazione 07 (revoke execute funzioni definer): rimandata, file in `supabase/da-applicare/`.
 - Leaked password protection: richiede il piano Pro.
 

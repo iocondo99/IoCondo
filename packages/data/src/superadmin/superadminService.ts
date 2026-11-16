@@ -11,7 +11,9 @@ import {
   type FatturaSaasView,
   type KpiPiattaforma,
   type LicenzaSuperAdmin,
+  type NuovoCondominioAdminInput,
   type PianoUnicoView,
+  type RisultatoCreazioneCondominioAdmin,
 } from './superadminLogic';
 
 export interface AggiornaPianoUnicoInput {
@@ -259,6 +261,148 @@ export function createSuperAdminService(db: TypedSupabaseClient) {
       return {
         messaggio: `Invito inviato a ${emailPulita} con associazione al ${piano.nome}.`,
         giaRegistrato: false,
+      };
+    },
+
+    /**
+     * Crea un nuovo condominio e lo collega all'amministratore:
+     * - se l'email è già presente in `public.utenti`, associa subito il condominio e il ruolo ADMIN;
+     * - altrimenti crea il condominio (con riferimento temporaneo al Super Admin) e fa partire
+     *   il flusso `invita-utente` (con fallback sicuro alla RPC `crea_invito`).
+     */
+    async creaCondominioEAssegnaAdmin(
+      superAdminId: string,
+      input: NuovoCondominioAdminInput,
+    ): Promise<RisultatoCreazioneCondominioAdmin> {
+      const emailPulita = input.adminEmail.trim().toLowerCase();
+      const nomeAdminPulito = input.adminNomeCognome.trim();
+      const telAdminPulito = input.adminTelefono?.trim() || null;
+      const nomeCondPulito = input.nomeCondominio.trim();
+      const indirizzoPulito = input.indirizzo.trim();
+      const cittaPulita = input.citta.trim();
+      const capPulito = input.cap?.trim() || null;
+      const provinciaPulita = input.provincia?.trim().toUpperCase() || null;
+      const cfPulito = input.codiceFiscale?.trim().toUpperCase() || null;
+
+      const piano = await ensurePianoUnicoRow();
+
+      const esistente = unwrap(
+        await db
+          .from('utenti')
+          .select('id, nome_cognome, telefono')
+          .eq('email', emailPulita)
+          .maybeSingle(),
+      );
+
+      const condominioCreato = unwrap(
+        await db
+          .from('condomini')
+          .insert({
+            admin_id: esistente ? esistente.id : superAdminId,
+            nome: nomeCondPulito,
+            tipo: 'CONDOMINIO',
+            indirizzo: indirizzoPulito,
+            citta: cittaPulita,
+            cap: capPulito,
+            provincia: provinciaPulita,
+            codice_fiscale: cfPulito,
+            attivo: true,
+          })
+          .select('id, nome')
+          .single(),
+      );
+
+      if (esistente) {
+        if ((!esistente.nome_cognome && nomeAdminPulito) || (!esistente.telefono && telAdminPulito)) {
+          assertOk(
+            await db
+              .from('utenti')
+              .update({
+                ...(esistente.nome_cognome ? {} : { nome_cognome: nomeAdminPulito }),
+                ...(esistente.telefono || !telAdminPulito ? {} : { telefono: telAdminPulito }),
+              })
+              .eq('id', esistente.id),
+          );
+        }
+
+        const licenza = unwrap(
+          await db.from('licenze_saas').select('id, data_scadenza').eq('admin_id', esistente.id).maybeSingle(),
+        );
+        if (!licenza) {
+          assertOk(
+            await db.from('licenze_saas').insert({
+              admin_id: esistente.id,
+              piano_id: piano.id,
+              is_active: true,
+              data_scadenza: calcolaNuovaScadenzaLicenza(null, 12),
+            }),
+          );
+        } else if (!licenza.data_scadenza) {
+          assertOk(
+            await db
+              .from('licenze_saas')
+              .update({ is_active: true, data_scadenza: calcolaNuovaScadenzaLicenza(null, 12) })
+              .eq('id', licenza.id),
+          );
+        }
+
+        const ruoloAdmin = unwrap(
+          await db.from('ruoli_piattaforma').select('id').eq('codice', 'ADMIN').maybeSingle(),
+        );
+        if (ruoloAdmin) {
+          const giaRuolo = unwrap(
+            await db
+              .from('utente_entita_ruolo')
+              .select('id')
+              .eq('utente_id', esistente.id)
+              .eq('ruolo_id', ruoloAdmin.id)
+              .eq('condominio_id', condominioCreato.id)
+              .maybeSingle(),
+          );
+          if (!giaRuolo) {
+            assertOk(
+              await db.from('utente_entita_ruolo').insert({
+                utente_id: esistente.id,
+                ruolo_id: ruoloAdmin.id,
+                condominio_id: condominioCreato.id,
+              }),
+            );
+          }
+        }
+
+        return {
+          condominioId: condominioCreato.id,
+          condominioNome: condominioCreato.nome,
+          giaRegistrato: true,
+          messaggio: `Condominio "${condominioCreato.nome}" creato e collegato all’amministratore ${nomeAdminPulito}.`,
+        };
+      }
+
+      // Amministratore non ancora nel DB: avvia il flusso invita-utente (con fallback RPC crea_invito)
+      try {
+        await invokeFunction<{ ok: true }>(db, 'invita-utente', {
+          email: emailPulita,
+          ruolo: 'ADMIN',
+          condominio_id: condominioCreato.id,
+        });
+      } catch (err: unknown) {
+        const { error: rpcErr } = await (db.rpc as any)('crea_invito', {
+          p_email: emailPulita,
+          p_ruolo: 'ADMIN',
+          p_condominio: condominioCreato.id,
+          p_unita: null,
+          p_flag_portiere: false,
+        });
+        if (rpcErr) {
+          throw err;
+        }
+      }
+
+      return {
+        condominioId: condominioCreato.id,
+        condominioNome: condominioCreato.nome,
+        giaRegistrato: false,
+        messaggio: `Condominio "${condominioCreato.nome}" creato e invito inviato a ${emailPulita}.`,
       };
     },
 
