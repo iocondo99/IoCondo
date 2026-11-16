@@ -511,21 +511,26 @@ const styles = StyleSheet.create({
   },
   colonnaDettagliModulo: {
     flex: 1,
+    minWidth: 0,
     gap: space[2],
   },
   intestazioneModulo: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    minWidth: 0,
     gap: space[2],
   },
   titoloModulo: {
     color: colors.text.primary,
+    flexShrink: 1,
   },
   badgeGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    minWidth: 0,
+    maxWidth: '100%',
     gap: space[2],
   },
   descrizioneModulo: {

@@ -391,6 +391,13 @@ function AdminCodaEmailContenuto({
         visible={dettaglioRiga !== null}
         onClose={() => setDettaglioRiga(null)}
         title="Dettaglio invio email"
+        actions={
+          dettaglioRiga ? (
+            <ModalActions>
+              <Button variant="primary" label="Chiudi" onPress={() => setDettaglioRiga(null)} />
+            </ModalActions>
+          ) : undefined
+        }
       >
         {dettaglioRiga ? (
           <View style={styles.modaleContenuto}>
@@ -433,9 +440,6 @@ function AdminCodaEmailContenuto({
             {dettaglioRiga.ultimo_errore ? (
               <Alert tone="error" message={`Ultimo errore: ${dettaglioRiga.ultimo_errore}`} />
             ) : null}
-            <ModalActions>
-              <Button variant="primary" label="Chiudi" onPress={() => setDettaglioRiga(null)} />
-            </ModalActions>
           </View>
         ) : null}
       </Modal>

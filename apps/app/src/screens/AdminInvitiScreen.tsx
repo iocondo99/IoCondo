@@ -428,7 +428,8 @@ function AdminInvitiContenuto() {
         <Button
           variant="secondary"
           icon="user-plus"
-          label="Aggiungi nuovo condòmino (Palazzo / Scala / Unità)"
+          fullWidth={isMobile}
+          label={isMobile ? 'Aggiungi nuovo condòmino' : 'Aggiungi nuovo condòmino (Palazzo / Scala / Unità)'}
           onPress={() => setModaleNuovoCondominoAperta(true)}
         />
       </View>

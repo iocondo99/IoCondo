@@ -482,6 +482,23 @@ function AdminAssembleeContenuto() {
         visible={modaleNuovaAperta}
         onClose={() => setModaleNuovaAperta(false)}
         title="Convoca nuova assemblea"
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Annulla"
+              onPress={() => setModaleNuovaAperta(false)}
+              disabled={salvataggioInCorso}
+            />
+            <Button
+              variant="primary"
+              label={salvaComeBozza ? 'Salva bozza' : 'Conferma e convoca'}
+              icon={salvaComeBozza ? 'file-text' : 'calendar-plus'}
+              onPress={handleCreaAssemblea}
+              loading={salvataggioInCorso}
+            />
+          </ModalActions>
+        }
       >
         <View style={styles.formModale}>
           <RadioGroup
@@ -575,22 +592,6 @@ function AdminAssembleeContenuto() {
               </View>
             </Pressable>
           )}
-
-          <ModalActions>
-            <Button
-              variant="secondary"
-              label="Annulla"
-              onPress={() => setModaleNuovaAperta(false)}
-              disabled={salvataggioInCorso}
-            />
-            <Button
-              variant="primary"
-              label={salvaComeBozza ? 'Salva bozza' : 'Conferma e convoca'}
-              icon={salvaComeBozza ? 'file-text' : 'calendar-plus'}
-              onPress={handleCreaAssemblea}
-              loading={salvataggioInCorso}
-            />
-          </ModalActions>
         </View>
       </Modal>
     </View>

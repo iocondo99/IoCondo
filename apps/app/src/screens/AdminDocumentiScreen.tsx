@@ -32,6 +32,7 @@ import {
   focusRing,
   radii,
   space,
+  touchTarget,
   useBreakpoint,
   useToast,
   type BreadcrumbItem,
@@ -1182,12 +1183,15 @@ const styles = StyleSheet.create({
   },
   areaSelezioneCartella: {
     flex: 1,
+    minHeight: touchTarget.control,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[3],
     borderRadius: radii.card,
   },
   pulsanteEliminaCartella: {
+    minWidth: touchTarget.control,
+    minHeight: touchTarget.control,
     padding: space[1],
     borderRadius: radii.full,
     alignItems: 'center',

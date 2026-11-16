@@ -166,7 +166,9 @@ function Card<T>({
           </View>
         </Pressable>
       ) : (
-        <View style={[styles.press, styles.content]}>{body}</View>
+        <View style={styles.press}>
+          <View style={styles.content}>{body}</View>
+        </View>
       )}
       {actions ? (
         <View style={styles.actions}>
@@ -207,7 +209,7 @@ const styles = StyleSheet.create({
     borderWidth: borderWidths.thin,
     borderColor: 'transparent',
   },
-  content: { flex: 1, gap: space[2], minWidth: 0 },
+  content: { flex: 1, flexDirection: 'column', gap: space[2], minWidth: 0 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start' },
   // Il menu delle azioni sta in alto a destra sopra la scheda: il titolo gli lascia lo spazio.
   titleRowWithActions: { minHeight: touchTarget.comfortable, paddingRight: touchTarget.comfortable },

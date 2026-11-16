@@ -49,7 +49,7 @@ export function PageHeader({
     <View style={styles.root}>
       {breadcrumbs && breadcrumbs.length > 0 ? <Breadcrumbs items={breadcrumbs} /> : null}
       {onBack ? (
-        <View style={styles.back}>
+        <View style={[styles.back, isMobile && styles.backMobile]}>
           <Button variant="text" label="Indietro" icon="chevron-left" onPress={onBack} />
         </View>
       ) : null}
@@ -100,6 +100,8 @@ const styles = StyleSheet.create({
   },
   /** Il pulsante testuale ha padding e bordo: si compensano perché l'icona si allinei al titolo. */
   back: { alignSelf: 'flex-start', marginLeft: -(space[5] + borderWidths.thin) },
+  /** Su mobile il padding laterale della pagina è space[4]: limitiamo la compensazione per non uscire dal bordo. */
+  backMobile: { marginLeft: -space[4] },
   column: { flexDirection: 'column', alignItems: 'stretch' },
   text: { flex: 1, gap: space[1] },
   title: { color: colors.text.primary },

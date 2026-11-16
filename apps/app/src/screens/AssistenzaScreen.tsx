@@ -433,6 +433,15 @@ export function AssistenzaScreen() {
         visible={faqAperta}
         title="Guida rapida e domande frequenti"
         onClose={() => setFaqAperta(false)}
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Chiudi guida"
+              onPress={() => setFaqAperta(false)}
+            />
+          </ModalActions>
+        }
       >
         <View style={styles.bloccoFaq}>
           {FAQ_ITEMS.map((item) => (
@@ -446,14 +455,6 @@ export function AssistenzaScreen() {
             </View>
           ))}
         </View>
-
-        <ModalActions>
-          <Button
-            variant="secondary"
-            label="Chiudi guida"
-            onPress={() => setFaqAperta(false)}
-          />
-        </ModalActions>
       </Modal>
 
       {/* Modale Modifica Card Numero Utile (solo Amministratore) */}
@@ -461,6 +462,22 @@ export function AssistenzaScreen() {
         visible={cardInModifica !== null}
         title="Modifica numero utile"
         onClose={chiudiModificaNumero}
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Annulla"
+              onPress={chiudiModificaNumero}
+              disabled={salvataggioInCorso}
+            />
+            <Button
+              variant="primary"
+              label="Salva"
+              onPress={() => void handleSalvaNumero()}
+              loading={salvataggioInCorso}
+            />
+          </ModalActions>
+        }
       >
         <View style={styles.formModificaNumero}>
           <Input
@@ -492,21 +509,6 @@ export function AssistenzaScreen() {
             helperText="Se disattivata, la card resta visibile solo all'amministratore."
           />
         </View>
-
-        <ModalActions>
-          <Button
-            variant="secondary"
-            label="Annulla"
-            onPress={chiudiModificaNumero}
-            disabled={salvataggioInCorso}
-          />
-          <Button
-            variant="primary"
-            label="Salva"
-            onPress={() => void handleSalvaNumero()}
-            loading={salvataggioInCorso}
-          />
-        </ModalActions>
       </Modal>
     </View>
   );

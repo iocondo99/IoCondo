@@ -616,7 +616,7 @@ function AdminEditorTabellaMillesimaleContenuto({ tabellaId }: { tabellaId?: str
       <Card title="1. Configurazione e ambito della tabella" headingLevel={2}>
         <View style={styles.sezioneForm}>
           <View style={[styles.rigaCampi, isMobile && styles.colonnaCampi]}>
-            <View style={styles.campoNome}>
+            <View style={isMobile ? styles.campoFull : styles.campoNome}>
               <Input
                 label="Nome della tabella *"
                 placeholder="Es. Tabella A - Proprietà Generale"
@@ -628,7 +628,7 @@ function AdminEditorTabellaMillesimaleContenuto({ tabellaId }: { tabellaId?: str
                 disabled={salvataggioInCorso}
               />
             </View>
-            <View style={styles.campoTotale}>
+            <View style={isMobile ? styles.campoFull : styles.campoTotale}>
               <Input
                 label="Totale millesimi previsto"
                 placeholder="1000,000"
@@ -1023,9 +1023,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space[6],
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   metricItem: {
     gap: space[1],
+    minWidth: 0,
   },
   metricLabel: {
     color: colors.text.secondary,
@@ -1034,7 +1037,8 @@ const styles = StyleSheet.create({
     color: colors.brand.navy,
   },
   stickyBadgeWrapper: {
-    flexShrink: 0,
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   stickyActionsRow: {
     flexDirection: 'row',
@@ -1063,6 +1067,10 @@ const styles = StyleSheet.create({
   campoTotale: {
     flex: 1,
     minWidth: 160,
+  },
+  campoFull: {
+    width: '100%',
+    minWidth: 0,
   },
   boxSelezionePersonalizzata: {
     gap: space[3],

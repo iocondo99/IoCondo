@@ -1657,7 +1657,9 @@ const styles = StyleSheet.create({
     minWidth: 260,
   },
   filtroChipsContenitore: {
-    flexShrink: 0,
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: '100%',
   },
   palazzoCorpo: {
     gap: space[5],
@@ -1680,6 +1682,8 @@ const styles = StyleSheet.create({
     gap: space[2],
     flexWrap: 'wrap',
     alignItems: 'center',
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   riassuntoUnitaBox: {
     padding: space[3],
@@ -1748,11 +1752,13 @@ const styles = StyleSheet.create({
   },
   infoPrincipaleUnita: {
     flex: 1,
-    minWidth: 260,
+    minWidth: 200,
+    maxWidth: '100%',
     gap: space[1],
   },
   rigaIdentificativo: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: space[2],
   },
@@ -1784,8 +1790,11 @@ const styles = StyleSheet.create({
   },
   azioniUnita: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: space[2],
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   corpoTabellaMillesimi: {
     gap: space[4],

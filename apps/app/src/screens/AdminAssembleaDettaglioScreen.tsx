@@ -29,6 +29,7 @@ import {
   radii,
   space,
   textStyle,
+  touchTarget,
   useBreakpoint,
   useToast,
   type BreadcrumbItem,
@@ -767,39 +768,71 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
           <>
             {/* Tabella Rilevazione Unità / Presenze */}
             <View style={styles.tabellaPresenze}>
-          <View style={styles.intestazioneTabella}>
-            <Text style={[styles.testoTh, { width: 80 }]}>Interno</Text>
-            <Text style={[styles.testoTh, { flex: 2, minWidth: 160 }]}>Condòmino Titolare</Text>
-            <Text style={[styles.testoTh, { width: 110 }]}>Millesimi</Text>
-            <Text style={[styles.testoTh, { flex: 3, minWidth: 260 }]}>Stato Presenza</Text>
-          </View>
-
-          {unitaList.map((u) => {
-            const p = presenzeLocali[u.id];
-            const modalita = p?.modalita || 'ASSENTE';
-
-            return (
-              <View key={u.id} style={styles.rigaPresenza}>
-                <View style={{ width: 80 }}>
-                  <Text style={styles.testoInterno}>Int. {u.interno}</Text>
-                  {u.palazzoNome && (
-                    <Text style={styles.testoPalazzo}>{u.palazzoNome}</Text>
-                  )}
+              {!isMobile && (
+                <View style={styles.intestazioneTabella}>
+                  <Text style={[styles.testoTh, { width: 80 }]}>Interno</Text>
+                  <Text style={[styles.testoTh, { flex: 2, minWidth: 160 }]}>Condòmino Titolare</Text>
+                  <Text style={[styles.testoTh, { width: 110 }]}>Millesimi</Text>
+                  <Text style={[styles.testoTh, { flex: 3, minWidth: 260 }]}>Stato Presenza</Text>
                 </View>
+              )}
 
-                <View style={{ flex: 2, minWidth: 160, justifyContent: 'center' }}>
-                  <Text style={styles.testoProprietario}>
-                    {u.proprietarioNome || 'Proprietario non registrato'}
-                  </Text>
-                </View>
+              {unitaList.map((u) => {
+                const p = presenzeLocali[u.id];
+                const modalita = p?.modalita || 'ASSENTE';
 
-                <View style={{ width: 110, justifyContent: 'center' }}>
-                  <Text style={styles.testoMillesimi}>
-                    {(u.valoreMillesimale || 0).toFixed(2)} ‰
-                  </Text>
-                </View>
+                return (
+                  <View
+                    key={u.id}
+                    style={[styles.rigaPresenza, isMobile && styles.rigaPresenzaMobile]}
+                  >
+                    {isMobile ? (
+                      <>
+                        <View style={styles.rigaPresenzaMobileHeader}>
+                          <View style={styles.rigaPresenzaMobileInfo}>
+                            <Text style={styles.testoInterno}>Int. {u.interno}</Text>
+                            {u.palazzoNome && (
+                              <Text style={styles.testoPalazzo}>{u.palazzoNome}</Text>
+                            )}
+                          </View>
+                          <Text style={styles.testoMillesimi}>
+                            {(u.valoreMillesimale || 0).toFixed(2)} ‰
+                          </Text>
+                        </View>
+                        <Text style={styles.testoProprietario}>
+                          {u.proprietarioNome || 'Proprietario non registrato'}
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <View style={{ width: 80 }}>
+                          <Text style={styles.testoInterno}>Int. {u.interno}</Text>
+                          {u.palazzoNome && (
+                            <Text style={styles.testoPalazzo}>{u.palazzoNome}</Text>
+                          )}
+                        </View>
 
-                <View style={{ flex: 3, minWidth: 260, gap: space[2] }}>
+                        <View style={{ flex: 2, minWidth: 160, justifyContent: 'center' }}>
+                          <Text style={styles.testoProprietario}>
+                            {u.proprietarioNome || 'Proprietario non registrato'}
+                          </Text>
+                        </View>
+
+                        <View style={{ width: 110, justifyContent: 'center' }}>
+                          <Text style={styles.testoMillesimi}>
+                            {(u.valoreMillesimale || 0).toFixed(2)} ‰
+                          </Text>
+                        </View>
+                      </>
+                    )}
+
+                    <View
+                      style={
+                        isMobile
+                          ? styles.cellaStatoPresenzaMobile
+                          : { flex: 3, minWidth: 260, gap: space[2] }
+                      }
+                    >
                   {/* Selettore stato presenza: Presente, Delega, Assente */}
                   <View style={styles.gruppoBottoniPresenza}>
                     {(['PRESENZA', 'DELEGA', 'ASSENTE'] as ModalitaPresenzaAdmin[]).map(
@@ -925,7 +958,10 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
               );
 
               return (
-                <Card key={punto.id} style={styles.cardPuntoOdg}>
+                <Card
+                  key={punto.id}
+                  style={[styles.cardPuntoOdg, isMobile && styles.cardPuntoOdgMobile]}
+                >
                   {/* Testata punto ODG */}
                   <View style={styles.headerPuntoOdg}>
                     <View style={styles.bloccoTitoloPunto}>
@@ -1307,22 +1343,7 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
         visible={modaleNuovoPuntoAperta}
         onClose={() => setModaleNuovoPuntoAperta(false)}
         title="Aggiungi punto all'Ordine del Giorno"
-      >
-        <View style={styles.formModale}>
-          <Input
-            label="Titolo del punto ODG"
-            value={titoloNuovoPunto}
-            onChangeText={setTitoloNuovoPunto}
-            placeholder="Es. Lavori straordinari grondaie e pluviali..."
-          />
-
-          <Textarea
-            label="Proposta di delibera e descrizione"
-            value={propostaNuovoPunto}
-            onChangeText={setPropostaNuovoPunto}
-            placeholder="Dettagli sulla proposta di delibera sottoposta all'approvazione..."
-          />
-
+        actions={
           <ModalActions>
             <Button
               variant="secondary"
@@ -1338,6 +1359,22 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
               loading={salvataggioPuntoInCorso}
             />
           </ModalActions>
+        }
+      >
+        <View style={styles.formModale}>
+          <Input
+            label="Titolo del punto ODG"
+            value={titoloNuovoPunto}
+            onChangeText={setTitoloNuovoPunto}
+            placeholder="Es. Lavori straordinari grondaie e pluviali..."
+          />
+
+          <Textarea
+            label="Proposta di delibera e descrizione"
+            value={propostaNuovoPunto}
+            onChangeText={setPropostaNuovoPunto}
+            placeholder="Dettagli sulla proposta di delibera sottoposta all'approvazione..."
+          />
         </View>
       </Modal>
 
@@ -1474,6 +1511,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   btnConv: {
+    minHeight: touchTarget.control,
+    justifyContent: 'center',
     paddingVertical: space[2],
     paddingHorizontal: space[3],
     borderRadius: radii.badge,
@@ -1515,17 +1554,22 @@ const styles = StyleSheet.create({
   },
   rigaBadgeQuorum: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: space[2],
+    maxWidth: '100%',
   },
   testoConvBadge: {
     ...textStyle('secondary'),
     color: colors.text.muted,
+    flexShrink: 1,
   },
   messaggioQuorum: {
     ...textStyle('secondary'),
     fontWeight: '600',
     color: colors.text.primary,
+    flexShrink: 1,
+    minWidth: 0,
   },
   metricheQuorum: {
     flexDirection: 'row',
@@ -1629,6 +1673,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
   },
+  rigaPresenzaMobile: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: space[2],
+  },
+  rigaPresenzaMobileHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: space[2],
+  },
+  rigaPresenzaMobileInfo: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: space[2],
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  cellaStatoPresenzaMobile: {
+    width: '100%',
+    gap: space[2],
+  },
   testoInterno: {
     ...textStyle('body'),
     fontWeight: '700',
@@ -1653,8 +1720,11 @@ const styles = StyleSheet.create({
     gap: space[1],
   },
   btnPresenza: {
-    paddingVertical: space[1],
-    paddingHorizontal: space[2],
+    minHeight: touchTarget.control,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: space[2],
+    paddingHorizontal: space[3],
     borderRadius: radii.badge,
     borderWidth: borderWidths.thin,
     borderColor: colors.border,
@@ -1688,6 +1758,10 @@ const styles = StyleSheet.create({
     borderWidth: borderWidths.thin,
     borderColor: colors.border,
   },
+  cardPuntoOdgMobile: {
+    padding: space[4],
+    gap: space[4],
+  },
   headerPuntoOdg: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1698,7 +1772,8 @@ const styles = StyleSheet.create({
   bloccoTitoloPunto: {
     gap: space[2],
     flex: 1,
-    minWidth: 260,
+    minWidth: 200,
+    maxWidth: '100%',
   },
   rigaTitoloPunto: {
     flexDirection: 'row',
@@ -1724,6 +1799,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space[2],
     flexWrap: 'wrap',
+    maxWidth: '100%',
   },
   rigaTipoQuorum: {
     flexDirection: 'row',
@@ -1741,9 +1817,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space[2],
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   chipTipo: {
-    paddingVertical: space[1],
+    minHeight: touchTarget.control,
+    justifyContent: 'center',
+    maxWidth: '100%',
+    paddingVertical: space[2],
     paddingHorizontal: space[3],
     borderRadius: radii.control,
     borderWidth: borderWidths.thin,
@@ -1757,6 +1838,7 @@ const styles = StyleSheet.create({
   testoChipTipo: {
     ...textStyle('secondary'),
     color: colors.text.secondary,
+    flexShrink: 1,
   },
   testoChipTipoAttivo: {
     color: colors.action.default,

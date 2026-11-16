@@ -112,7 +112,7 @@ function CellaTitolo({ titolo }: { titolo: string }) {
         textStyle(isMobile ? 'h4' : 'body', breakpoint),
         isMobile ? styles.titoloMobile : styles.titoloTabella,
       ]}
-      numberOfLines={1}
+      numberOfLines={isMobile ? undefined : 1}
     >
       {titolo}
     </Text>
@@ -908,6 +908,23 @@ function AdminManutenzioneContenuto() {
         visible={modaleNuovoTicketAperta}
         onClose={() => setModaleNuovoTicketAperta(false)}
         title="Nuova segnalazione"
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Annulla"
+              onPress={() => setModaleNuovoTicketAperta(false)}
+              disabled={salvataggioTicketInCorso}
+            />
+            <Button
+              variant="primary"
+              label="Crea ticket"
+              icon="check"
+              onPress={salvaNuovoTicket}
+              loading={salvataggioTicketInCorso}
+            />
+          </ModalActions>
+        }
       >
         <View style={styles.corpoModale}>
           <Input
@@ -949,22 +966,6 @@ function AdminManutenzioneContenuto() {
             value={descrizioneTicketInput}
             onChangeText={setDescrizioneTicketInput}
           />
-
-          <ModalActions>
-            <Button
-              variant="secondary"
-              label="Annulla"
-              onPress={() => setModaleNuovoTicketAperta(false)}
-              disabled={salvataggioTicketInCorso}
-            />
-            <Button
-              variant="primary"
-              label="Crea ticket"
-              icon="check"
-              onPress={salvaNuovoTicket}
-              loading={salvataggioTicketInCorso}
-            />
-          </ModalActions>
         </View>
       </Modal>
 
@@ -975,6 +976,23 @@ function AdminManutenzioneContenuto() {
         visible={modaleNuovoFornitoreAperta}
         onClose={() => setModaleNuovoFornitoreAperta(false)}
         title="Nuovo fornitore convenzionato"
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Annulla"
+              onPress={() => setModaleNuovoFornitoreAperta(false)}
+              disabled={salvataggioFornitoreInCorso}
+            />
+            <Button
+              variant="primary"
+              label="Salva fornitore"
+              icon="check"
+              onPress={salvaNuovoFornitore}
+              loading={salvataggioFornitoreInCorso}
+            />
+          </ModalActions>
+        }
       >
         <View style={styles.corpoModale}>
           <Input
@@ -1028,22 +1046,6 @@ function AdminManutenzioneContenuto() {
             autoCapitalize="characters"
             error={erroriNuovoFornitore.iban}
           />
-
-          <ModalActions>
-            <Button
-              variant="secondary"
-              label="Annulla"
-              onPress={() => setModaleNuovoFornitoreAperta(false)}
-              disabled={salvataggioFornitoreInCorso}
-            />
-            <Button
-              variant="primary"
-              label="Salva fornitore"
-              icon="check"
-              onPress={salvaNuovoFornitore}
-              loading={salvataggioFornitoreInCorso}
-            />
-          </ModalActions>
         </View>
       </Modal>
 
@@ -1054,6 +1056,23 @@ function AdminManutenzioneContenuto() {
         visible={modaleModificaAperta}
         onClose={() => setModaleModificaAperta(false)}
         title={ticketDaModificare ? `Modifica Ticket: ${ticketDaModificare.titolo}` : 'Modifica Ticket'}
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Annulla"
+              onPress={() => setModaleModificaAperta(false)}
+              disabled={salvataggioModificaInCorso}
+            />
+            <Button
+              variant="primary"
+              label="Salva modifiche"
+              icon="check"
+              onPress={salvaModificheTicket}
+              loading={salvataggioModificaInCorso}
+            />
+          </ModalActions>
+        }
       >
         <View style={styles.corpoModale}>
           <Input
@@ -1170,22 +1189,6 @@ function AdminManutenzioneContenuto() {
               />
             </View>
           ) : null}
-
-          <ModalActions>
-            <Button
-              variant="secondary"
-              label="Annulla"
-              onPress={() => setModaleModificaAperta(false)}
-              disabled={salvataggioModificaInCorso}
-            />
-            <Button
-              variant="primary"
-              label="Salva modifiche"
-              icon="check"
-              onPress={salvaModificheTicket}
-              loading={salvataggioModificaInCorso}
-            />
-          </ModalActions>
         </View>
       </Modal>
 
@@ -1196,6 +1199,15 @@ function AdminManutenzioneContenuto() {
         visible={modaleDettagliAperta}
         onClose={() => setModaleDettagliAperta(false)}
         title={ticketDettaglio ? `Dettagli Ticket: ${ticketDettaglio.titolo}` : 'Dettagli Ticket'}
+        actions={
+          <ModalActions>
+            <Button
+              variant="secondary"
+              label="Chiudi"
+              onPress={() => setModaleDettagliAperta(false)}
+            />
+          </ModalActions>
+        }
       >
         <View style={styles.corpoModale}>
           {ticketDettaglio ? (
@@ -1319,14 +1331,6 @@ function AdminManutenzioneContenuto() {
               </View>
             </>
           ) : null}
-
-          <ModalActions>
-            <Button
-              variant="secondary"
-              label="Chiudi"
-              onPress={() => setModaleDettagliAperta(false)}
-            />
-          </ModalActions>
         </View>
       </Modal>
     </View>
@@ -1367,6 +1371,8 @@ const styles = StyleSheet.create({
   titoloMobile: {
     color: colors.brand.navy,
     fontWeight: '600',
+    flexShrink: 1,
+    minWidth: 0,
   },
   testoTabella: {
     fontSize: 14,

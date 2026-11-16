@@ -103,5 +103,5 @@ const styles = StyleSheet.create({
     borderWidth: borderWidths.thin,
     borderRadius: radii.control,
   },
-  input: { flex: 1, minWidth: 0, paddingVertical: space[2], paddingRight: space[3] },
+  input: { flex: 1, minWidth: 0, minHeight: touchTarget.control, paddingVertical: space[2], paddingRight: space[3] },
 });

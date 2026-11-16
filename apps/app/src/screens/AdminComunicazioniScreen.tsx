@@ -791,10 +791,9 @@ const styles = StyleSheet.create({
     gap: space[3],
   },
   rigaChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     gap: space[3],
-    alignItems: 'center',
   },
   cellaAvviso: {
     flexDirection: 'column',
