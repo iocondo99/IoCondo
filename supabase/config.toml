@@ -197,7 +197,8 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# Con SMTP Gmail custom il limite di 2/ora non serve: lo alziamo (Gmail ~500/giorno).
+email_sent = 100
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
@@ -234,26 +235,30 @@ otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
-# Use a production-ready SMTP server
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# SMTP di produzione: le email di Auth (invito, reset password, cambio email)
+# partono dalla stessa casella Gmail usata dalle altre email dell'app.
+# I secret GMAIL_USER / GMAIL_APP_PASSWORD sono gli stessi delle Edge Functions.
+[auth.email.smtp]
+enabled = true
+host = "smtp.gmail.com"
+port = 465
+user = "env(GMAIL_USER)"
+pass = "env(GMAIL_APP_PASSWORD)"
+admin_email = "env(GMAIL_USER)"
+sender_name = "ioCondo"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Template email di Auth brandizzati ioCondo (italiano).
+[auth.email.template.invite]
+subject = "Sei stato invitato su ioCondo"
+content_path = "./supabase/templates/invite.html"
 
-# Uncomment to customize notification email template
-# [auth.email.notification.password_changed]
-# enabled = true
-# subject = "Your password has been changed"
-# content_path = "./supabase/templates/password_changed_notification.html"
+[auth.email.template.recovery]
+subject = "Reimposta la password del tuo account ioCondo"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.email_change]
+subject = "Conferma il cambio email del tuo account ioCondo"
+content_path = "./supabase/templates/email_change.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
