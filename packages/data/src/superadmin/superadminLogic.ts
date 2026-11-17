@@ -210,6 +210,8 @@ export interface RisultatoCreazioneCondominioAdmin {
   condominioId: string;
   condominioNome: string;
   giaRegistrato: boolean;
+  /** false se il condominio è stato creato ma l'invito all'amministratore non è partito. */
+  invitoInviato: boolean;
   messaggio: string;
 }
 

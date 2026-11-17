@@ -13,7 +13,8 @@ import { adminClient, requireUser } from '../_shared/auth.ts';
 
 interface InvitoInput {
   email: string;
-  nome_cognome: string;
+  /** Nome e cognome del destinatario. Opzionale: assente nei re-inviti (sollecito/rinnovo). */
+  nome_cognome: string | null;
   ruolo: 'CONDOMINO' | 'PORTIERE' | 'ADMIN';
   condominio_id: string;
   unita_id?: string | null;
@@ -40,10 +41,11 @@ function parse(body: unknown): InvitoInput {
   const b = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
   const email = typeof b.email === 'string' ? b.email.trim().toLowerCase() : '';
   if (email.length > 254 || !EMAIL.test(email)) throw new HttpError(400, 'L’indirizzo email non è valido.');
-  const nomeCognome = typeof b.nome_cognome === 'string' ? b.nome_cognome.trim() : '';
-  if (nomeCognome.length < 2 || nomeCognome.length > 120) {
-    throw new HttpError(400, 'Inserisci nome e cognome del destinatario.');
-  }
+  // Nome e cognome: facoltativo. Se fornito (nuovo invito) lo validiamo; se assente
+  // (re-invito: sollecito/rinnovo) si prosegue senza toccarlo.
+  const nomeRaw = typeof b.nome_cognome === 'string' ? b.nome_cognome.trim() : '';
+  if (nomeRaw.length > 120) throw new HttpError(400, 'Il nome è troppo lungo.');
+  const nomeCognome = nomeRaw.length >= 2 ? nomeRaw : null;
   if (typeof b.ruolo !== 'string' || !RUOLI.includes(b.ruolo)) throw new HttpError(400, 'Il ruolo non è valido.');
   if (!isUuid(b.condominio_id)) throw new HttpError(400, 'Scegli il condominio.');
   if (b.unita_id != null && !isUuid(b.unita_id)) throw new HttpError(400, 'L’unità non è valida.');
@@ -83,7 +85,8 @@ serve(async (req) => {
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(input.email, {
     redirectTo,
     // Il trigger handle_new_user legge nome_cognome da raw_user_meta_data e pre-popola public.utenti.
-    data: { nome_cognome: input.nome_cognome },
+    // Nei re-inviti nome_cognome è null: non lo includiamo nei metadata.
+    ...(input.nome_cognome ? { data: { nome_cognome: input.nome_cognome } } : {}),
   });
   if (inviteError) {
     const code = (inviteError as { code?: string }).code ?? '';

@@ -89,15 +89,27 @@ export function Header() {
         </View>
       ) : null}
       {!isMobile && condomini.length > 1 ? (
-        <Dropdown
-          label={`Condominio: ${profilo.condominio?.nome ?? 'scegli'}`}
-          icon="building-2"
-          items={vociCondominio}
-          align="end"
-        />
+        <View style={styles.selectHeader}>
+          <Dropdown
+            label={`Condominio: ${profilo.condominio?.nome ?? 'scegli'}`}
+            items={vociCondominio}
+            align="end"
+            triggerContent={
+              <>
+                <Icon name="building-2" size="action" color={colors.brand.navy} />
+                <Text numberOfLines={1} style={[textStyle('label', breakpoint), styles.condominioNome]}>
+                  {profilo.condominio?.nome ?? 'Scegli condominio'}
+                </Text>
+                <Icon name="chevron-down" size="action" color={colors.brand.navy} />
+              </>
+            }
+          />
+        </View>
       ) : null}
       {!isMobile && profilo.viste.length > 1 ? (
-        <Dropdown label={`Vista: ${ruolo}`} items={vociVista} align="end" />
+        <View style={styles.selectHeader}>
+          <Dropdown label={`Vista: ${ruolo}`} items={vociVista} align="end" />
+        </View>
       ) : null}
 
       <NotificationPanel
@@ -171,6 +183,8 @@ const styles = StyleSheet.create({
   ricerca: { flexGrow: 0, flexShrink: 1, flexBasis: layout.formMaxWidth, minWidth: 220 },
   spazio: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
   condominio: { flexDirection: 'row', alignItems: 'center', gap: space[2], flexShrink: 1 },
+  // Stacco sopra le select dell'header; il triggerContent allinea icona, nome e freccia.
+  selectHeader: { paddingTop: space[2] },
   condominioNome: { color: colors.brand.navy, flexShrink: 1 },
   identita: { maxWidth: layout.sidebarWidth },
   nome: { color: colors.text.primary },

@@ -128,7 +128,6 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
       try {
         await invokeFunction<{ ok: true }>(db, 'invita-utente', {
           email: invito.email.trim().toLowerCase(),
-          nome_cognome: invito.nomeCognome.trim(),
           ruolo: invito.ruolo,
           condominio_id: invito.condominioId,
           unita_id: invito.unitaId ?? null,
@@ -174,7 +173,6 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
       try {
         await invokeFunction<{ ok: true }>(db, 'invita-utente', {
           email: invito.email.trim().toLowerCase(),
-          nome_cognome: invito.nomeCognome.trim(),
           ruolo: invito.ruolo,
           condominio_id: invito.condominioId,
           unita_id: invito.unitaId ?? null,

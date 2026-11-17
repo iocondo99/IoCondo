@@ -374,27 +374,35 @@ export function createSuperAdminService(db: TypedSupabaseClient) {
           condominioId: condominioCreato.id,
           condominioNome: condominioCreato.nome,
           giaRegistrato: true,
+          invitoInviato: true,
           messaggio: `Condominio "${condominioCreato.nome}" creato e collegato all’amministratore ${nomeAdminPulito}.`,
         };
       }
 
-      // Amministratore non ancora nel DB: avvia il flusso invita-utente (con fallback RPC crea_invito)
+      // Amministratore non ancora nel DB: avvia il flusso invita-utente (con fallback RPC crea_invito).
+      // Il condominio è GIÀ stato creato con successo: se l'invito non parte, non è un fallimento
+      // totale. Isoliamo l'errore e lo segnaliamo con invitoInviato=false, così la UI può mostrare
+      // un avviso chiaro invece di un errore generico.
+      let invitoInviato = true;
       try {
         await invokeFunction<{ ok: true }>(db, 'invita-utente', {
           email: emailPulita,
+          nome_cognome: nomeAdminPulito,
           ruolo: 'ADMIN',
           condominio_id: condominioCreato.id,
         });
-      } catch (err: unknown) {
-        const { error: rpcErr } = await (db.rpc as any)('crea_invito', {
-          p_email: emailPulita,
-          p_ruolo: 'ADMIN',
-          p_condominio: condominioCreato.id,
-          p_unita: null,
-          p_flag_portiere: false,
-        });
-        if (rpcErr) {
-          throw err;
+      } catch {
+        try {
+          const { error: rpcErr } = await (db.rpc as any)('crea_invito', {
+            p_email: emailPulita,
+            p_ruolo: 'ADMIN',
+            p_condominio: condominioCreato.id,
+            p_unita: null,
+            p_flag_portiere: false,
+          });
+          if (rpcErr) invitoInviato = false;
+        } catch {
+          invitoInviato = false;
         }
       }
 
@@ -402,7 +410,10 @@ export function createSuperAdminService(db: TypedSupabaseClient) {
         condominioId: condominioCreato.id,
         condominioNome: condominioCreato.nome,
         giaRegistrato: false,
-        messaggio: `Condominio "${condominioCreato.nome}" creato e invito inviato a ${emailPulita}.`,
+        invitoInviato,
+        messaggio: invitoInviato
+          ? `Condominio "${condominioCreato.nome}" creato e invito inviato a ${emailPulita}.`
+          : `Condominio "${condominioCreato.nome}" creato correttamente, ma non è stato possibile inviare l’invito a ${emailPulita}. Puoi reinviarlo dalla scheda dell’amministratore.`,
       };
     },
 

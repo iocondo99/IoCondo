@@ -71,7 +71,8 @@ function SuperAdminNuovoCondominioContenuto({ superAdminId }: { superAdminId: st
     setSalvataggio(true);
     try {
       const res = await services.superadmin.creaCondominioEAssegnaAdmin(superAdminId, input);
-      toast.show({ tone: 'success', message: res.messaggio });
+      // Il condominio è stato creato: successo pieno se l'invito è partito, altrimenti avviso.
+      toast.show({ tone: res.invitoInviato ? 'success' : 'warning', message: res.messaggio });
       router.replace('/superadmin/amministratori');
     } catch (e: unknown) {
       setErroreServer(
