@@ -14,6 +14,7 @@ import {
   Card,
   FilterChips,
   Icon,
+  IconButton,
   Input,
   LoadingState,
   Modal,
@@ -56,20 +57,17 @@ import {
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
 import { useProfilo } from '@/context/ProfiloContext';
 import { services } from '@/services';
-
 const OPZIONI_PRIORITA: readonly SelectOption[] = [
   { value: 'URGENTE', label: 'Urgente' },
   { value: 'ALTA', label: 'Alta' },
   { value: 'MEDIA', label: 'Media' },
   { value: 'BASSA', label: 'Bassa' },
 ];
-
 const OPZIONI_STATO_SELECT: readonly SelectOption[] = [
   { value: 'APERTO', label: 'Aperto' },
   { value: 'LAVORAZIONE', label: 'In lavorazione' },
   { value: 'RISOLTO', label: 'Risolto' },
 ];
-
 const OPZIONI_CATEGORIA_FORNITORE: readonly SelectOption[] = [
   { value: 'Idraulico', label: 'Idraulico / Termoidraulica' },
   { value: 'Elettrico', label: 'Elettrico / Citofoni' },
@@ -80,13 +78,10 @@ const OPZIONI_CATEGORIA_FORNITORE: readonly SelectOption[] = [
   { value: 'Fabbro', label: 'Fabbro / Serramenti' },
   { value: 'Altro', label: 'Altro settore' },
 ];
-
 export function AdminManutenzioneScreen() {
   const consentito = useAccessoConsentito();
   const { profilo, condominio, ruoli } = useProfilo();
-
   if (!consentito || !profilo || !condominio) return null;
-
   if (!ruoli.has('ADMIN')) {
     return (
       <View style={styles.pagina}>
@@ -98,10 +93,8 @@ export function AdminManutenzioneScreen() {
       </View>
     );
   }
-
   return <AdminManutenzioneContenuto />;
 }
-
 function CellaTitolo({ titolo }: { titolo: string }) {
   const { breakpoint, isMobile } = useBreakpoint();
   return (
@@ -118,30 +111,24 @@ function CellaTitolo({ titolo }: { titolo: string }) {
     </Text>
   );
 }
-
 function AdminManutenzioneContenuto() {
   const router = useRouter();
   const params = useLocalSearchParams<{ dettaglioId?: string; id?: string }>();
   const targetId = params.dettaglioId || params.id;
   const { condominio, profilo } = useProfilo();
   const toast = useToast();
-
   const [tabAttivo, setTabAttivo] = useState<'ticket' | 'fornitori'>('ticket');
   const [tickets, setTickets] = useState<TicketAdminView[]>([]);
   const [fornitori, setFornitori] = useState<FornitoreAdminView[]>([]);
   const [categorie, setCategorie] = useState<OpzioneCategoriaGuasto[]>([]);
   const [ambitiDisponibili, setAmbitiDisponibili] = useState<OpzioneAmbitoManutenzione[]>([]);
-
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState(false);
-
   // Filtri Ticket
   const [filtroChip, setFiltroChip] = useState<string>('tutti');
   const [filtroRicercaTicket, setFiltroRicercaTicket] = useState('');
-
   // Filtri Fornitori
   const [filtroRicercaFornitori, setFiltroRicercaFornitori] = useState('');
-
   // Modale: Nuova Segnalazione (Ticket Amministratore)
   const [modaleNuovoTicketAperta, setModaleNuovoTicketAperta] = useState(false);
   const [titoloTicketInput, setTitoloTicketInput] = useState('');
@@ -152,7 +139,6 @@ function AdminManutenzioneContenuto() {
   const [erroriNuovoTicket, setErroriNuovoTicket] = useState<Record<string, string>>({});
   const [salvataggioTicketInCorso, setSalvataggioTicketInCorso] = useState(false);
   const inputTitoloRef = useRef<React.ComponentRef<typeof TextInput>>(null);
-
   // Modale: Nuovo Fornitore Convenzionato
   const [modaleNuovoFornitoreAperta, setModaleNuovoFornitoreAperta] = useState(false);
   const [ragioneSocialeInput, setRagioneSocialeInput] = useState('');
@@ -164,13 +150,11 @@ function AdminManutenzioneContenuto() {
   const [erroriNuovoFornitore, setErroriNuovoFornitore] = useState<Record<string, string>>({});
   const [salvataggioFornitoreInCorso, setSalvataggioFornitoreInCorso] = useState(false);
   const inputRagioneSocialeRef = useRef<React.ComponentRef<typeof TextInput>>(null);
-
   // Modale: Dettagli Ticket
   const [modaleDettagliAperta, setModaleDettagliAperta] = useState(false);
   const [ticketDettaglio, setTicketDettaglio] = useState<TicketAdminView | null>(null);
   const [nuovoMessaggioInput, setNuovoMessaggioInput] = useState('');
   const [invioMessaggioInCorso, setInvioMessaggioInCorso] = useState(false);
-
   // Modale: Modifica Ticket (Dati, Fornitore / Magic Link, Consuntivo)
   const [modaleModificaAperta, setModaleModificaAperta] = useState(false);
   const [ticketDaModificare, setTicketDaModificare] = useState<TicketAdminView | null>(null);
@@ -188,12 +172,10 @@ function AdminManutenzioneContenuto() {
   const [linkCopiato, setLinkCopiato] = useState(false);
   const [salvataggioModificaInCorso, setSalvataggioModificaInCorso] = useState(false);
   const [erroriModifica, setErroriModifica] = useState<Record<string, string>>({});
-
   const caricaDati = useCallback(async () => {
     if (!condominio?.id) return;
     setCaricamento(true);
     setErrore(false);
-
     try {
       const [tktList, fornList, catList, ambitiList] = await Promise.all([
         services.manutenzione.listTickets(condominio.id),
@@ -201,12 +183,10 @@ function AdminManutenzioneContenuto() {
         services.manutenzione.listCategorie(),
         services.manutenzione.listAmbiti(condominio.id),
       ]);
-
       setTickets(tktList);
       setFornitori(fornList);
       setCategorie(catList);
       setAmbitiDisponibili(ambitiList);
-
       if (catList.length > 0 && !categoriaTicketInput) {
         setCategoriaTicketInput(catList[0]!.id);
       }
@@ -219,11 +199,9 @@ function AdminManutenzioneContenuto() {
       setCaricamento(false);
     }
   }, [condominio?.id, profilo?.id, categoriaTicketInput, ambitoTicketInput]);
-
   React.useEffect(() => {
     void caricaDati();
   }, [caricaDati]);
-
   // Apertura automatica del dettaglio ticket se richiesto da notifica o deep link
   useEffect(() => {
     if (!targetId || tickets.length === 0) return;
@@ -234,22 +212,18 @@ function AdminManutenzioneContenuto() {
       setModaleDettagliAperta(true);
     }
   }, [targetId, tickets]);
-
   const statistiche = useMemo(() => {
     return calcolaStatisticheManutenzione(tickets, fornitori);
   }, [tickets, fornitori]);
-
   const ticketsFiltrati = useMemo(() => {
     return filtraTicket(tickets, {
       stato: filtroChip,
       ricerca: filtroRicercaTicket,
     });
   }, [tickets, filtroChip, filtroRicercaTicket]);
-
   const fornitoriFiltrati = useMemo(() => {
     return filtraFornitori(fornitori, filtroRicercaFornitori);
   }, [fornitori, filtroRicercaFornitori]);
-
   // Opzioni filtro stato con conteggi reali (uguale al lato condòmino)
   const opzioniFiltroStato: readonly FilterOption[] = useMemo(() => {
     const aperti = tickets.filter((t) => t.stato === 'APERTO').length;
@@ -265,15 +239,12 @@ function AdminManutenzioneContenuto() {
       { value: 'aree_comuni', label: `Aree comuni (${areeComuni})` },
     ];
   }, [tickets]);
-
   const opzioniCategorieSelect: SelectOption[] = useMemo(() => {
     return categorie.map((c) => ({ value: c.id, label: c.nome }));
   }, [categorie]);
-
   const opzioniAmbitiSelect: SelectOption[] = useMemo(() => {
     return ambitiDisponibili.map((a) => ({ value: a.id, label: a.label }));
   }, [ambitiDisponibili]);
-
   const opzioniFornitoriSelect: SelectOption[] = useMemo(() => {
     return [
       { value: '', label: 'Nessun fornitore assegnato' },
@@ -283,7 +254,6 @@ function AdminManutenzioneContenuto() {
       })),
     ];
   }, [fornitori]);
-
   // Copia Magic Link negli appunti
   const copiaMagicLinkNegliAppunti = async (link: string) => {
     try {
@@ -309,7 +279,6 @@ function AdminManutenzioneContenuto() {
       });
     }
   };
-
   // Apertura Modale Nuova Segnalazione
   const apriNuovoTicket = () => {
     setTitoloTicketInput('');
@@ -320,7 +289,6 @@ function AdminManutenzioneContenuto() {
     setModaleNuovoTicketAperta(true);
     setTimeout(() => inputTitoloRef.current?.focus(), 150);
   };
-
   // Apertura Modale Nuovo Fornitore
   const apriNuovoFornitore = () => {
     setRagioneSocialeInput('');
@@ -333,14 +301,12 @@ function AdminManutenzioneContenuto() {
     setModaleNuovoFornitoreAperta(true);
     setTimeout(() => inputRagioneSocialeRef.current?.focus(), 150);
   };
-
   // Apertura Modale Dettagli Ticket
   const apriDettagliTicket = (tkt: TicketAdminView) => {
     setTicketDettaglio(tkt);
     setNuovoMessaggioInput('');
     setModaleDettagliAperta(true);
   };
-
   // Apertura Modale Modifica Ticket
   const apriModaleModifica = (tkt: TicketAdminView) => {
     setTicketDaModificare(tkt);
@@ -369,13 +335,11 @@ function AdminManutenzioneContenuto() {
     setErroriModifica({});
     setModaleModificaAperta(true);
   };
-
   // Salvataggio Nuovo Ticket
   const salvaNuovoTicket = async () => {
     const ambitoScelto =
       ambitiDisponibili.find((a) => a.id === ambitoTicketInput) ??
       ambitiDisponibili[0];
-
     const validazione = validaNuovoTicket({
       titolo: titoloTicketInput,
       priorita: prioritaTicketInput,
@@ -383,12 +347,10 @@ function AdminManutenzioneContenuto() {
       palazzoId: ambitoScelto?.palazzoId ?? null,
       scalaColonnaId: ambitoScelto?.scalaColonnaId ?? null,
     });
-
     if (!validazione.valido) {
       setErroriNuovoTicket(validazione.errori);
       return;
     }
-
     setSalvataggioTicketInCorso(true);
     try {
       await services.manutenzione.createTicket({
@@ -401,7 +363,6 @@ function AdminManutenzioneContenuto() {
         scalaColonnaId: ambitoScelto?.scalaColonnaId ?? null,
         segnalatoreId: profilo?.id ?? null,
       });
-
       toast.show({
         message: 'Segnalazione guasto registrata con successo.',
         tone: 'success',
@@ -415,7 +376,6 @@ function AdminManutenzioneContenuto() {
       setSalvataggioTicketInCorso(false);
     }
   };
-
   // Salvataggio Nuovo Fornitore
   const salvaNuovoFornitore = async () => {
     const validazione = validaNuovoFornitore({
@@ -425,12 +385,10 @@ function AdminManutenzioneContenuto() {
       telefono: telefonoInput,
       categoria: categoriaFornitoreInput,
     });
-
     if (!validazione.valido) {
       setErroriNuovoFornitore(validazione.errori);
       return;
     }
-
     setSalvataggioFornitoreInCorso(true);
     try {
       await services.manutenzione.createFornitore({
@@ -442,7 +400,6 @@ function AdminManutenzioneContenuto() {
         telefono: telefonoInput.trim() || null,
         categoria: categoriaFornitoreInput,
       });
-
       toast.show({
         message: `Fornitore "${ragioneSocialeInput.trim()}" aggiunto in rubrica.`,
         tone: 'success',
@@ -456,16 +413,13 @@ function AdminManutenzioneContenuto() {
       setSalvataggioFornitoreInCorso(false);
     }
   };
-
   // Salvataggio Modifiche Ticket
   const salvaModificheTicket = async () => {
     if (!ticketDaModificare) return;
-
     if (!titoloModificaInput.trim()) {
       setErroriModifica({ titolo: 'Inserisci il titolo del ticket.' });
       return;
     }
-
     let importoNum: number | null = null;
     if (consuntivoModificaInput.trim()) {
       const pulito = consuntivoModificaInput.replace(',', '.').trim();
@@ -476,11 +430,9 @@ function AdminManutenzioneContenuto() {
       }
       importoNum = Math.round(n * 100) / 100;
     }
-
     const ambitoScelto =
       ambitiDisponibili.find((a) => a.id === ambitoModificaInput) ??
       ambitiDisponibili[0];
-
     setSalvataggioModificaInCorso(true);
     try {
       const payload: InputModificaTicketAdmin = {
@@ -498,12 +450,10 @@ function AdminManutenzioneContenuto() {
         baseUrl: typeof window !== 'undefined' ? window.location.origin : (process.env.EXPO_PUBLIC_APP_URL || undefined),
         importoConsuntivo: importoNum,
       };
-
       const res = await services.manutenzione.updateTicket(payload);
       if (res?.urlMagico) {
         setMagicLinkModifica(res.urlMagico);
       }
-
       toast.show({
         message: 'Modifiche salvate con successo.',
         tone: 'success',
@@ -517,11 +467,9 @@ function AdminManutenzioneContenuto() {
       setSalvataggioModificaInCorso(false);
     }
   };
-
   // Invia messaggio nel dettaglio ticket
   const inviaMessaggioDettaglio = async () => {
     if (!ticketDettaglio || !nuovoMessaggioInput.trim()) return;
-
     setInvioMessaggioInCorso(true);
     try {
       await services.manutenzione.addMessaggio(
@@ -541,14 +489,13 @@ function AdminManutenzioneContenuto() {
       setInvioMessaggioInCorso(false);
     }
   };
-
   // Colonne Tabella Ticket con lo stesso aspetto grafico e priorità del lato condòmino
   const colonneTicket: DataColumn<TicketAdminView>[] = useMemo(
     () => [
       {
         key: 'priorita',
         header: 'Priorità',
-        minWidth: 100,
+        minWidth: 110,
         weight: 1,
         cell: (row) => {
           const statusBadge: BadgeStatus =
@@ -581,11 +528,13 @@ function AdminManutenzioneContenuto() {
       {
         key: 'ambito',
         header: 'Ambito',
-        minWidth: 140,
-        weight: 2,
+        minWidth: 260,
+        weight: 3,
         mobileLabel: 'Ambito',
         cell: (row) => (
-          <Badge status="neutral" label={row.ambito_label} icon="map-pin" />
+          <View style={styles.cellaAmbito}>
+            <Badge status="neutral" label={row.ambito_label} icon="map-pin" />
+          </View>
         ),
       },
       {
@@ -621,16 +570,17 @@ function AdminManutenzioneContenuto() {
       {
         key: 'azioni',
         header: 'Azioni',
-        minWidth: 170,
-        weight: 1,
+        align: 'end',
+        interactive: true,
+        minWidth: 72,
+        weight: 0,
         cell: (row) => (
           <View style={styles.rigaAzioni}>
-            <Button
-              variant="secondary"
-              label="Modifica"
+            <IconButton
               icon="pencil"
+              variant="ghost"
+              accessibilityLabel={`Modifica ${row.titolo}`}
               onPress={() => apriModaleModifica(row)}
-              accessibilityHint={`Modifica o assegna fornitore per ${row.titolo}`}
             />
           </View>
         ),
@@ -638,21 +588,20 @@ function AdminManutenzioneContenuto() {
     ],
     [],
   );
-
   // Colonne Tabella Fornitori
   const colonneFornitori: DataColumn<FornitoreAdminView>[] = useMemo(
     () => [
       {
         key: 'ragione_sociale',
         header: 'Ragione sociale',
-        minWidth: 200,
+        minWidth: 240,
         weight: 3,
         mobile: 'title',
         cell: (row) => (
           <View style={styles.colonnaTesto}>
             <Text style={styles.testoTitolo}>{row.ragione_sociale}</Text>
             {row.iban ? (
-              <Text style={styles.testoMicro} numberOfLines={1}>
+              <Text style={[styles.testoMicro, styles.testoIban]}>
                 IBAN: {row.iban}
               </Text>
             ) : null}
@@ -665,7 +614,7 @@ function AdminManutenzioneContenuto() {
         minWidth: 130,
         weight: 2,
         cell: (row) => (
-          <Badge status="info" label={row.categoria || 'Generale'} />
+          <Text style={styles.testoTabella}>{row.categoria || 'Generale'}</Text>
         ),
       },
       {
@@ -693,7 +642,7 @@ function AdminManutenzioneContenuto() {
       {
         key: 'email',
         header: 'Email',
-        minWidth: 170,
+        minWidth: 300,
         weight: 2,
         cell: (row) => (
           row.email ? (
@@ -703,7 +652,7 @@ function AdminManutenzioneContenuto() {
               style={styles.linkBottone}
             >
               <Icon name="mail" size="indicator" color={colors.action.default} />
-              <Text style={styles.testoLink} numberOfLines={1}>
+              <Text style={[styles.testoLink, styles.testoEmailIntera]}>
                 {row.email}
               </Text>
             </Pressable>
@@ -726,7 +675,6 @@ function AdminManutenzioneContenuto() {
     ],
     [],
   );
-
   // Schede Tab
   const schedeTab: TabItem[] = [
     {
@@ -841,7 +789,6 @@ function AdminManutenzioneContenuto() {
       ),
     },
   ];
-
   return (
     <View style={styles.pagina}>
       {/* 1. PageHeader ufficiale con Breadcrumbs integrati e icona "wrench" lato condòmino */}
@@ -858,7 +805,6 @@ function AdminManutenzioneContenuto() {
           onPress: apriNuovoTicket,
         }}
       />
-
       {/* 2. 3 StatCard ufficiali */}
       <View style={styles.schedes}>
         <View style={styles.scheda}>
@@ -892,7 +838,6 @@ function AdminManutenzioneContenuto() {
           />
         </View>
       </View>
-
       {/* 3. Navigazione a Schede */}
       <Tabs
         label="Sezioni della manutenzione condominiale"
@@ -900,7 +845,6 @@ function AdminManutenzioneContenuto() {
         value={tabAttivo}
         onChange={(val) => setTabAttivo(val as 'ticket' | 'fornitori')}
       />
-
       {/* ========================================================================= */}
       {/* MODALE 1: Nuova Segnalazione (Ticket Amministratore)                      */}
       {/* ========================================================================= */}
@@ -935,21 +879,18 @@ function AdminManutenzioneContenuto() {
             onChangeText={setTitoloTicketInput}
             error={erroriNuovoTicket.titolo}
           />
-
           <Select
             label="Categoria guasto"
             options={opzioniCategorieSelect}
             value={categoriaTicketInput}
             onChange={setCategoriaTicketInput}
           />
-
           <Select
             label="Priorità intervento"
             options={OPZIONI_PRIORITA}
             value={prioritaTicketInput}
             onChange={(val) => setPrioritaTicketInput(val as PrioritaTicket)}
           />
-
           <Select
             label="Dove si trova il guasto (Ambito)"
             options={opzioniAmbitiSelect}
@@ -959,7 +900,6 @@ function AdminManutenzioneContenuto() {
           <Text style={[textStyle('secondary'), styles.testoAiutoAmbito]}>
             La segnalazione sarà visibile ai condòmini dell’area o scala interessata per evitare segnalazioni duplicate.
           </Text>
-
           <Textarea
             label="Descrizione dettagliata"
             placeholder="Fornisci indicazioni precise sull'anomalia o rottura riscontrata..."
@@ -968,7 +908,6 @@ function AdminManutenzioneContenuto() {
           />
         </View>
       </Modal>
-
       {/* ========================================================================= */}
       {/* MODALE 2: Nuovo Fornitore Convenzionato                                   */}
       {/* ========================================================================= */}
@@ -1003,14 +942,12 @@ function AdminManutenzioneContenuto() {
             onChangeText={setRagioneSocialeInput}
             error={erroriNuovoFornitore.ragioneSociale}
           />
-
           <Select
             label="Categoria merceologica ditta"
             options={OPZIONI_CATEGORIA_FORNITORE}
             value={categoriaFornitoreInput}
             onChange={setCategoriaFornitoreInput}
           />
-
           <Input
             label="Partita IVA o Codice Fiscale"
             placeholder="Es. 01234567890"
@@ -1018,7 +955,6 @@ function AdminManutenzioneContenuto() {
             onChangeText={setPIvaInput}
             error={erroriNuovoFornitore.pIva}
           />
-
           <Input
             label="Recapito telefonico"
             placeholder="Es. +39 06 1234567"
@@ -1027,7 +963,6 @@ function AdminManutenzioneContenuto() {
             keyboardType="phone-pad"
             error={erroriNuovoFornitore.telefono}
           />
-
           <Input
             label="Indirizzo Email"
             placeholder="Es. info@ditta.it"
@@ -1037,7 +972,6 @@ function AdminManutenzioneContenuto() {
             autoCapitalize="none"
             error={erroriNuovoFornitore.email}
           />
-
           <Input
             label="Codice IBAN (per bonifici e consuntivi)"
             placeholder="Es. IT00X0000000000000000000000"
@@ -1048,7 +982,6 @@ function AdminManutenzioneContenuto() {
           />
         </View>
       </Modal>
-
       {/* ========================================================================= */}
       {/* MODALE 3: Modifica Ticket (Dati, Assegnazione & Magic Link, Consuntivo)   */}
       {/* ========================================================================= */}
@@ -1082,7 +1015,6 @@ function AdminManutenzioneContenuto() {
             onChangeText={setTitoloModificaInput}
             error={erroriModifica.titolo}
           />
-
           <View style={styles.rigaDoppia}>
             <View style={styles.colonnaMeta}>
               <Select
@@ -1101,14 +1033,12 @@ function AdminManutenzioneContenuto() {
               />
             </View>
           </View>
-
           <Select
             label="Categoria guasto"
             options={opzioniCategorieSelect}
             value={categoriaModificaInput}
             onChange={setCategoriaModificaInput}
           />
-
           <Select
             label="Dove si trova il guasto (Ambito)"
             options={opzioniAmbitiSelect}
@@ -1118,14 +1048,12 @@ function AdminManutenzioneContenuto() {
           <Text style={[textStyle('secondary'), styles.testoAiutoAmbito]}>
             La segnalazione sarà visibile ai condòmini dell’area o scala interessata per evitare segnalazioni duplicate.
           </Text>
-
           <Textarea
             label="Descrizione del guasto"
             placeholder="Dettagli sulle cause e sintomi riscontrati..."
             value={descrizioneModificaInput}
             onChangeText={setDescrizioneModificaInput}
           />
-
           {/* Sezione Fornitore & Magic Link */}
           <View style={styles.sezioneIntervento}>
             <Text style={styles.titoloSezioneModale}>Fornitore incaricato e Magic Link</Text>
@@ -1135,7 +1063,6 @@ function AdminManutenzioneContenuto() {
               value={fornitoreModificaId}
               onChange={setFornitoreModificaId}
             />
-
             {fornitoreModificaId ? (
               <>
                 <Input
@@ -1144,14 +1071,12 @@ function AdminManutenzioneContenuto() {
                   value={dataPrevistaModificaInput}
                   onChangeText={setDataPrevistaModificaInput}
                 />
-
                 <Textarea
                   label="Istruzioni per il manutentore"
                   placeholder="Note operative da comunicare al fornitore..."
                   value={noteFornitoreModificaInput}
                   onChangeText={setNoteFornitoreModificaInput}
                 />
-
                 {magicLinkModifica ? (
                   <View style={styles.boxMagicLink}>
                     <Text style={styles.titoloMagicLink}>
@@ -1174,7 +1099,6 @@ function AdminManutenzioneContenuto() {
               </>
             ) : null}
           </View>
-
           {/* Sezione Chiusura / Consuntivo (se stato è RISOLTO) */}
           {statoModificaInput === 'RISOLTO' ? (
             <View style={styles.sezioneIntervento}>
@@ -1191,7 +1115,6 @@ function AdminManutenzioneContenuto() {
           ) : null}
         </View>
       </Modal>
-
       {/* ========================================================================= */}
       {/* MODALE 4: Dettagli Guasto e Segnalazione                                  */}
       {/* ========================================================================= */}
@@ -1225,7 +1148,6 @@ function AdminManutenzioneContenuto() {
                 />
                 <Badge status="info" label={ticketDettaglio.categoria_nome} />
               </View>
-
               {/* Informazioni sintetiche */}
               <View style={styles.bloccoInfoDettaglio}>
                 <Text style={styles.voceInfoDettaglio}>
@@ -1264,7 +1186,6 @@ function AdminManutenzioneContenuto() {
                   </Text>
                 ) : null}
               </View>
-
               {/* Descrizione guasto */}
               <View style={styles.sezioneDettaglio}>
                 <Text style={styles.titoloSezioneDettaglio}>Descrizione del guasto</Text>
@@ -1272,7 +1193,6 @@ function AdminManutenzioneContenuto() {
                   {ticketDettaglio.descrizione || 'Nessuna descrizione testuale fornita.'}
                 </Text>
               </View>
-
               {/* Foto e allegati */}
               <View style={styles.sezioneDettaglio}>
                 <Text style={styles.titoloSezioneDettaglio}>Foto e Allegati</Text>
@@ -1292,7 +1212,6 @@ function AdminManutenzioneContenuto() {
                   </View>
                 )}
               </View>
-
               {/* Cronologia messaggi */}
               <View style={styles.sezioneDettaglio}>
                 <Text style={styles.titoloSezioneDettaglio}>Messaggi e Note di lavoro</Text>
@@ -1311,7 +1230,6 @@ function AdminManutenzioneContenuto() {
                     ))}
                   </View>
                 )}
-
                 <View style={styles.bloccoScriviMessaggio}>
                   <Input
                     label="Aggiungi una nota o messaggio"
@@ -1336,7 +1254,6 @@ function AdminManutenzioneContenuto() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   pagina: {
     alignSelf: 'stretch',
@@ -1395,9 +1312,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 150,
   },
+  cellaAmbito: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   colonnaTesto: {
     gap: space[1],
+    paddingRight: space[5],
+    flexShrink: 1,
+    minWidth: 0,
   },
+  // L'IBAN non ha spazi: su web va a capo invece di finire sotto la colonna accanto.
+  testoIban: Platform.select({
+    web: { wordBreak: 'break-all' } as object,
+    default: {},
+  }) as object,
   testoTitolo: {
     fontSize: 14,
     fontWeight: '600',
@@ -1406,17 +1335,29 @@ const styles = StyleSheet.create({
   rigaAzioni: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    alignSelf: 'stretch',
   },
   linkBottone: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[2],
+    maxWidth: '100%',
+    minWidth: 0,
+    flexShrink: 1,
   },
   testoLink: {
     fontSize: 13,
     color: colors.action.default,
     fontWeight: '500',
+    flexShrink: 1,
+    minWidth: 0,
   },
+  // Email sempre leggibile per intero: se non entra va a capo, non viene tagliata.
+  testoEmailIntera: Platform.select({
+    web: { wordBreak: 'break-all' } as object,
+    default: {},
+  }) as object,
   corpoModale: {
     gap: space[4],
     paddingBottom: space[2],

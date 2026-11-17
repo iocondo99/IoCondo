@@ -521,7 +521,7 @@ function AdminDocumentiContenuto() {
         key: 'nomeFile',
         header: 'Nome file',
         weight: 3,
-        minWidth: 220,
+        minWidth: 260,
         mobile: 'title',
         cell: (r) => (
           <View style={styles.cellaNomeFile}>
@@ -1221,7 +1221,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cellaNomeFile: {
-    gap: 2,
+    paddingRight: space[5],
+    flexShrink: 1,
+    minWidth: 0,
   },
   titoloFile: {
     fontSize: 14,

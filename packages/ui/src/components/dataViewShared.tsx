@@ -29,6 +29,11 @@ export interface DataColumn<T> {
   mobile?: MobileRole;
   /** Etichetta del dato nella scheda, se diversa dall'intestazione. */
   mobileLabel?: string;
+  /**
+   * La cella contiene controlli (pulsanti, link). Nella scheda per smartphone, che e' tutta un
+   * pulsante, la cella va fuori dall'area cliccabile: un pulsante non puo' stare dentro un altro.
+   */
+  interactive?: boolean;
 }
 
 export interface DataViewError {

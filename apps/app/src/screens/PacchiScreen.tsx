@@ -476,6 +476,15 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
           onSortChange={cambiaSort}
           filters={
             <View style={styles.filtri}>
+              <SearchBar
+                label="Cerca pacco"
+                placeholder="Cerca per unità o interno (es. Int. 1)..."
+                value={ricerca}
+                onChangeText={(q: string) => {
+                  setRicerca(q);
+                  setPagina(1);
+                }}
+              />
               <FilterChips
                 label="Filtra per stato"
                 options={opzioniChip}
@@ -483,15 +492,6 @@ function PacchiContenuto({ isPortiereOAdmin }: PacchiContenutoProps) {
                 onChange={(valori) => {
                   const primoValore = valori[0] as FiltroStatoPacchi | undefined;
                   setFiltroStato(primoValore || 'tutti');
-                  setPagina(1);
-                }}
-              />
-              <SearchBar
-                label="Cerca pacco"
-                placeholder="Cerca per unità o interno (es. Int. 1)..."
-                value={ricerca}
-                onChangeText={(q: string) => {
-                  setRicerca(q);
                   setPagina(1);
                 }}
               />

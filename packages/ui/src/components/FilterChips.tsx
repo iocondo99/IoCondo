@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import { Icon } from '../Icon';
 import { borderWidths, colors, radii, space, touchTarget } from '../tokens';
 import { Button } from './Button';
+import { Select } from './Select';
 import {
   cursorStyle,
   focusElement,
@@ -51,6 +52,22 @@ export function FilterChips({
 }: FilterChipsProps) {
   const refs = useRef<Array<ViewRef | null>>([]);
   const summaryStyle = useTextStyle('secondary');
+
+  // Scelta singola: una select occupa meno spazio e resta leggibile con molte opzioni.
+  // I chip restano solo per la scelta multipla, dove servono più valori insieme.
+  if (!multiple) {
+    return (
+      <View style={styles.select}>
+        <Select
+          label={label}
+          options={[{ value: '', label: allLabel }, ...options]}
+          value={value[0] ?? ''}
+          onChange={(scelta) => onChange(scelta ? [scelta] : [])}
+          floating
+        />
+      </View>
+    );
+  }
   const chips = [{ value: '', label: allLabel }, ...options];
   const allSelected = value.length === 0;
   const activeLabels = options.filter((option) => value.includes(option.value)).map((option) => option.label);
@@ -180,6 +197,7 @@ function Chip({
 }
 
 const styles = StyleSheet.create({
+  select: { alignSelf: 'flex-start', width: '100%', maxWidth: 360, zIndex: 20, position: 'relative' },
   root: { alignSelf: 'stretch', gap: space[2] },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   chip: {

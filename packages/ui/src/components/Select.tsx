@@ -1,6 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import {
+  Modal as RNModal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+  type ViewStyle,
+} from 'react-native';
 import { Icon } from '../Icon';
+import { placeMenu, type Placement } from './layoutMath';
 import { borderWidths, colors, controlSizes, focusRingSize, radii, space, touchTarget } from '../tokens';
 import {
   cursorStyle,
@@ -31,6 +43,13 @@ export interface SelectProps {
   error?: string;
   required?: boolean;
   disabled?: boolean;
+  /**
+   * La lista si apre sopra il contenuto invece di spingerlo in basso: il riquadro che contiene la
+   * select non cambia altezza. Pensata per i filtri.
+   */
+  floating?: boolean;
+  /** Campo di ricerca nella lista: scrivendo si filtrano le opzioni. Attivo di default. */
+  searchable?: boolean;
 }
 
 /**
@@ -52,9 +71,16 @@ export function Select({
   error,
   required,
   disabled = false,
+  floating = false,
+  searchable = true,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
+  // Solo per `floating`: dove disegnare la lista sopra la pagina.
+  const [placement, setPlacement] = useState<Placement | null>(null);
+  const [query, setQuery] = useState('');
+  const searchRef = useRef<TextInput>(null);
+  const screen = useWindowDimensions();
   const triggerRef = useRef<React.ComponentRef<typeof View>>(null);
   const optionRefs = useRef<Array<React.ComponentRef<typeof View> | null>>([]);
   const focusedIndex = useRef(-1);
@@ -63,7 +89,7 @@ export function Select({
 
   // Chiusura al clic esterno su web (sez. 10 e 17)
   useEffect(() => {
-    if (!open || Platform.OS !== 'web') return;
+    if (!open || Platform.OS !== 'web' || floating) return;
     const handleDocumentClick = (event: MouseEvent) => {
       const target = event.target as Node | null;
       const triggerNode = triggerRef.current as unknown as HTMLElement | null;
@@ -76,7 +102,17 @@ export function Select({
     return () => {
       document.removeEventListener('mousedown', handleDocumentClick);
     };
-  }, [open]);
+  }, [open, floating]);
+
+  // Se la finestra cambia dimensione la posizione calcolata non vale piu': la lista si chiude.
+  const size = `${screen.width}x${screen.height}`;
+  const lastSize = useRef(size);
+  useEffect(() => {
+    if (lastSize.current !== size) {
+      lastSize.current = size;
+      if (open && floating) setOpen(false);
+    }
+  }, [size, open, floating]);
 
   const onFieldKeyUp = (event: KeyEventLike) => {
     if (keyOf(event) === 'Escape' && swallowEscapeKeyUp.current) {
@@ -91,10 +127,16 @@ export function Select({
 
   const selected = options.find((option) => option.value === value);
   const message = error ?? helperText;
-  const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter((i) => i >= 0);
+  // Ricerca senza distinzione di maiuscole e accenti.
+  const normalizza = (testo: string) =>
+    testo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const cercato = normalizza(query);
+  const visibili = cercato ? options.filter((o) => normalizza(o.label).includes(cercato)) : options;
+  const enabled = visibili.map((o, i) => (o.disabled ? -1 : i)).filter((i) => i >= 0);
 
   const close = (restoreFocus: boolean) => {
     setOpen(false);
+    setQuery('');
     if (restoreFocus) focusElement(triggerRef.current);
   };
 
@@ -118,7 +160,8 @@ export function Select({
       focusOption(enabled[Math.min(at + 1, enabled.length - 1)]);
     } else if (key === 'ArrowUp') {
       event.preventDefault?.();
-      focusOption(enabled[Math.max(at - 1, 0)]);
+      if (searchable && at <= 0) searchRef.current?.focus();
+      else focusOption(enabled[Math.max(at - 1, 0)]);
     } else if (key === 'Home') {
       event.preventDefault?.();
       focusOption(enabled[0]);
@@ -129,11 +172,40 @@ export function Select({
   };
 
   const openList = () => {
-    setOpen(true);
-    setFocused(true);
-    // Dopo il render porta il focus sulla scelta attuale (o sulla prima opzione).
-    const start = selected ? options.indexOf(selected) : enabled[0];
-    setTimeout(() => focusOption(start), 0);
+    setQuery('');
+    const start = selected ? visibili.indexOf(selected) : enabled[0];
+    // Con la ricerca il focus va sul campo: si scrive subito, la freccia giu' scende alle opzioni.
+    const focusIniziale = () => (searchable ? searchRef.current?.focus() : focusOption(start));
+    if (!floating) {
+      setOpen(true);
+      setFocused(true);
+      // Dopo il render porta il focus sulla scelta attuale (o sulla prima opzione).
+      setTimeout(focusIniziale, 0);
+      return;
+    }
+    const node = triggerRef.current as unknown as {
+      measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void;
+    } | null;
+    if (!node?.measureInWindow) return;
+    node.measureInWindow((x, y, width, height) => {
+      setPlacement(
+        placeMenu({
+          anchor: { x, y, width, height },
+          screen: { width: screen.width, height: screen.height },
+          contentHeight: Math.min(
+            options.length * touchTarget.comfortable + borderWidths.thin * 2,
+            controlSizes.selectListMaxHeight,
+          ),
+          minWidth: 0,
+          margin: space[2],
+          gap: space[1],
+          align: 'start',
+        }),
+      );
+      setOpen(true);
+      setFocused(true);
+      setTimeout(focusIniziale, 50);
+    });
   };
 
   const isFieldActive = focused || open;
@@ -153,6 +225,7 @@ export function Select({
         {required ? <Text style={{ color: colors.text.secondary }}> (obbligatorio)</Text> : null}
       </Text>
 
+      <View style={floating ? styles.anchor : undefined}>
       <Pressable
         ref={triggerRef}
         accessibilityRole="combobox"
@@ -198,18 +271,55 @@ export function Select({
         <Icon name="chevron-down" size="action" color={disabled ? colors.text.muted : colors.brand.navy} />
       </Pressable>
 
-      {open ? (
+      {open && !floating ? (
         <View
           accessibilityLabel={label}
-          style={styles.list}
+          style={[styles.list, floating ? styles.listFloating : null]}
           {...({ role: 'listbox' } as object)}
           {...keyboardProps(onListKeyDown)}
         >
+          {searchable ? (
+            <View style={styles.searchBox}>
+              <Icon name="search" size="indicator" color={colors.text.muted} />
+              <TextInput
+                ref={searchRef}
+                value={query}
+                onChangeText={(testo) => {
+                setQuery(testo);
+                focusedIndex.current = -1;
+              }}
+              onSubmitEditing={() => {
+                const primo = visibili[enabled[0] ?? -1];
+                if (primo) choose(primo);
+              }}
+              {...keyboardProps((event: KeyEventLike) => {
+                const key = keyOf(event);
+                if (key === 'ArrowDown') {
+                  event.preventDefault?.();
+                  focusOption(enabled[0]);
+                } else if (key === 'Escape') {
+                  event.preventDefault?.();
+                  swallowEscapeKeyUp.current = true;
+                  close(true);
+                }
+              })}
+                placeholder="Cerca…"
+                placeholderTextColor={colors.text.muted}
+                accessibilityLabel={`Cerca in ${label}`}
+                autoCorrect={false}
+                autoCapitalize="none"
+                style={[bodyStyle, styles.searchInput]}
+              />
+            </View>
+          ) : null}
+          {visibili.length === 0 ? (
+            <Text style={[supportStyle, styles.nessunRisultato]}>Nessun risultato</Text>
+          ) : null}
           <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
-            {options.map((option, index) => {
+            {visibili.map((option, index) => {
               const isSelected = option.value === value;
               const isFirst = index === 0;
-              const isLast = index === options.length - 1;
+              const isLast = index === visibili.length - 1;
               const innerRadius = radii.control - borderWidths.thin;
               return (
                 <Pressable
@@ -276,6 +386,145 @@ export function Select({
           </ScrollView>
         </View>
       ) : null}
+      {open && floating && placement ? (
+        <RNModal transparent visible animationType="none" onRequestClose={() => close(true)}>
+          <View style={StyleSheet.absoluteFill}>
+            <Pressable
+              accessible={false}
+              focusable={false}
+              style={StyleSheet.absoluteFill}
+              onPress={() => {
+                setOpen(false);
+                setFocused(false);
+                setQuery('');
+              }}
+            />
+            <View
+              style={[
+                styles.floatingWrap,
+                placement.horizontal,
+                placement.vertical,
+                { width: placement.minWidth, maxHeight: placement.maxHeight },
+              ]}
+            >
+            <View
+              accessibilityLabel={label}
+              style={[styles.list, floating ? styles.listFloating : null]}
+              {...({ role: 'listbox' } as object)}
+              {...keyboardProps(onListKeyDown)}
+            >
+              {searchable ? (
+                <View style={styles.searchBox}>
+                  <Icon name="search" size="indicator" color={colors.text.muted} />
+                  <TextInput
+                    ref={searchRef}
+                    value={query}
+                    onChangeText={(testo) => {
+                setQuery(testo);
+                focusedIndex.current = -1;
+              }}
+              onSubmitEditing={() => {
+                const primo = visibili[enabled[0] ?? -1];
+                if (primo) choose(primo);
+              }}
+              {...keyboardProps((event: KeyEventLike) => {
+                const key = keyOf(event);
+                if (key === 'ArrowDown') {
+                  event.preventDefault?.();
+                  focusOption(enabled[0]);
+                } else if (key === 'Escape') {
+                  event.preventDefault?.();
+                  swallowEscapeKeyUp.current = true;
+                  close(true);
+                }
+              })}
+                    placeholder="Cerca…"
+                    placeholderTextColor={colors.text.muted}
+                    accessibilityLabel={`Cerca in ${label}`}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    style={[bodyStyle, styles.searchInput]}
+                  />
+                </View>
+              ) : null}
+              {visibili.length === 0 ? (
+                <Text style={[supportStyle, styles.nessunRisultato]}>Nessun risultato</Text>
+              ) : null}
+              <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
+                {visibili.map((option, index) => {
+                  const isSelected = option.value === value;
+                  const isFirst = index === 0;
+                  const isLast = index === visibili.length - 1;
+                  const innerRadius = radii.control - borderWidths.thin;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      ref={(node) => {
+                        optionRefs.current[index] = node;
+                      }}
+                      role="option"
+                      accessibilityLabel={option.label}
+                      accessibilityState={{ selected: isSelected, disabled: option.disabled }}
+                      aria-selected={isSelected}
+                      aria-disabled={option.disabled}
+                      disabled={option.disabled}
+                      onFocus={() => {
+                        focusedIndex.current = index;
+                      }}
+                      onPress={() => choose(option)}
+                      style={({ hovered, pressed, focused }: PressState) => {
+                        const style: ViewStyle[] = [
+                          styles.option,
+                          {
+                            backgroundColor: pressed
+                              ? colors.border
+                              : hovered || isSelected
+                                ? colors.semantic.info.background
+                                : colors.surface,
+                            borderTopLeftRadius: isFirst ? innerRadius : 0,
+                            borderTopRightRadius: isFirst ? innerRadius : 0,
+                            borderBottomLeftRadius: isLast ? innerRadius : 0,
+                            borderBottomRightRadius: isLast ? innerRadius : 0,
+                          },
+                        ];
+                        const cursor = cursorStyle(!!option.disabled);
+                        if (cursor) style.push(cursor);
+    
+                        // Su web l'anello di focus usa boxShadow inset con i raggi di curvatura dell'opzione,
+                        // per evitare che outline ritagli gli angoli arrotondati della lista.
+                        if (focused) {
+                          if (Platform.OS === 'web') {
+                            style.push({
+                              boxShadow: `inset 0 0 0 ${focusRingSize.width}px ${colors.focus}`,
+                              outlineStyle: 'none',
+                            } as unknown as ViewStyle);
+                          } else {
+                            style.push({ borderColor: colors.focus });
+                          }
+                        }
+                        return style;
+                      }}
+                    >
+                      <Text
+                        style={[
+                          bodyStyle,
+                          styles.optionText,
+                          { color: option.disabled ? colors.text.muted : colors.text.primary },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {isSelected ? <Icon name="check" size="action" color={colors.action.default} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+            </View>
+          </View>
+        </RNModal>
+      ) : null}
+      </View>
 
       {message ? (
         <View style={styles.message} role={error ? 'alert' : undefined}>
@@ -315,6 +564,41 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   scroll: { maxHeight: controlSizes.selectListMaxHeight },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    paddingHorizontal: space[3],
+    borderBottomWidth: borderWidths.thin,
+    borderBottomColor: colors.border,
+    minHeight: touchTarget.comfortable,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.text.primary,
+    paddingVertical: space[2],
+    ...Platform.select({ web: { outlineStyle: 'none' } as unknown as ViewStyle, default: {} }),
+  },
+  nessunRisultato: {
+    color: colors.text.secondary,
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
+  },
+  anchor: { position: 'relative', zIndex: 20 },
+  // Lista nel livello sopra la pagina: posizione assoluta rispetto alla finestra.
+  floatingWrap: { position: 'absolute' },
+  listFloating: {
+    ...Platform.select({
+      web: { boxShadow: '0 8px 24px rgba(15, 23, 42, 0.16)' } as unknown as ViewStyle,
+      default: {
+        elevation: 8,
+        shadowColor: '#0f172a',
+        shadowOpacity: 0.16,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
+  },
   option: {
     minHeight: touchTarget.comfortable,
     flexDirection: 'row',

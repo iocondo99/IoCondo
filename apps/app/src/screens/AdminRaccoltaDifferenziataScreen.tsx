@@ -24,6 +24,7 @@ import {
   ErrorState,
   FilterChips,
   Icon,
+  IconButton,
   LoadingState,
   Input,
   Modal,
@@ -312,23 +313,23 @@ function AdminRaccoltaDifferenziataContenuto() {
       {
         key: 'azioni',
         header: 'Azioni',
-        weight: 1.4,
-        minWidth: 210,
+        align: 'end',
+        interactive: true,
+        weight: 0,
+        minWidth: 120,
         cell: (r) => (
           <View style={styles.azioniRiga}>
-            <Button
-              label="Modifica"
-              variant="secondary"
+            <IconButton
               icon="pencil"
+              variant="ghost"
+              accessibilityLabel={`Modifica il turno ${r.tipo_rifiuto} di ${nomeGiornoSettimana(r.giorno_settimana)}`}
               onPress={() => apriModificaTurno(r)}
-              accessibilityHint={`Modifica il turno ${r.tipo_rifiuto} di ${nomeGiornoSettimana(r.giorno_settimana)}`}
             />
-            <Button
-              label="Elimina"
-              variant="destructive"
+            <IconButton
               icon="trash-2"
+              variant="ghost"
+              accessibilityLabel={`Elimina il turno ${r.tipo_rifiuto} di ${nomeGiornoSettimana(r.giorno_settimana)}`}
               onPress={() => setTurnoDaEliminare(r)}
-              accessibilityHint={`Elimina il turno ${r.tipo_rifiuto} di ${nomeGiornoSettimana(r.giorno_settimana)}`}
             />
           </View>
         ),
@@ -668,8 +669,10 @@ const styles = StyleSheet.create({
   azioniRiga: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: space[2],
+    flexWrap: 'nowrap',
+    justifyContent: 'flex-end',
+    alignSelf: 'stretch',
+    gap: space[1],
   },
   corpoDettaglio: {
     gap: space[4],

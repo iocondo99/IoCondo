@@ -23,6 +23,7 @@ import {
   ConfirmDialog,
   ErrorState,
   FilterChips,
+  IconButton,
   Input,
   LoadingState,
   Modal,
@@ -316,23 +317,23 @@ function AdminPrenotazioniContenuto() {
       {
         key: 'azioni',
         header: 'Azioni',
-        weight: 1.4,
-        minWidth: 210,
+        align: 'end',
+        interactive: true,
+        weight: 0,
+        minWidth: 120,
         cell: (r) => (
           <View style={styles.azioniRiga}>
-            <Button
-              label="Modifica"
-              variant="secondary"
+            <IconButton
               icon="pencil"
+              variant="ghost"
+              accessibilityLabel={`Modifica lo spazio ${r.nome}`}
               onPress={() => apriModificaSpazio(r)}
-              accessibilityHint={`Modifica lo spazio ${r.nome}`}
             />
-            <Button
-              label="Elimina"
-              variant="destructive"
+            <IconButton
               icon="trash-2"
+              variant="ghost"
+              accessibilityLabel={`Elimina lo spazio ${r.nome}`}
               onPress={() => setSpazioDaEliminare(r)}
-              accessibilityHint={`Elimina lo spazio ${r.nome}`}
             />
           </View>
         ),
@@ -405,16 +406,19 @@ function AdminPrenotazioniContenuto() {
       {
         key: 'azioni',
         header: 'Azioni',
-        weight: 1,
-        minWidth: 130,
+        align: 'end',
+        interactive: true,
+        weight: 0,
+        minWidth: 72,
         cell: (p) => (
-          <Button
-            label="Annulla"
-            variant="destructive"
-            icon="trash-2"
-            onPress={() => setPrenotazioneDaAnnullare(p)}
-            accessibilityHint={`Annulla la prenotazione di ${p.risorsa_nome}`}
-          />
+          <View style={styles.azioniRiga}>
+            <IconButton
+              icon="trash-2"
+              variant="ghost"
+              accessibilityLabel={`Annulla la prenotazione di ${p.risorsa_nome}`}
+              onPress={() => setPrenotazioneDaAnnullare(p)}
+            />
+          </View>
         ),
       },
     ],
@@ -719,8 +723,11 @@ const styles = StyleSheet.create({
   },
   azioniRiga: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space[2],
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    alignSelf: 'stretch',
+    gap: space[1],
   },
   formModale: {
     gap: space[4],

@@ -25,6 +25,7 @@ import {
   EmptyState,
   FilterChips,
   Icon,
+  IconButton,
   Input,
   Modal,
   ModalActions,
@@ -432,25 +433,26 @@ function AdminComunicazioniContenuto() {
       {
         key: 'azioni',
         header: 'Azioni',
-        weight: 1,
-        minWidth: 300,
+        align: 'end',
+        interactive: true,
+        weight: 0,
+        minWidth: 120,
         mobile: 'hidden',
         cell: (r) => (
           <View style={styles.rigaAzioni}>
-            <Button
-              variant="secondary"
-              label={r.isPinned ? 'Fissato' : 'Fissa'}
+            <IconButton
               icon="pin"
+              variant="ghost"
+              selected={r.isPinned}
+              disabled={idInPinning === r.id}
+              accessibilityLabel={r.isPinned ? `Rimuovi evidenza: ${r.titolo}` : `Fissa in evidenza: ${r.titolo}`}
               onPress={() => eseguiTogglePin(r)}
-              loading={idInPinning === r.id}
-              accessibilityHint={r.isPinned ? 'Rimuovi evidenza dall’avviso' : 'Fissa l’avviso in cima alla bacheca'}
             />
-            <Button
-              variant="destructive"
-              label="Elimina"
+            <IconButton
               icon="trash-2"
+              variant="ghost"
+              accessibilityLabel={`Elimina ${r.titolo}`}
               onPress={() => setComunicazioneDaEliminare(r)}
-              accessibilityHint={`Elimina definitivamente ${r.titolo}`}
             />
           </View>
         ),
@@ -849,7 +851,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'nowrap',
     alignItems: 'center',
-    gap: space[2],
+    justifyContent: 'flex-end',
+    alignSelf: 'stretch',
+    gap: space[1],
   },
   formModale: {
     gap: space[4],

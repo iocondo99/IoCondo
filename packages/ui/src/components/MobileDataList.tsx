@@ -113,6 +113,9 @@ function Card<T>({
   const titleStyle = useTextStyle('h4');
   const labelStyle = useTextStyle('secondary');
   const titleContent = title?.cell(row);
+  // Celle con pulsanti: restano fuori dalla scheda cliccabile (niente <button> dentro <button>).
+  const passive = details.filter((column) => !column.interactive);
+  const interactive = details.filter((column) => column.interactive);
 
   const body = (
     <>
@@ -128,7 +131,7 @@ function Card<T>({
         </View>
       </View>
       {status ? <View style={styles.status}>{status.cell(row)}</View> : null}
-      {details.map((column) => (
+      {passive.map((column) => (
         <View key={column.key} style={styles.detail}>
           <Text style={[labelStyle, styles.detailLabel]}>{column.mobileLabel ?? column.header}</Text>
           <View style={styles.detailValue}>
@@ -170,6 +173,15 @@ function Card<T>({
           <View style={styles.content}>{body}</View>
         </View>
       )}
+      {interactive.length > 0 ? (
+        <View style={styles.interactive}>
+          {interactive.map((column) => (
+            <View key={column.key} style={styles.interactiveCell}>
+              {column.cell(row)}
+            </View>
+          ))}
+        </View>
+      ) : null}
       {actions ? (
         <View style={styles.actions}>
           <RowActionsMenu label={rowLabel} items={actions} />
@@ -190,7 +202,7 @@ const styles = StyleSheet.create({
   },
   card: {
     alignSelf: 'stretch',
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'stretch',
     backgroundColor: colors.surface,
     borderWidth: borderWidths.thin,
@@ -230,4 +242,13 @@ const styles = StyleSheet.create({
   // La freccia non si restringe e non viene spinta fuori dal titolo lungo.
   chevron: { flexShrink: 0, alignSelf: 'center' },
   actions: { position: 'absolute', top: space[1], right: space[1] },
+  interactive: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: space[2],
+    paddingHorizontal: space[3],
+    paddingBottom: space[2],
+  },
+  interactiveCell: { flexDirection: 'row', alignItems: 'center' },
 });
