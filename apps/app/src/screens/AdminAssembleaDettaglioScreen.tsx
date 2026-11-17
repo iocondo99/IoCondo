@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
@@ -121,6 +122,11 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
 
   // ConfirmDialog Concludi Assemblea
   const [dialogConcludiAperto, setDialogConcludiAperto] = useState(false);
+  const [dialogInvioEmailAperto, setDialogInvioEmailAperto] = useState(false);
+  const [destinatariEmail, setDestinatariEmail] = useState<{ email: string; nome: string | null }[] | null>(null);
+  const [destinatariCaricamento, setDestinatariCaricamento] = useState(false);
+  const [destinatariErrore, setDestinatariErrore] = useState(false);
+  const [destinatariAperti, setDestinatariAperti] = useState(false);
   const [conclusioneInCorso, setConclusioneInCorso] = useState(false);
 
   // Area Caricamento Verbale
@@ -313,38 +319,25 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
     }
   };
 
-  // Condividi convocazione
-  const handleCondividiConvocazione = () => {
-    if (!dettaglio) return;
-    const { assemblea, puntiOdg } = dettaglio;
-    const d = new Date(assemblea.data);
-    const dataFormatted = d.toLocaleDateString('it-IT', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
 
-    const elencoPunti = puntiOdg.map((p) => `${p.ordine}. ${p.titoloPunto}`).join('\n');
-    const meetInfo = assemblea.linkMeet ? `\nCollegamento video Google Meet: ${assemblea.linkMeet}` : '';
-
-    const testo = [
-      `CONVOCAZIONE ASSEMBLEA CONDOMINIALE - ${condominio?.nome || 'Condominio'}`,
-      `Tipologia: Assemblea ${assemblea.tipo === 'STRAORDINARIA' ? 'Straordinaria' : 'Ordinaria'}`,
-      `Data e ora: ${dataFormatted}`,
-      `Luogo: ${assemblea.luogo || 'Sede stabilita'}${meetInfo}`,
-      '',
-      'ORDINE DEL GIORNO:',
-      elencoPunti,
-    ].join('\n');
-
-    if (typeof globalThis !== 'undefined' && (globalThis as any).navigator?.clipboard?.writeText) {
-      (globalThis as any).navigator.clipboard.writeText(testo);
-      toast.show({ tone: 'success', message: 'Testo di convocazione copiato negli appunti!' });
-    } else {
-      toast.show({ tone: 'info', message: 'Testo di convocazione generato.' });
+  const apriConfermaInvioEmail = async () => {
+    if (!condominio?.id || !dettaglio) return;
+    setDialogInvioEmailAperto(true);
+    setDestinatariAperti(false);
+    setDestinatariEmail(null);
+    setDestinatariErrore(false);
+    setDestinatariCaricamento(true);
+    try {
+      const anteprima = await services.codaEmail.anteprimaDestinatari({
+        condominioId: condominio.id,
+        tipoEvento: 'CONVOCAZIONE_ASSEMBLEA',
+        riferimentoId: dettaglio.assemblea.id,
+      });
+      setDestinatariEmail(anteprima.destinatari ?? []);
+    } catch {
+      setDestinatariErrore(true);
+    } finally {
+      setDestinatariCaricamento(false);
     }
   };
 
@@ -371,6 +364,7 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
       });
     } finally {
       setInvioEmailInCorso(false);
+      setDialogInvioEmailAperto(false);
     }
   };
 
@@ -563,9 +557,9 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
       <Breadcrumbs items={breadcrumbs} />
 
       {/* 2. Testata Assemblea */}
-      <Card style={styles.cardTestata}>
-        <View style={styles.rigaTestataSuperiore}>
-          <View style={styles.bloccoTitolo}>
+      <Card style={[styles.cardTestata, isMobile && styles.cardTestataMobile]}>
+        <View style={[styles.rigaTestataSuperiore, isMobile && styles.rigaTestataSuperioreMobile]}>
+          <View style={[styles.bloccoTitolo, isMobile && styles.bloccoTitoloMobile]}>
             <View style={styles.rigaTitoloBadge}>
               <Text style={styles.titoloAssemblea}>
                 Assemblea {assemblea.tipo === 'STRAORDINARIA' ? 'Straordinaria' : 'Ordinaria'}
@@ -576,26 +570,22 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
           </View>
 
           {/* Azioni di stato rapido */}
-          <View style={styles.azioniTestata}>
-            <Button
-              variant="secondary"
-              label="Condividi convocazione"
-              icon="share-2"
-              onPress={handleCondividiConvocazione}
-            />
+          <View style={[styles.azioniTestata, isMobile && styles.azioniTestataMobile]}>
 
             {assemblea.stato === 'CONVOCATA' && (
               <Button
+                fullWidth={isMobile}
                 variant="secondary"
                 label="Invia convocazione via email"
                 icon="mail"
-                onPress={handleInviaConvocazioneEmail}
+                onPress={() => void apriConfermaInvioEmail()}
                 loading={invioEmailInCorso}
               />
             )}
 
             {assemblea.stato === 'CONVOCATA' && (
               <Button
+                fullWidth={isMobile}
                 variant="primary"
                 label="Avvia seduta"
                 icon="play"
@@ -605,6 +595,7 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
 
             {assemblea.stato === 'IN_CORSO' && (
               <Button
+                fullWidth={isMobile}
                 variant="primary"
                 label="Concludi assemblea"
                 icon="check-circle-2"
@@ -744,7 +735,7 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
           role="button"
           aria-expanded={tabellaPresenzeAperta}
           onPress={() => setTabellaPresenzeAperta((prev) => !prev)}
-          style={styles.togglePresenzeHeader}
+          style={[styles.togglePresenzeHeader, isMobile && styles.togglePresenzeHeaderMobile]}
         >
           <View style={styles.rigaToggleTitolo}>
             <Icon name="users" size="indicator" color={colors.action.default} />
@@ -1380,6 +1371,58 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
 
       {/* ConfirmDialog Concludi Assemblea */}
       <ConfirmDialog
+        visible={dialogInvioEmailAperto}
+        onCancel={() => setDialogInvioEmailAperto(false)}
+        onConfirm={handleInviaConvocazioneEmail}
+        title="Inviare la convocazione via email?"
+        description="La convocazione verrà inviata via email a tutti i condòmini del condominio con un indirizzo registrato. Chi l'ha già ricevuta non la riceverà di nuovo."
+        confirmLabel="Invia email"
+        cancelLabel="Annulla"
+        destructive={false}
+      >
+        <View style={styles.destinatariBox}>
+          <Pressable
+            role="button"
+            aria-expanded={destinatariAperti}
+            accessibilityState={{ expanded: destinatariAperti }}
+            onPress={() => setDestinatariAperti((v) => !v)}
+            style={styles.destinatariHeader}
+          >
+            <Text style={styles.destinatariTitolo}>
+              {destinatariCaricamento
+                ? 'Destinatari: caricamento…'
+                : destinatariErrore
+                  ? 'Destinatari non disponibili'
+                  : `Destinatari (${destinatariEmail?.length ?? 0})`}
+            </Text>
+            <Icon
+              name={destinatariAperti ? 'chevron-up' : 'chevron-down'}
+              size="indicator"
+              color={colors.text.secondary}
+            />
+          </Pressable>
+          {destinatariAperti ? (
+            <ScrollView style={styles.destinatariLista}>
+              {destinatariCaricamento ? (
+                <Text style={styles.destinatariVuoto}>Caricamento in corso…</Text>
+              ) : destinatariErrore ? (
+                <Text style={styles.destinatariVuoto}>Non è stato possibile recuperare l’elenco dei destinatari.</Text>
+              ) : (destinatariEmail?.length ?? 0) === 0 ? (
+                <Text style={styles.destinatariVuoto}>Nessun condòmino con email valida.</Text>
+              ) : (
+                destinatariEmail!.map((d) => (
+                  <View key={d.email} style={styles.destinatarioRiga}>
+                    {d.nome ? <Text style={styles.destinatarioNome}>{d.nome}</Text> : null}
+                    <Text style={styles.destinatarioEmail}>{d.email}</Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          ) : null}
+        </View>
+      </ConfirmDialog>
+
+      <ConfirmDialog
         visible={dialogConcludiAperto}
         onCancel={() => setDialogConcludiAperto(false)}
         onConfirm={handleConcludiAssemblea}
@@ -1394,6 +1437,48 @@ function AdminAssembleaDettaglioContenuto({ assembleaId }: { assembleaId: string
 }
 
 const styles = StyleSheet.create({
+  destinatariBox: {
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
+    borderRadius: radii.card,
+    overflow: 'hidden',
+  },
+  destinatariHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
+    paddingVertical: space[3],
+    paddingHorizontal: space[3],
+    backgroundColor: colors.background,
+  },
+  destinatariTitolo: {
+    ...textStyle('secondary'),
+    fontWeight: '600',
+    color: colors.text.primary,
+    flexShrink: 1,
+  },
+  destinatariLista: { maxHeight: 220 },
+  destinatariVuoto: {
+    ...textStyle('secondary'),
+    color: colors.text.secondary,
+    padding: space[3],
+  },
+  destinatarioRiga: {
+    paddingVertical: space[2],
+    paddingHorizontal: space[3],
+    borderTopWidth: borderWidths.thin,
+    borderTopColor: colors.border,
+  },
+  destinatarioNome: {
+    ...textStyle('secondary'),
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  destinatarioEmail: {
+    ...textStyle('secondary'),
+    color: colors.text.secondary,
+  },
   pagina: {
     gap: space[6],
     width: '100%',
@@ -1445,6 +1530,20 @@ const styles = StyleSheet.create({
     gap: space[3],
     flexWrap: 'wrap',
   },
+  // Smartphone: pulsanti uno sotto l'altro, a tutta larghezza, dentro la scheda.
+  azioniTestataMobile: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+    width: '100%',
+    gap: space[2],
+  },
+  bloccoTitoloMobile: { minWidth: 0, width: '100%' },
+  // Smartphone: titolo sopra, pulsanti sotto e centrati nella scheda.
+  rigaTestataSuperioreMobile: { flexDirection: 'column', flexWrap: 'nowrap', alignItems: 'stretch' },
+  cardTestataMobile: { padding: space[4] },
   grigliaDettagliTestata: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1456,12 +1555,17 @@ const styles = StyleSheet.create({
   },
   voceDettaglio: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: space[2],
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: '100%',
   },
   testoDettaglio: {
     ...textStyle('secondary'),
     color: colors.text.secondary,
+    flexShrink: 1,
+    minWidth: 0,
   },
   linkMeetPress: {
     flexDirection: 'row',
@@ -1608,6 +1712,12 @@ const styles = StyleSheet.create({
     color: colors.semantic.error.foreground,
     flex: 1,
   },
+  // Smartphone: titolo sopra, "Espandi e modifica presenze" sotto (niente sovrapposizione).
+  togglePresenzeHeaderMobile: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: space[2],
+  },
   togglePresenzeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1624,17 +1734,21 @@ const styles = StyleSheet.create({
     ...textStyle('secondary'),
     fontWeight: '700',
     color: colors.text.primary,
+    flexShrink: 1,
+    minWidth: 0,
   },
   rigaToggleTitolo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[2],
     flex: 1,
+    minWidth: 0,
   },
   rigaToggleAzione: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[2],
+    flexShrink: 0,
   },
   testoToggleAzione: {
     ...textStyle('secondary'),

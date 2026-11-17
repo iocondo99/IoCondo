@@ -583,9 +583,15 @@ function AdminComunicazioniContenuto() {
         actions={
           <ModalActions>
             <Button
-              variant="secondary"
-              label="Chiudi"
-              onPress={() => setModaleDettaglioAperta(false)}
+              variant="destructive"
+              label="Elimina"
+              icon="trash-2"
+              onPress={() => {
+                if (!avvisoDettaglio) return;
+                const target = avvisoDettaglio;
+                setModaleDettaglioAperta(false);
+                setComunicazioneDaEliminare(target);
+              }}
             />
             <Button
               variant="primary"
@@ -597,15 +603,9 @@ function AdminComunicazioniContenuto() {
               }}
             />
             <Button
-              variant="destructive"
-              label="Elimina"
-              icon="trash-2"
-              onPress={() => {
-                if (!avvisoDettaglio) return;
-                const target = avvisoDettaglio;
-                setModaleDettaglioAperta(false);
-                setComunicazioneDaEliminare(target);
-              }}
+              variant="secondary"
+              label="Chiudi"
+              onPress={() => setModaleDettaglioAperta(false)}
             />
           </ModalActions>
         }

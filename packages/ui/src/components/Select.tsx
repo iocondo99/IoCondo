@@ -50,6 +50,8 @@ export interface SelectProps {
   floating?: boolean;
   /** Campo di ricerca nella lista: scrivendo si filtrano le opzioni. Attivo di default. */
   searchable?: boolean;
+  /** Nasconde l'etichetta visibile (resta come nome accessibile). */
+  hideLabel?: boolean;
 }
 
 /**
@@ -73,6 +75,7 @@ export function Select({
   disabled = false,
   floating = false,
   searchable = true,
+  hideLabel = false,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -217,13 +220,15 @@ export function Select({
 
   return (
     <View style={styles.field} {...({ onKeyUp: onFieldKeyUp } as object)}>
-      <Text
-        style={[labelStyle, { color: colors.text.primary }]}
-        onPress={() => focusElement(triggerRef.current)}
-      >
-        {label}
-        {required ? <Text style={{ color: colors.text.secondary }}> (obbligatorio)</Text> : null}
-      </Text>
+      {!hideLabel ? (
+        <Text
+          style={[labelStyle, { color: colors.text.primary }]}
+          onPress={() => focusElement(triggerRef.current)}
+        >
+          {label}
+          {required ? <Text style={{ color: colors.text.secondary }}> (obbligatorio)</Text> : null}
+        </Text>
+      ) : null}
 
       <View style={floating ? styles.anchor : undefined}>
       <Pressable

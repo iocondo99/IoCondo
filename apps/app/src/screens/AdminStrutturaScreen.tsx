@@ -18,6 +18,7 @@ import {
   arrotonda3,
 } from '@iocondo/data';
 import {
+  DatePicker,
   Alert,
   Badge,
   Breadcrumbs,
@@ -53,6 +54,21 @@ import {
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
 import { useProfilo } from '@/context/ProfiloContext';
 import { services } from '@/services';
+
+
+// Il campo data lavora con oggetti Date (gg/mm/aaaa a video); lo stato resta in formato ISO.
+const daIso = (testo: string): Date | null => {
+  const t = (testo || '').trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  const it = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
+  if (it) return new Date(Number(it[3]), Number(it[2]) - 1, Number(it[1]));
+  return null;
+};
+const aIso = (data: Date | null): string =>
+  data
+    ? `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
+    : '';
 
 export function AdminStrutturaScreen() {
   const consentito = useAccessoConsentito();
@@ -695,11 +711,6 @@ function AdminStrutturaContenuto() {
               <Card
                 key={palazzo.id}
                 title={palazzo.nome}
-                action={{
-                  label: '+ Nuova unità',
-                  onPress: () => apriModaleNuovaUnita(palazzo.id),
-                  accessibilityHint: `Aggiungi una nuova unità immobiliare nel ${palazzo.nome}`,
-                }}
               >
                 <View style={styles.palazzoCorpo}>
                   {/* Badge riepilogo edificio e azioni rapide */}
@@ -1566,11 +1577,10 @@ function AdminStrutturaContenuto() {
               />
             </View>
             <View style={styles.campoMezzo}>
-              <Input
+              <DatePicker
                 label="Data decorrenza (inizio)"
-                placeholder="AAAA-MM-GG"
-                value={dataInizioInput}
-                onChangeText={setDataInizioInput}
+                value={daIso(dataInizioInput)}
+                onChange={(data) => setDataInizioInput(aIso(data))}
                 disabled={salvataggioResidenteInCorso}
               />
             </View>

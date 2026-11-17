@@ -186,15 +186,24 @@ export interface ModalActionsProps {
 
 /**
  * Dispone i pulsanti in fondo a una finestra: in riga a destra su tablet e desktop
- * (azione principale all'estrema destra), impilati a tutta larghezza su smartphone
- * (azione principale in alto). L'ordine di tabulazione resta quello di lettura.
+ * (azione principale all'estrema destra); su smartphone sulla stessa riga, divisi in parti uguali
+ * e senza icone, per lasciare spazio al testo. L'ordine di tabulazione resta quello di lettura.
  */
 export function ModalActions({ children }: ModalActionsProps) {
   const { isMobile } = useBreakpoint();
   const items = React.Children.toArray(children) as React.ReactElement<{ fullWidth?: boolean }>[];
   return (
-    <View style={[styles.actions, isMobile ? styles.actionsStacked : styles.actionsRow]}>
-      {items.map((item) => React.cloneElement(item, { fullWidth: isMobile }))}
+    <View style={[styles.actions, isMobile ? styles.actionsMobile : styles.actionsRow]}>
+      {items.map((item, index) =>
+        isMobile ? (
+          // Su smartphone ogni pulsante divide la riga con gli altri (3 pulsanti = un terzo ciascuno).
+          <View key={item.key ?? index} style={styles.actionCellMobile}>
+            {React.cloneElement(item as React.ReactElement<{ fullWidth?: boolean; icon?: unknown }>, { fullWidth: true, icon: undefined })}
+          </View>
+        ) : (
+          item
+        ),
+      )}
     </View>
   );
 }
@@ -244,5 +253,7 @@ const styles = StyleSheet.create({
   },
   actions: { gap: space[3] },
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end' },
-  actionsStacked: { flexDirection: 'column-reverse', alignItems: 'stretch' },
+  // Smartphone: tutti i pulsanti sulla stessa riga, stessa larghezza, azione principale a destra.
+  actionsMobile: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'stretch', gap: space[2] },
+  actionCellMobile: { flex: 1, flexBasis: 0, minWidth: 0 },
 });

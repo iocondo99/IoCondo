@@ -1,10 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Linking,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
@@ -12,6 +11,7 @@ import {
   Badge,
   Button,
   Card,
+  DateTimePicker,
   FilterChips,
   Icon,
   Input,
@@ -124,8 +124,6 @@ function AdminAssembleeContenuto() {
   const [erroriForm, setErroriForm] = useState<Record<string, string>>({});
   const [salvataggioInCorso, setSalvataggioInCorso] = useState(false);
 
-  // Focus ring refs
-  const primaConvInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   // Caricamento dati
   const caricaDati = useCallback(async () => {
@@ -510,24 +508,19 @@ function AdminAssembleeContenuto() {
 
           <View style={styles.rigaDoppia}>
             <View style={styles.colInput}>
-              <Input
-                inputRef={primaConvInputRef}
+              <DateTimePicker
                 label="Data e ora 1ª Convocazione"
                 value={dataPrimaConv}
-                onChangeText={setDataPrimaConv}
-                placeholder="AAAA-MM-GGTHH:mm"
-                helperText="Es. 2026-11-20T08:00 (spesso deserta)"
+                onChange={setDataPrimaConv}
                 error={erroriForm.dataPrimaConvocazione}
               />
             </View>
 
             <View style={styles.colInput}>
-              <Input
+              <DateTimePicker
                 label="Data e ora 2ª Convocazione"
                 value={dataSecondaConv}
-                onChangeText={setDataSecondaConv}
-                placeholder="AAAA-MM-GGTHH:mm"
-                helperText="Es. 2026-11-21T18:30 (seduta effettiva)"
+                onChange={setDataSecondaConv}
                 error={erroriForm.dataSecondaConvocazione}
               />
             </View>
@@ -663,13 +656,12 @@ const styles = StyleSheet.create({
     paddingBottom: space[2],
   },
   rigaDoppia: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space[3],
+    flexDirection: 'column',
+    gap: space[4],
   },
   colInput: {
-    flex: 1,
-    minWidth: 220,
+    alignSelf: 'stretch',
+    width: '100%',
   },
   checkboxRiga: {
     flexDirection: 'row',

@@ -63,6 +63,7 @@ export function PageHeader({
         {action || secondaryAction ? (
           <View style={[styles.actionsGroup, isMobile && styles.actionsGroupMobile]}>
             {secondaryAction ? (
+              <View style={isMobile ? styles.actionMobile : undefined}>
               <Button
                 variant="secondary"
                 fullWidth={isMobile}
@@ -72,8 +73,10 @@ export function PageHeader({
                 disabled={secondaryAction.disabled}
                 onPress={secondaryAction.onPress}
               />
+              </View>
             ) : null}
             {action ? (
+              <View style={isMobile ? styles.actionMobile : undefined}>
               <Button
                 fullWidth={isMobile}
                 label={action.label}
@@ -82,6 +85,7 @@ export function PageHeader({
                 disabled={action.disabled}
                 onPress={action.onPress}
               />
+              </View>
             ) : null}
           </View>
         ) : null}
@@ -112,9 +116,12 @@ const styles = StyleSheet.create({
     gap: space[3],
     flexWrap: 'wrap',
   },
+  // Su smartphone i due pulsanti stanno affiancati e si dividono la riga.
   actionsGroupMobile: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'stretch',
+    flexWrap: 'nowrap',
     gap: space[2],
   },
+  actionMobile: { flex: 1, minWidth: 0 },
 });

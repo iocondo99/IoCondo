@@ -5,7 +5,6 @@ import { homeDi, navigazioneMobile, type Vista } from '@iocondo/data';
 import {
   Button,
   Icon,
-  PageHeader,
   Select,
   borderWidths,
   colors,
@@ -39,10 +38,6 @@ export function AltroScreen() {
 
   return (
     <>
-      <PageHeader
-        title="Altro"
-        subtitle={profilo.etichettaVista ? `Accesso come ${profilo.etichettaVista.toLowerCase()}.` : undefined}
-      />
       {condomini.length > 1 ? (
         <Select
           label="Condominio"

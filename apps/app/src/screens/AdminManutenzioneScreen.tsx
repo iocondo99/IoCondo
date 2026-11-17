@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Href, useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  DatePicker,
   Badge,
   Button,
   Card,
@@ -78,6 +79,21 @@ const OPZIONI_CATEGORIA_FORNITORE: readonly SelectOption[] = [
   { value: 'Fabbro', label: 'Fabbro / Serramenti' },
   { value: 'Altro', label: 'Altro settore' },
 ];
+
+// Il campo data lavora con oggetti Date (gg/mm/aaaa a video); lo stato resta in formato ISO.
+const daIso = (testo: string): Date | null => {
+  const t = (testo || '').trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  const it = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
+  if (it) return new Date(Number(it[3]), Number(it[2]) - 1, Number(it[1]));
+  return null;
+};
+const aIso = (data: Date | null): string =>
+  data
+    ? `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
+    : '';
+
 export function AdminManutenzioneScreen() {
   const consentito = useAccessoConsentito();
   const { profilo, condominio, ruoli } = useProfilo();
@@ -1065,11 +1081,10 @@ function AdminManutenzioneContenuto() {
             />
             {fornitoreModificaId ? (
               <>
-                <Input
-                  label="Data prevista intervento (GG/MM/AAAA o AAAA-MM-GG)"
-                  placeholder="Es. 2026-11-10"
-                  value={dataPrevistaModificaInput}
-                  onChangeText={setDataPrevistaModificaInput}
+                <DatePicker
+                  label="Data prevista intervento"
+                  value={daIso(dataPrevistaModificaInput)}
+                  onChange={(data) => setDataPrevistaModificaInput(aIso(data))}
                 />
                 <Textarea
                   label="Istruzioni per il manutentore"

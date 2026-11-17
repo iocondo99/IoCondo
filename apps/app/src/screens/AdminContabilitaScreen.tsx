@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  DatePicker,
   Alert,
   Badge,
   Button,
@@ -181,6 +182,21 @@ function badgeStatoRecupero(stato: string): { status: BadgeStatus; label: string
       return { status: 'warning', label: 'Da avviare' };
   }
 }
+
+
+// Il campo data lavora con oggetti Date (gg/mm/aaaa a video); lo stato resta in formato ISO.
+const daIso = (testo: string): Date | null => {
+  const t = (testo || '').trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  const it = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
+  if (it) return new Date(Number(it[3]), Number(it[2]) - 1, Number(it[1]));
+  return null;
+};
+const aIso = (data: Date | null): string =>
+  data
+    ? `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
+    : '';
 
 export function AdminContabilitaScreen() {
   const consentito = useAccessoConsentito();
@@ -962,7 +978,7 @@ function AdminContabilitaContenuto() {
     const numRate = Math.max(1, Math.min(12, parseInt(rateNumeroScadenze, 10) || 4));
     const dataBase = new Date(`${ratePrimaScadenza}T12:00:00Z`);
     if (isNaN(dataBase.getTime())) {
-      setRateErroreForm('Inserisci una data di prima scadenza valida (AAAA-MM-GG).');
+      setRateErroreForm('Inserisci una data di prima scadenza valida (gg/mm/aaaa).');
       return;
     }
 
@@ -1809,19 +1825,17 @@ function AdminContabilitaContenuto() {
               />
               <View style={styles.rigaDateFiltro}>
                 <View style={styles.colFiltroData}>
-                  <Input
-                    label="Dal giorno (ISO)"
-                    placeholder="AAAA-MM-GG"
-                    value={filtroDataDa}
-                    onChangeText={setFiltroDataDa}
+                  <DatePicker
+                    label="Dal giorno"
+                    value={daIso(filtroDataDa)}
+                    onChange={(data) => setFiltroDataDa(aIso(data))}
                   />
                 </View>
                 <View style={styles.colFiltroData}>
-                  <Input
-                    label="Al giorno (ISO)"
-                    placeholder="AAAA-MM-GG"
-                    value={filtroDataA}
-                    onChangeText={setFiltroDataA}
+                  <DatePicker
+                    label="Al giorno"
+                    value={daIso(filtroDataA)}
+                    onChange={(data) => setFiltroDataA(aIso(data))}
                   />
                 </View>
               </View>
@@ -2537,11 +2551,11 @@ function AdminContabilitaContenuto() {
               />
             </View>
             <View style={styles.colInput}>
-              <Input
-                label="Data di pagamento (ISO) *"
-                placeholder="AAAA-MM-GG"
-                value={spesaDataPagamento}
-                onChangeText={setSpesaDataPagamento}
+              <DatePicker
+                label="Data di pagamento"
+                value={daIso(spesaDataPagamento)}
+                onChange={(data) => setSpesaDataPagamento(aIso(data))}
+                required
               />
             </View>
           </View>
@@ -2735,11 +2749,11 @@ function AdminContabilitaContenuto() {
 
           <View style={styles.rigaDoppia}>
             <View style={styles.colInput}>
-              <Input
-                label="Data assemblea (ISO) *"
-                placeholder="AAAA-MM-GG"
-                value={dataAssembleaPrevInput}
-                onChangeText={setDataAssembleaPrevInput}
+              <DatePicker
+                label="Data assemblea"
+                value={daIso(dataAssembleaPrevInput)}
+                onChange={(data) => setDataAssembleaPrevInput(aIso(data))}
+                required
               />
             </View>
             <View style={styles.colInput}>
@@ -2808,11 +2822,10 @@ function AdminContabilitaContenuto() {
               />
             </View>
             <View style={styles.colInput}>
-              <Input
-                label="Data scadenza 1ª rata (ISO)"
-                placeholder="AAAA-MM-GG"
-                value={ratePrimaScadenza}
-                onChangeText={setRatePrimaScadenza}
+              <DatePicker
+                label="Data scadenza 1ª rata"
+                value={daIso(ratePrimaScadenza)}
+                onChange={(data) => setRatePrimaScadenza(aIso(data))}
               />
             </View>
           </View>
@@ -2906,11 +2919,11 @@ function AdminContabilitaContenuto() {
               />
             </View>
             <View style={styles.colInput}>
-              <Input
-                label="Data valuta (ISO) *"
-                placeholder="AAAA-MM-GG"
-                value={incassoDataValuta}
-                onChangeText={setIncassoDataValuta}
+              <DatePicker
+                label="Data valuta"
+                value={daIso(incassoDataValuta)}
+                onChange={(data) => setIncassoDataValuta(aIso(data))}
+                required
               />
             </View>
           </View>

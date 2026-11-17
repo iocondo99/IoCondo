@@ -23,6 +23,8 @@ interface AccodaEmailPayload {
   riferimento_id?: string;
   riferimento_ids?: string[];
   seconda_convocazione?: string | null;
+  /** true: restituisce solo i destinatari, senza accodare nulla. */
+  anteprima?: boolean;
 }
 
 interface DestinatarioRisolto {
@@ -489,6 +491,14 @@ serve(async (req) => {
       amministratoreId,
       mittente,
       postId: uniqueIds[0]!,
+    });
+  }
+
+  // Anteprima: elenco dei destinatari che riceverebbero l'email, senza toccare la coda.
+  if (payload.anteprima === true) {
+    return json({
+      destinatari: risultato.righe.map((r) => ({ email: r.destinatario_email, nome: r.destinatario_nome })),
+      saltate_senza_email: risultato.saltateSenzaEmail,
     });
   }
 

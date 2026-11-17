@@ -280,7 +280,6 @@ export function generaTemplateConvocazioneAssemblea(
       <tr><td style="color:#475569;width:42%;">1ª Convocazione</td><td style="font-weight:600;">${escapeHtml(prima)}</td></tr>
       ${seconda ? `<tr><td style="color:#475569;">2ª Convocazione</td><td style="font-weight:600;">${escapeHtml(seconda)}</td></tr>` : ''}
       ${dati.luogo ? `<tr><td style="color:#475569;">Luogo</td><td>${escapeHtml(dati.luogo)}</td></tr>` : ''}
-      ${dati.linkMeet ? `<tr><td style="color:#475569;">Collegamento</td><td>${escapeHtml(dati.linkMeet)}</td></tr>` : ''}
     </table>
     <h2 style="margin:0 0 8px 0;font-size:16px;color:#0D3B66;">Ordine del giorno</h2>
     ${odgHtml}
@@ -294,7 +293,6 @@ export function generaTemplateConvocazioneAssemblea(
     `- 1ª Convocazione: ${prima}`,
     seconda ? `- 2ª Convocazione: ${seconda}` : null,
     dati.luogo ? `- Luogo: ${dati.luogo}` : null,
-    dati.linkMeet ? `- Collegamento: ${dati.linkMeet}` : null,
     '',
     'Ordine del giorno:',
     ...(dati.puntiOdg.length
@@ -425,6 +423,27 @@ function risolviFrom(from: string | undefined, fallbackReale: string): string {
  * connessione per invocazione. Rilancia in caso di errore così il chiamante
  * può gestire retry/stato. Nessun dato personale nei log.
  */
+/**
+ * Toglie spazi a fine riga e righe vuote: con la codifica quoted-printable dell'invio diventerebbero
+ * "=20" visibili nel messaggio.
+ */
+function compattaRighe(testo: string): string {
+  return testo
+    .split(/\r?\n/)
+    .map((riga) => riga.replace(/[ \t]+$/g, ''))
+    .filter((riga, i, tutte) => riga.trim() !== '' || (i > 0 && tutte[i - 1]!.trim() !== ''))
+    .join('\n')
+    .trim();
+}
+
+function compattaHtml(html: string): string {
+  return html
+    .split(/\r?\n/)
+    .map((riga) => riga.trim())
+    .filter((riga) => riga !== '')
+    .join('\n');
+}
+
 export async function inviaViaGmail(
   messaggio: GmailMessaggio,
   credenziali: GmailCredenziali = leggiCredenzialiGmail(),
@@ -444,8 +463,8 @@ export async function inviaViaGmail(
       to: messaggio.to,
       subject: messaggio.subject,
       // denomailer: 'content' per il testo, 'html' per la versione HTML.
-      content: messaggio.text ?? "Questa email richiede un client che supporti l'HTML.",
-      ...(messaggio.html ? { html: messaggio.html } : {}),
+      content: compattaRighe(messaggio.text ?? "Questa email richiede un client che supporti l'HTML."),
+      ...(messaggio.html ? { html: compattaHtml(messaggio.html) } : {}),
       ...(messaggio.replyTo ? { replyTo: messaggio.replyTo } : {}),
     });
   } finally {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { ICodaEmail } from '@iocondo/shared-types';
 import {
@@ -16,7 +16,9 @@ import {
   Badge,
   Button,
   Card,
+  ConfirmDialog,
   FilterChips,
+  IconButton,
   Modal,
   ModalActions,
   NonAutorizzato,
@@ -111,6 +113,8 @@ function AdminCodaEmailContenuto({
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>('TUTTI');
   const [ricerca, setRicerca] = useState('');
   const [dettaglioRiga, setDettaglioRiga] = useState<ICodaEmail | null>(null);
+  // Email da annullare (popup di conferma)
+  const [emailDaAnnullare, setEmailDaAnnullare] = useState<ICodaEmail | null>(null);
 
   const caricaDati = useCallback(async () => {
     setCaricamento(true);
@@ -185,19 +189,36 @@ function AdminCodaEmailContenuto({
     }
   };
 
+  // Si possono annullare solo le email non ancora partite e non in invio in questo momento.
+  const annullabile = (r: ICodaEmail) => r.stato === 'PENDING' || r.stato === 'FAILED';
+
+  const confermaAnnullamento = async () => {
+    if (!emailDaAnnullare) return;
+    const annullata = await services.codaEmail.annullaEmail(emailDaAnnullare.id);
+    toast.show(
+      annullata
+        ? { tone: 'success', message: `Email per ${emailDaAnnullare.destinatario_email} rimossa dalla coda.` }
+        : { tone: 'warning', message: 'L’email non è più annullabile: è già stata inviata o è in invio.' },
+    );
+    setEmailDaAnnullare(null);
+    await caricaDati();
+  };
+
   const columns: DataColumn<ICodaEmail>[] = useMemo(
     () => [
       {
         key: 'destinatario',
         header: 'Destinatario',
-        flex: 1.3,
+        minWidth: 260,
+        weight: 3,
+        mobile: 'title',
         cell: (r) => (
           <View style={styles.cellaTesto}>
-            <Text style={styles.titoloRiga} numberOfLines={1}>
+            <Text style={[styles.titoloRiga, styles.testoSpezzabile]}>
               {r.destinatario_nome || r.destinatario_email}
             </Text>
             {r.destinatario_nome ? (
-              <Text style={styles.sottotitoloRiga} numberOfLines={1}>
+              <Text style={[styles.sottotitoloRiga, styles.testoSpezzabile]}>
                 {r.destinatario_email}
               </Text>
             ) : null}
@@ -207,7 +228,8 @@ function AdminCodaEmailContenuto({
       {
         key: 'tipo',
         header: 'Flusso',
-        width: 125,
+        minWidth: 120,
+        weight: 1,
         cell: (r) => (
           <Text style={styles.testoNormale} numberOfLines={1}>
             {etichettaTipoEventoEmail(r.tipo_evento)}
@@ -217,7 +239,8 @@ function AdminCodaEmailContenuto({
       {
         key: 'oggetto',
         header: 'Oggetto',
-        flex: 1.6,
+        minWidth: 220,
+        weight: 3,
         cell: (r) => (
           <Text style={styles.testoNormale} numberOfLines={1}>
             {r.oggetto}
@@ -227,7 +250,9 @@ function AdminCodaEmailContenuto({
       {
         key: 'stato',
         header: 'Stato',
-        width: 125,
+        minWidth: 130,
+        weight: 1,
+        mobile: 'status',
         cell: (r) => {
           const b = badgeStatoEmail(r.stato);
           return <Badge status={b.status} label={b.label} />;
@@ -236,7 +261,8 @@ function AdminCodaEmailContenuto({
       {
         key: 'tentativi',
         header: 'Tentativi',
-        width: 90,
+        minWidth: 90,
+        weight: 0,
         cell: (r) => (
           <Text style={styles.testoMuted}>
             {r.tentativi}/{r.max_tentativi}
@@ -246,11 +272,32 @@ function AdminCodaEmailContenuto({
       {
         key: 'data',
         header: 'Data',
-        width: 120,
+        minWidth: 110,
+        weight: 0,
         cell: (r) => (
           <Text style={styles.testoMuted} numberOfLines={1}>
             {formattaDataItaliana(r.inviata_at || r.created_at)}
           </Text>
+        ),
+      },
+      {
+        key: 'azioni',
+        header: 'Azioni',
+        align: 'end',
+        minWidth: 72,
+        weight: 0,
+        interactive: true,
+        cell: (r) => (
+          <View style={styles.rigaAzioni}>
+            {annullabile(r) ? (
+              <IconButton
+                icon="x"
+                variant="ghost"
+                accessibilityLabel={`Rimuovi dalla coda l’email per ${r.destinatario_email}`}
+                onPress={() => setEmailDaAnnullare(r)}
+              />
+            ) : null}
+          </View>
         ),
       },
     ],
@@ -443,11 +490,34 @@ function AdminCodaEmailContenuto({
           </View>
         ) : null}
       </Modal>
+
+      <ConfirmDialog
+        visible={!!emailDaAnnullare}
+        title="Rimuovere l’email dalla coda?"
+        description={
+          emailDaAnnullare
+            ? `L’email “${emailDaAnnullare.oggetto}” per ${emailDaAnnullare.destinatario_email} non verrà inviata. Resterà nel log come annullata.`
+            : ''
+        }
+        confirmLabel="Rimuovi email"
+        confirmLoadingLabel="Rimozione in corso…"
+        cancelLabel="Annulla"
+        destructive
+        onConfirm={confermaAnnullamento}
+        onCancel={() => setEmailDaAnnullare(null)}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  rigaAzioni: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    alignSelf: 'stretch',
+    minHeight: 48,
+  },
   pagina: {
     gap: space[5],
   },
@@ -502,7 +572,15 @@ const styles = StyleSheet.create({
   },
   cellaTesto: {
     gap: 2,
+    flexShrink: 1,
+    minWidth: 0,
+    paddingRight: space[4],
   },
+  // Email e nomi lunghi vanno a capo dentro la cella invece di finire sulla colonna accanto.
+  testoSpezzabile: Platform.select({
+    web: { wordBreak: 'break-word', overflowWrap: 'anywhere' } as object,
+    default: {},
+  }) as object,
   titoloRiga: {
     ...textStyle('body'),
     color: colors.text.primary,

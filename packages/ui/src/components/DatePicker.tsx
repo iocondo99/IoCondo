@@ -68,6 +68,8 @@ export interface DatePickerProps {
   error?: string;
   required?: boolean;
   disabled?: boolean;
+  /** Nasconde l'etichetta visibile (resta come nome accessibile). */
+  hideLabel?: boolean;
 }
 
 const CALENDAR_WIDTH = dataSizes.calendarWidth + space[4] * 2;
@@ -87,10 +89,11 @@ export function DatePicker({
   onChange,
   min,
   max,
-  helperText = 'Scrivi la data come gg/mm/aaaa o aprila dal calendario.',
+  helperText,
   error,
   required,
   disabled = false,
+  hideLabel = false,
 }: DatePickerProps) {
   const range: DateRange = { min, max };
   const [text, setText] = useState(() => formatDateNumeric(value));
@@ -182,6 +185,8 @@ export function DatePicker({
     <>
       <BaseField
         label={label}
+        hideLabel={hideLabel}
+        accessibilityLabel={hideLabel ? label : undefined}
         value={text}
         onChangeText={handleText}
         onBlur={handleBlur}

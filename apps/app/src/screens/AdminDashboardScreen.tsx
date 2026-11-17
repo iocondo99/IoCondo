@@ -206,7 +206,7 @@ function AdminDashboardContenuto() {
       {/* Layout desktop a 2 colonne (collassabile verticalmente su tablet e mobile) */}
       <View style={[styles.layoutColonne, !isDesktop && styles.layoutColonneCollassate]}>
         {/* Colonna Sinistra */}
-        <View style={styles.colonnaSinistra}>
+        <View style={[styles.colonnaSinistra, !isDesktop && styles.colonnaImpilata]}>
           {/* Ticket guasti urgenti */}
           <StatCard
             icon="wrench"
@@ -247,7 +247,7 @@ function AdminDashboardContenuto() {
         </View>
 
         {/* Colonna Destra */}
-        <View style={styles.colonnaDestra}>
+        <View style={[styles.colonnaDestra, !isDesktop && styles.colonnaImpilata]}>
           {/* Stato riscossione dell'esercizio */}
           <StatCard
             icon="credit-card"
@@ -364,6 +364,14 @@ const styles = StyleSheet.create({
   },
   layoutColonneCollassate: {
     flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  // Su tablet e smartphone le colonne sono una sotto l'altra: altezza del contenuto, niente
+  // divisione dello spazio (altrimenti le schede si allungano o vengono tagliate e si sovrappongono).
+  colonnaImpilata: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
   },
   colonnaSinistra: {
     flex: 1.15,

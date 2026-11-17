@@ -22,6 +22,16 @@ export interface AccodaEmailResult {
   worker_avviato: boolean;
 }
 
+export interface DestinatarioEmailAnteprima {
+  email: string;
+  nome: string | null;
+}
+
+export interface AnteprimaDestinatariResult {
+  destinatari: DestinatarioEmailAnteprima[];
+  saltate_senza_email: number;
+}
+
 export interface ElaboraCodaResult {
   claimed: number;
   sent: number;
@@ -105,6 +115,31 @@ export function createCodaEmailService(db: TypedSupabaseClient) {
         riferimento_ids: input.riferimentoIds,
         seconda_convocazione: input.secondaConvocazione ?? null,
       });
+    },
+
+    /**
+     * Destinatari che riceverebbero l'email per l'evento, senza accodare nulla (es. per la conferma).
+     */
+    async anteprimaDestinatari(input: AccodaEmailInput): Promise<AnteprimaDestinatariResult> {
+      return await invokeFunction<AnteprimaDestinatariResult>(db, 'accoda-email', {
+        condominio_id: input.condominioId,
+        tipo_evento: input.tipoEvento,
+        riferimento_id: input.riferimentoId,
+        riferimento_ids: input.riferimentoIds,
+        seconda_convocazione: input.secondaConvocazione ?? null,
+        anteprima: true,
+      });
+    },
+
+    /**
+     * Annulla un'email ancora in coda (stato PENDING o FAILED): passa a CANCELLED e non viene piu' inviata.
+     * Il controllo dei permessi e' sul database (RPC `annulla_email_coda`, script 17).
+     * Restituisce false se l'email non era piu' annullabile (gia' inviata o in invio).
+     */
+    async annullaEmail(id: string): Promise<boolean> {
+      const { data, error } = await (db.rpc as any)('annulla_email_coda', { p_id: id });
+      if (error) throw new Error(error.message);
+      return data === true;
     },
 
     /**

@@ -47,6 +47,7 @@ export {
   type NotificationItem,
 } from './NotificationPanel';
 export { DatePicker, type DatePickerProps } from './DatePicker';
+export { DateTimePicker, type DateTimePickerProps } from './DateTimePicker';
 export {
   FileUpload,
   type FileUploadProps,
