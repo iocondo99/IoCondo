@@ -13,6 +13,7 @@ import { adminClient, requireUser } from '../_shared/auth.ts';
 
 interface InvitoInput {
   email: string;
+  nome_cognome: string;
   ruolo: 'CONDOMINO' | 'PORTIERE' | 'ADMIN';
   condominio_id: string;
   unita_id?: string | null;
@@ -39,11 +40,16 @@ function parse(body: unknown): InvitoInput {
   const b = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
   const email = typeof b.email === 'string' ? b.email.trim().toLowerCase() : '';
   if (email.length > 254 || !EMAIL.test(email)) throw new HttpError(400, 'L’indirizzo email non è valido.');
+  const nomeCognome = typeof b.nome_cognome === 'string' ? b.nome_cognome.trim() : '';
+  if (nomeCognome.length < 2 || nomeCognome.length > 120) {
+    throw new HttpError(400, 'Inserisci nome e cognome del destinatario.');
+  }
   if (typeof b.ruolo !== 'string' || !RUOLI.includes(b.ruolo)) throw new HttpError(400, 'Il ruolo non è valido.');
   if (!isUuid(b.condominio_id)) throw new HttpError(400, 'Scegli il condominio.');
   if (b.unita_id != null && !isUuid(b.unita_id)) throw new HttpError(400, 'L’unità non è valida.');
   return {
     email,
+    nome_cognome: nomeCognome,
     ruolo: b.ruolo as InvitoInput['ruolo'],
     condominio_id: b.condominio_id,
     unita_id: (b.unita_id as string | null | undefined) ?? null,
@@ -74,7 +80,11 @@ serve(async (req) => {
 
   // 2. Email di invito (solo per chi non ha ancora un account confermato).
   const admin = adminClient();
-  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(input.email, { redirectTo });
+  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(input.email, {
+    redirectTo,
+    // Il trigger handle_new_user legge nome_cognome da raw_user_meta_data e pre-popola public.utenti.
+    data: { nome_cognome: input.nome_cognome },
+  });
   if (inviteError) {
     const code = (inviteError as { code?: string }).code ?? '';
     const status = (inviteError as { status?: number }).status;

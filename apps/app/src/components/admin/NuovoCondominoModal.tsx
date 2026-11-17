@@ -46,6 +46,8 @@ export function NuovoCondominoModal({
   );
   const [caricamentoStruttura, setCaricamentoStruttura] = useState(false);
 
+  const [nome, setNome] = useState('');
+  const [cognome, setCognome] = useState('');
   const [email, setEmail] = useState('');
   const [palazzoId, setPalazzoId] = useState('');
   const [scalaId, setScalaId] = useState(NESSUNA_SCALA);
@@ -62,6 +64,8 @@ export function NuovoCondominoModal({
   useEffect(() => {
     if (!visible) return;
     setErroreForm(null);
+    setNome('');
+    setCognome('');
     setEmail('');
     setFlagPortiere(false);
     setInternoNuovo('');
@@ -158,6 +162,12 @@ export function NuovoCondominoModal({
 
   const handleCreaEInvita = async () => {
     setErroreForm(null);
+    const nomePulito = nome.trim();
+    const cognomePulito = cognome.trim();
+    if (!nomePulito || !cognomePulito) {
+      setErroreForm('Inserisci nome e cognome del nuovo condòmino.');
+      return;
+    }
     const emailPulita = email.trim().toLowerCase();
     if (!isEmailValida(emailPulita)) {
       setErroreForm('Inserisci un indirizzo email valido per inviare l’invito.');
@@ -205,6 +215,7 @@ export function NuovoCondominoModal({
 
       await services.invitiAdmin.invia({
         email: emailPulita,
+        nomeCognome: `${nomePulito} ${cognomePulito}`,
         ruolo: 'CONDOMINO',
         condominioId,
         unitaId: targetUnitaId,
@@ -262,6 +273,26 @@ export function NuovoCondominoModal({
       ) : (
         <View style={styles.form}>
           {erroreForm ? <Alert tone="error" message={erroreForm} /> : null}
+
+          <Input
+            label="Nome *"
+            value={nome}
+            onChangeText={(v) => {
+              setNome(v);
+              if (erroreForm) setErroreForm(null);
+            }}
+            placeholder="es. Mario"
+          />
+
+          <Input
+            label="Cognome *"
+            value={cognome}
+            onChangeText={(v) => {
+              setCognome(v);
+              if (erroreForm) setErroreForm(null);
+            }}
+            placeholder="es. Rossi"
+          />
 
           <Input
             label="Email del condòmino *"

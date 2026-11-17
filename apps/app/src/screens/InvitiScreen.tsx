@@ -49,6 +49,8 @@ function InvitiContenuto() {
   const condominioId = condominio?.id ?? '';
   const ruoliDisponibili = ruoliInvitabili(profilo?.isSuperAdmin === true);
 
+  const [nome, setNome] = useState('');
+  const [cognome, setCognome] = useState('');
   const [email, setEmail] = useState('');
   const [ruolo, setRuolo] = useState<RuoloInvitabile>('CONDOMINO');
   const [unitaId, setUnitaId] = useState(NESSUNA_UNITA);
@@ -84,6 +86,12 @@ function InvitiContenuto() {
     setInviato(false);
     setErrore(null);
     setToccato(true);
+    const nomePulito = nome.trim();
+    const cognomePulito = cognome.trim();
+    if (!nomePulito || !cognomePulito) {
+      setErrore('Inserisci nome e cognome del destinatario.');
+      return;
+    }
     if (validateEmail(email)) {
       emailRef.current?.focus();
       return;
@@ -93,6 +101,7 @@ function InvitiContenuto() {
     try {
       await services.inviti.invia({
         email: email.trim(),
+        nomeCognome: `${nomePulito} ${cognomePulito}`,
         ruolo,
         condominioId,
         unitaId: unitaId === NESSUNA_UNITA ? null : unitaId,
@@ -100,6 +109,8 @@ function InvitiContenuto() {
       });
       // Solo ora, a risposta del server arrivata, si conferma e si ricomincia dal modulo vuoto.
       setInviato(true);
+      setNome('');
+      setCognome('');
       setEmail('');
       setToccato(false);
       setPortiere(false);
@@ -138,6 +149,28 @@ function InvitiContenuto() {
         <View role="form" aria-label="Nuovo invito" style={styles.form}>
           {inviato ? <Alert tone="success" message={INVITO_REGISTRATO_MESSAGE} persistent /> : null}
           {errore ? <Alert tone="error" message={errore} persistent /> : null}
+
+          <Input
+            label="Nome"
+            value={nome}
+            onChangeText={(v) => {
+              setNome(v);
+              if (errore) setErrore(null);
+            }}
+            placeholder="es. Mario"
+            disabled={occupato}
+          />
+
+          <Input
+            label="Cognome"
+            value={cognome}
+            onChangeText={(v) => {
+              setCognome(v);
+              if (errore) setErrore(null);
+            }}
+            placeholder="es. Rossi"
+            disabled={occupato}
+          />
 
           <Input
             label="Email della persona"

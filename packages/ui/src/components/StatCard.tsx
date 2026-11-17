@@ -50,7 +50,8 @@ export function StatCard({
   const titleStyle = useTextStyle('h4');
   const valueStyle = useTextStyle(isMobile ? 'h3' : 'h2');
   const descriptionStyle = useTextStyle('secondary');
-  const palette = colors.tile[tile];
+  // Fallback difensivo: un `tile` non valido non deve far crashare la scheda.
+  const palette = colors.tile[tile] ?? colors.tile.blue;
 
   if (loading) {
     return (

@@ -7,15 +7,11 @@ import {
   type AdminDashboardData,
 } from '@iocondo/data';
 import {
-  Badge,
   Breadcrumbs,
-  Button,
   Card,
   EmptyState,
   ErrorState,
   Icon,
-  ListRow,
-  ListRows,
   LoadingState,
   PageHeader,
   StatCard,
@@ -212,183 +208,59 @@ function AdminDashboardContenuto() {
         {/* Colonna Sinistra */}
         <View style={styles.colonnaSinistra}>
           {/* Ticket guasti urgenti */}
-          <Card
+          <StatCard
+            icon="wrench"
+            tile={ticketUrgenti.length > 0 ? 'navy' : 'blue'}
             title="Ticket guasti urgenti"
+            value={`${ticketUrgenti.length}`}
+            description={
+              ticketUrgenti.length === 0
+                ? 'Nessun ticket urgente in attesa'
+                : ticketUrgenti.length === 1
+                  ? '1 ticket urgente da gestire'
+                  : `${ticketUrgenti.length} ticket urgenti da gestire`
+            }
             action={{
               label: 'Gestisci tutti',
               onPress: () => router.push('/admin/manutenzione' as Href),
               accessibilityHint: 'Visualizza e gestisci tutti i ticket di manutenzione',
             }}
-          >
-            {ticketUrgenti.length === 0 ? (
-              <EmptyState
-                icon="wrench"
-                title="Nessun ticket urgente in attesa"
-                description="Tutti i ticket urgenti o ad alta priorità risultano presi in carico o risolti."
-              />
-            ) : (
-              <ListRows label="Elenco ticket guasti urgenti">
-                {ticketUrgenti.map((t) => {
-                  const tileTipo = t.priorita === 'URGENTE' ? 'error' : 'blue';
-                  const statoBadge = t.stato === 'APERTO' ? 'aperto' : 'in-lavorazione';
-                  const ambito = t.isAreaComune ? 'Area comune' : 'Unità privata';
-                  const dataApertura = formatDate(t.createdAt);
-
-                  return (
-                    <View key={t.id} style={styles.rigaTicketContenitore}>
-                      <View style={styles.rigaTicketCorpo}>
-                        <ListRow
-                          icon="wrench"
-                          tile={tileTipo}
-                          title={t.titolo}
-                          description={`${ambito} · Priorità ${t.priorita.toLowerCase()} · Aperto il ${dataApertura}`}
-                          badge={statoBadge}
-                          onPress={() => router.push('/admin/manutenzione' as Href)}
-                          accessibilityHint={`Gestisci ticket ${t.titolo}`}
-                        />
-                      </View>
-                      <View style={styles.azioneRapidaTicket}>
-                        <Button
-                          variant="secondary"
-                          label="Gestisci"
-                          icon="wrench"
-                          onPress={() => router.push('/admin/manutenzione' as Href)}
-                          accessibilityHint={`Gestisci ticket ${t.titolo}`}
-                        />
-                      </View>
-                    </View>
-                  );
-                })}
-              </ListRows>
-            )}
-          </Card>
+          />
 
           {/* Ultime comunicazioni pubblicate */}
-          <Card
+          <StatCard
+            icon="message-circle"
+            tile="blue"
             title="Ultime comunicazioni pubblicate"
+            value={`${ultimeComunicazioni.length}`}
+            description={
+              ultimeComunicazioni.length === 0
+                ? 'Nessuna comunicazione in bacheca'
+                : 'Avvisi e circolari pubblicati in bacheca'
+            }
             action={{
               label: 'Vedi tutte',
               onPress: () => router.push('/admin/comunicazioni' as Href),
               accessibilityHint: 'Vai a tutte le comunicazioni pubblicate in bacheca',
             }}
-          >
-            {ultimeComunicazioni.length === 0 ? (
-              <EmptyState
-                icon="message-circle"
-                title="Nessuna comunicazione pubblicata"
-                description="Non risultano avvisi o circolari recenti in bacheca."
-              />
-            ) : (
-              <ListRows label="Elenco ultime comunicazioni">
-                {ultimeComunicazioni.map((c) => {
-                  const anteprima = c.corpo ? c.corpo.slice(0, 110) + (c.corpo.length > 110 ? '…' : '') : '';
-                  return (
-                    <ListRow
-                      key={c.id}
-                      icon="message-circle"
-                      tile="blue"
-                      title={c.titolo}
-                      description={anteprima}
-                      meta={formatDate(c.dataPubblicazione)}
-                      badge={c.isPinned ? 'condominiale' : undefined}
-                      onPress={() => router.push('/admin/comunicazioni' as Href)}
-                      accessibilityHint={`Visualizza comunicazione ${c.titolo}`}
-                    />
-                  );
-                })}
-              </ListRows>
-            )}
-          </Card>
+          />
         </View>
 
         {/* Colonna Destra */}
         <View style={styles.colonnaDestra}>
           {/* Stato riscossione dell'esercizio */}
-          <Card
+          <StatCard
+            icon="credit-card"
+            tile="teal"
             title="Stato riscossione dell'esercizio"
+            value={`${kpi.percentualeRiscossione}%`}
+            description={`Da riscuotere ${formatEuro(kpi.totaleDaRiscuotere)}`}
             action={{
               label: 'Dettaglio',
               onPress: () => router.push('/admin/contabilita' as Href),
               accessibilityHint: 'Vai alla gestione contabile completa delle rate',
             }}
-          >
-            <View style={styles.sezioneRiscossione}>
-              {/* Barra avanzamento percentuale */}
-              <View style={styles.bloccoAvanzamento}>
-                <View style={styles.testataAvanzamento}>
-                  <Text style={[textStyle('label'), styles.etichettaGrigio]}>Riscossione complessiva</Text>
-                  <Text style={[textStyle('h3'), styles.percentualeValore]}>
-                    {kpi.percentualeRiscossione}%
-                  </Text>
-                </View>
-                <View
-                  role="progressbar"
-                  aria-valuenow={kpi.percentualeRiscossione}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label={`Percentuale riscossione dell’esercizio: ${kpi.percentualeRiscossione}%`}
-                  style={styles.tracciaProgresso}
-                >
-                  <View
-                    style={[
-                      styles.barraProgresso,
-                      { width: `${Math.min(100, Math.max(0, kpi.percentualeRiscossione))}%` },
-                    ]}
-                  />
-                </View>
-              </View>
-
-              {/* Dettagli importi contabili */}
-              <View style={styles.grigliaImporti}>
-                <View style={styles.rigaImporto}>
-                  <Text style={[textStyle('secondary'), styles.nomeVoce]}>Totale emesso dovuto</Text>
-                  <Text style={[textStyle('h4'), styles.valoreVoce]}>
-                    {formatEuro(kpi.totaleDovutoEsercizio)}
-                  </Text>
-                </View>
-
-                <View style={styles.rigaImporto}>
-                  <Text style={[textStyle('secondary'), styles.nomeVoce]}>Totale riscosso</Text>
-                  <Text style={[textStyle('h4'), styles.valoreVoceSuccesso]}>
-                    {formatEuro(kpi.totaleIncassatoEsercizio)}
-                  </Text>
-                </View>
-
-                <View style={styles.rigaImporto}>
-                  <Text style={[textStyle('secondary'), styles.nomeVoce]}>Residuo da riscuotere</Text>
-                  <Text style={[textStyle('h4'), styles.valoreVoce]}>
-                    {formatEuro(kpi.totaleDaRiscuotere)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Riquadro Morosità scaduta > 15 gg */}
-              <View style={styles.riquadroMorosita}>
-                <View style={styles.morositaHeader}>
-                  <Icon name="circle-alert" size="action" color={colors.semantic.error.foreground} />
-                  <Text style={[textStyle('h4'), styles.titoloMorosita]}>
-                    Morosità scaduta &gt; 15 giorni
-                  </Text>
-                </View>
-                <Text style={[textStyle('secondary'), styles.descMorosita]}>
-                  {kpi.morositaScadutaOltre15gg > 0
-                    ? `Importo insoluto di ${formatEuro(kpi.morositaScadutaOltre15gg)} su ${kpi.posizioniMoroseOltre15gg} ${
-                        kpi.posizioniMoroseOltre15gg === 1 ? 'posizione scaduta' : 'posizioni scadute'
-                      }.`
-                    : 'Nessuna rata scaduta da oltre 15 giorni per l’esercizio corrente.'}
-                </Text>
-              </View>
-
-              <Button
-                fullWidth
-                variant="secondary"
-                label="Gestisci rate e solleciti"
-                icon="calculator"
-                onPress={() => router.push('/admin/contabilita' as Href)}
-                accessibilityHint="Vai al modulo contabile per inviare solleciti o registrare incassi"
-              />
-            </View>
-          </Card>
+          />
 
           {/* Blocco Azioni rapide */}
           <Card title="Azioni rapide">
@@ -504,95 +376,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
     width: '100%',
     gap: space[6],
-  },
-  rigaTicketContenitore: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space[2],
-    flexWrap: 'wrap',
-  },
-  rigaTicketCorpo: {
-    flex: 1,
-    minWidth: 220,
-  },
-  azioneRapidaTicket: {
-    paddingRight: space[2],
-    paddingVertical: space[2],
-  },
-  sezioneRiscossione: {
-    gap: space[4],
-  },
-  bloccoAvanzamento: {
-    gap: space[2],
-    backgroundColor: colors.background,
-    padding: space[4],
-    borderRadius: radii.card,
-    borderWidth: borderWidths.thin,
-    borderColor: colors.border,
-  },
-  testataAvanzamento: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  etichettaGrigio: {
-    color: colors.text.secondary,
-  },
-  percentualeValore: {
-    color: colors.brand.navy,
-  },
-  tracciaProgresso: {
-    height: 10,
-    backgroundColor: colors.border,
-    borderRadius: radii.full,
-    overflow: 'hidden',
-    width: '100%',
-  },
-  barraProgresso: {
-    height: '100%',
-    backgroundColor: colors.action.default,
-    borderRadius: radii.full,
-  },
-  grigliaImporti: {
-    gap: space[3],
-    paddingHorizontal: space[2],
-  },
-  rigaImporto: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: space[1],
-    borderBottomWidth: borderWidths.thin,
-    borderBottomColor: colors.border,
-  },
-  nomeVoce: {
-    color: colors.text.secondary,
-  },
-  valoreVoce: {
-    color: colors.brand.navy,
-  },
-  valoreVoceSuccesso: {
-    color: colors.semantic.success.foreground,
-  },
-  riquadroMorosita: {
-    backgroundColor: colors.semantic.error.background,
-    borderColor: colors.semantic.error.foreground,
-    borderWidth: borderWidths.thin,
-    borderRadius: radii.card,
-    padding: space[4],
-    gap: space[2],
-  },
-  morositaHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-  },
-  titoloMorosita: {
-    color: colors.semantic.error.foreground,
-  },
-  descMorosita: {
-    color: colors.text.primary,
   },
   listaAzioniRapide: {
     gap: space[3],

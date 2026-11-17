@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Icon, type IconName } from '../Icon';
 import { borderWidths, colors, radii, space } from '../tokens';
 import { useTextStyle } from './internal';
@@ -84,22 +84,44 @@ export interface BadgeProps {
   label?: string;
   /** Icona specifica opzionale al posto di quella predefinita dello stato. */
   icon?: IconName;
+  /** Mostra solo l'icona (il testo resta come nome accessibile per lo screen reader). */
+  iconOnly?: boolean;
+  /**
+   * Tooltip al passaggio del mouse (solo web). Se non specificato ma `iconOnly` è attivo,
+   * usa automaticamente il testo dello stato così l'icona resta comprensibile.
+   */
+  tooltip?: string;
 }
 
-export function Badge({ status, label, icon }: BadgeProps) {
+export function Badge({ status, label, icon, iconOnly = false, tooltip }: BadgeProps) {
   const spec = badgeStatuses[status] ?? badgeStatuses.neutral;
   const tone = tones[spec.tone] ?? tones.neutral;
   const textStyle = useTextStyle('label');
   const text = label?.trim() || spec.label;
   const iconName = icon ?? spec.icon;
+  // Tooltip esplicito, oppure automatico col testo dello stato quando si mostra solo l'icona.
+  const titoloTooltip = tooltip ?? (iconOnly ? text : undefined);
   return (
     <View
       accessible
       accessibilityLabel={text}
-      style={[styles.badge, { backgroundColor: tone.background, borderColor: tone.foreground }]}
+      // Su web `title` → attributo DOM title (tooltip nativo); `dataSet` → data-tooltip per
+      // il tooltip CSS definito nel layout radice (RN Web non inoltra `title` sulle View).
+      {...(Platform.OS === 'web' && titoloTooltip
+        ? ({ title: titoloTooltip, dataSet: { tooltip: titoloTooltip } } as object)
+        : null)}
+      style={[
+        styles.badge,
+        iconOnly && styles.badgeIconOnly,
+        { backgroundColor: tone.background, borderColor: tone.foreground },
+      ]}
     >
       <Icon name={iconName} size="indicator" color={tone.foreground} />
-      <Text style={[textStyle, { color: tone.foreground }]}>{text}</Text>
+      {iconOnly ? null : (
+        <Text numberOfLines={1} style={[textStyle, styles.label, { color: tone.foreground }]}>
+          {text}
+        </Text>
+      )}
     </View>
   );
 }
@@ -115,4 +137,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
     borderWidth: borderWidths.thin,
   },
+  // Il testo resta su una riga: la pillola non si deforma in un ovale alto su due righe.
+  label: { flexShrink: 1 },
+  // Solo icona: padding simmetrico per una pastiglia compatta e regolare.
+  badgeIconOnly: { paddingHorizontal: space[1] },
 });

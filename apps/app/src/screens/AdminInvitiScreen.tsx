@@ -97,11 +97,14 @@ function AdminInvitiContenuto() {
   // Modale "Invia nuovo invito"
   const [modaleAperta, setModaleAperta] = useState(false);
   const [modaleNuovoCondominoAperta, setModaleNuovoCondominoAperta] = useState(false);
+  const [nomeInput, setNomeInput] = useState('');
+  const [cognomeInput, setCognomeInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [ruoloInput, setRuoloInput] = useState<RuoloInvitabileAdmin>('CONDOMINO');
   const [unitaInput, setUnitaInput] = useState<string>('');
   const [flagPortiere, setFlagPortiere] = useState(false);
   const [salvataggioInCorso, setSalvataggioInCorso] = useState(false);
+  const [erroreNome, setErroreNome] = useState<string | undefined>(undefined);
   const [erroreEmail, setErroreEmail] = useState<string | undefined>(undefined);
   const [erroreUnita, setErroreUnita] = useState<string | undefined>(undefined);
   const [erroreModale, setErroreModale] = useState<string | null>(null);
@@ -110,6 +113,9 @@ function AdminInvitiContenuto() {
 
   // Revoca invito (ConfirmDialog)
   const [invitoDaRevocare, setInvitoDaRevocare] = useState<RigaInvitoAdminView | null>(null);
+
+  // Modale azioni invito (si apre cliccando la riga)
+  const [invitoAzioni, setInvitoAzioni] = useState<RigaInvitoAdminView | null>(null);
 
   // Sollecito / Rinnovo in corso
   const [azioneInCorsoId, setAzioneInCorsoId] = useState<string | null>(null);
@@ -166,10 +172,13 @@ function AdminInvitiContenuto() {
   }, [unitaDisponibili, ruoloInput]);
 
   const apriModaleNuovoInvito = () => {
+    setNomeInput('');
+    setCognomeInput('');
     setEmailInput('');
     setRuoloInput('CONDOMINO');
     setUnitaInput('');
     setFlagPortiere(false);
+    setErroreNome(undefined);
     setErroreEmail(undefined);
     setErroreUnita(undefined);
     setErroreModale(null);
@@ -183,9 +192,17 @@ function AdminInvitiContenuto() {
 
   const validaEInviaInvito = async () => {
     let valido = true;
+    setErroreNome(undefined);
     setErroreEmail(undefined);
     setErroreUnita(undefined);
     setErroreModale(null);
+
+    const nomeTrimmed = nomeInput.trim();
+    const cognomeTrimmed = cognomeInput.trim();
+    if (!nomeTrimmed || !cognomeTrimmed) {
+      setErroreNome('Inserisci nome e cognome del destinatario.');
+      valido = false;
+    }
 
     const emailTrimmed = emailInput.trim();
     if (!emailTrimmed) {
@@ -207,6 +224,7 @@ function AdminInvitiContenuto() {
     try {
       const res = await services.invitiAdmin.invia({
         email: emailTrimmed,
+        nomeCognome: `${nomeTrimmed} ${cognomeTrimmed}`,
         ruolo: ruoloInput,
         condominioId: condominio!.id,
         unitaId: unitaInput ? unitaInput : null,
@@ -311,10 +329,20 @@ function AdminInvitiContenuto() {
       {
         key: 'email',
         header: 'Destinatario',
-        cell: (r) => <Text style={styles.testoEmail}>{r.email}</Text>,
+        cell: (r) => (
+          <Text
+            style={styles.testoEmail}
+            numberOfLines={1}
+            ellipsizeMode="middle"
+            // Tooltip nativo del browser: al passaggio del mouse mostra l'email intera.
+            {...(Platform.OS === 'web' ? ({ title: r.email } as object) : {})}
+          >
+            {r.email}
+          </Text>
+        ),
         mobile: 'title',
         weight: 3,
-        minWidth: 180,
+        minWidth: 210,
       },
       {
         key: 'ruolo',
@@ -326,7 +354,7 @@ function AdminInvitiContenuto() {
           />
         ),
         mobileLabel: 'Ruolo proposto',
-        minWidth: 160,
+        minWidth: 190,
       },
       {
         key: 'unita',
@@ -337,72 +365,31 @@ function AdminInvitiContenuto() {
           </Text>
         ),
         mobileLabel: 'Unità',
-        minWidth: 160,
+        minWidth: 130,
       },
       {
         key: 'dataInvio',
         header: 'Data invio',
         cell: (r) => <Text style={styles.testoData}>{r.dataInvioTesto}</Text>,
         mobileLabel: 'Data invio',
-        minWidth: 110,
+        minWidth: 95,
       },
       {
         key: 'scadenza',
         header: 'Scadenza / Accettazione',
         cell: (r) => <Text style={styles.testoData}>{r.scadenzaRelativa}</Text>,
         mobileLabel: 'Scadenza / Accettazione',
-        minWidth: 160,
+        minWidth: 135,
       },
       {
         key: 'stato',
         header: 'Stato',
-        cell: (r) => <Badge status={r.statoBadge} />,
+        cell: (r) => <Badge status={r.statoBadge} iconOnly />,
         mobile: 'status',
-        minWidth: 120,
-      },
-      {
-        key: 'azioni',
-        header: 'Azioni',
-        align: 'end',
-        minWidth: 190,
-        mobileLabel: 'Azioni',
-        cell: (r) => (
-          <View style={styles.rigaAzioni}>
-            {r.stato === 'IN_ATTESA' ? (
-              <>
-                <Button
-                  variant="secondary"
-                  label="Sollecita"
-                  icon="refresh-cw"
-                  loading={azioneInCorsoId === `${r.token}-sollecita`}
-                  disabled={!!azioneInCorsoId}
-                  onPress={() => gestisciSollecita(r)}
-                />
-                <Button
-                  variant="destructive"
-                  label="Revoca"
-                  icon="trash-2"
-                  disabled={!!azioneInCorsoId}
-                  onPress={() => setInvitoDaRevocare(r)}
-                />
-              </>
-            ) : r.stato === 'SCADUTO' ? (
-              <Button
-                variant="secondary"
-                label="Rinnova invito"
-                icon="refresh-cw"
-                loading={azioneInCorsoId === `${r.token}-rinnova`}
-                disabled={!!azioneInCorsoId}
-                onPress={() => gestisciRinnova(r)}
-              />
-            ) : (
-              <Text style={styles.testoMuted}>—</Text>
-            )}
-          </View>
-        ),
+        minWidth: 80,
       },
     ],
-    [azioneInCorsoId],
+    [],
   );
 
   const erroreScheda = errore ? { message: 'Errore caricamento', onRetry: caricaDati } : undefined;
@@ -480,6 +467,7 @@ function AdminInvitiContenuto() {
           rows={invitiFiltrati}
           getRowKey={(r) => r.token}
           getRowLabel={(r) => `${r.email}, ruolo ${r.ruoloEtichetta}, stato ${r.stato}`}
+          onRowPress={(r) => setInvitoAzioni(r)}
           loading={caricamento}
           error={
             errore
@@ -570,6 +558,30 @@ function AdminInvitiContenuto() {
         <View style={styles.modaleCorpo}>
           {erroreModale ? <Alert tone="error" message={erroreModale} /> : null}
 
+          {/* Nome e cognome del destinatario (obbligatori) */}
+          <Input
+            label="Nome"
+            placeholder="es. Mario"
+            value={nomeInput}
+            onChangeText={(t) => {
+              setNomeInput(t);
+              if (erroreNome) setErroreNome(undefined);
+            }}
+            required
+          />
+
+          <Input
+            label="Cognome"
+            placeholder="es. Rossi"
+            value={cognomeInput}
+            onChangeText={(t) => {
+              setCognomeInput(t);
+              if (erroreNome) setErroreNome(undefined);
+            }}
+            error={erroreNome}
+            required
+          />
+
           {/* Campo Email con validazione RFC */}
           <Input
             inputRef={emailInputRef}
@@ -646,6 +658,83 @@ function AdminInvitiContenuto() {
         </View>
       </Modal>
 
+      {/* Modale "Azioni invito" — si apre cliccando una riga dell'elenco */}
+      <Modal
+        visible={!!invitoAzioni}
+        onClose={() => setInvitoAzioni(null)}
+        title="Azioni invito"
+        description={invitoAzioni ? invitoAzioni.email : undefined}
+        actions={
+          <ModalActions>
+            <Button variant="secondary" label="Chiudi" onPress={() => setInvitoAzioni(null)} />
+          </ModalActions>
+        }
+      >
+        {invitoAzioni ? (
+          <View style={styles.azioniModale}>
+            <View style={styles.rigaDettaglioModale}>
+              <Text style={styles.testoSecondario}>Ruolo proposto</Text>
+              <Badge
+                status={invitoAzioni.ruoloCodice === 'PORTIERE' ? 'neutral' : 'info'}
+                label={invitoAzioni.ruoloEtichetta}
+              />
+            </View>
+            <View style={styles.rigaDettaglioModale}>
+              <Text style={styles.testoSecondario}>Stato</Text>
+              <Badge status={invitoAzioni.statoBadge} />
+            </View>
+
+            {invitoAzioni.stato === 'IN_ATTESA' ? (
+              <>
+                <Button
+                  fullWidth
+                  variant="secondary"
+                  label="Sollecita"
+                  icon="refresh-cw"
+                  loading={azioneInCorsoId === `${invitoAzioni.token}-sollecita`}
+                  disabled={!!azioneInCorsoId}
+                  onPress={() => {
+                    const inv = invitoAzioni;
+                    setInvitoAzioni(null);
+                    void gestisciSollecita(inv);
+                  }}
+                />
+                <Button
+                  fullWidth
+                  variant="destructive"
+                  label="Revoca"
+                  icon="trash-2"
+                  disabled={!!azioneInCorsoId}
+                  onPress={() => {
+                    const inv = invitoAzioni;
+                    setInvitoAzioni(null);
+                    setInvitoDaRevocare(inv);
+                  }}
+                />
+              </>
+            ) : invitoAzioni.stato === 'SCADUTO' ? (
+              <Button
+                fullWidth
+                variant="secondary"
+                label="Rinnova invito"
+                icon="refresh-cw"
+                loading={azioneInCorsoId === `${invitoAzioni.token}-rinnova`}
+                disabled={!!azioneInCorsoId}
+                onPress={() => {
+                  const inv = invitoAzioni;
+                  setInvitoAzioni(null);
+                  void gestisciRinnova(inv);
+                }}
+              />
+            ) : (
+              <Text style={styles.testoMuted}>
+                Nessuna azione disponibile per questo invito.
+              </Text>
+            )}
+          </View>
+        ) : null}
+      </Modal>
+
       {/* ConfirmDialog Revoca Invito */}
       <ConfirmDialog
         visible={!!invitoDaRevocare}
@@ -698,6 +787,8 @@ const styles = StyleSheet.create({
   testoEmail: {
     color: colors.text.primary,
     fontWeight: '600',
+    flexShrink: 1,
+    paddingRight: space[2],
   },
   testoSecondario: {
     color: colors.text.primary,
@@ -708,11 +799,14 @@ const styles = StyleSheet.create({
   testoMuted: {
     color: colors.text.muted,
   },
-  rigaAzioni: {
+  azioniModale: {
+    gap: space[3],
+  },
+  rigaDettaglioModale: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: space[2],
-    flexWrap: 'wrap',
   },
   modaleCorpo: {
     gap: space[4],
@@ -735,4 +829,3 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
-

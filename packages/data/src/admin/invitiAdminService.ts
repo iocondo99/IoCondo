@@ -8,6 +8,8 @@ import {
 
 export interface NuovoInvitoAdminInput {
   email: string;
+  /** Nome e cognome del destinatario: pre-popola il profilo utente alla registrazione. */
+  nomeCognome: string;
   ruolo: RuoloInvitabileAdmin;
   condominioId: string;
   unitaId?: string | null;
@@ -126,6 +128,7 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
       try {
         await invokeFunction<{ ok: true }>(db, 'invita-utente', {
           email: invito.email.trim().toLowerCase(),
+          nome_cognome: invito.nomeCognome.trim(),
           ruolo: invito.ruolo,
           condominio_id: invito.condominioId,
           unita_id: invito.unitaId ?? null,
@@ -171,6 +174,7 @@ export function createInvitiAdminService(db: TypedSupabaseClient) {
       try {
         await invokeFunction<{ ok: true }>(db, 'invita-utente', {
           email: invito.email.trim().toLowerCase(),
+          nome_cognome: invito.nomeCognome.trim(),
           ruolo: invito.ruolo,
           condominio_id: invito.condominioId,
           unita_id: invito.unitaId ?? null,

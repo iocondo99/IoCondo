@@ -7,6 +7,8 @@ import {
 
 export interface NuovoInvito {
   email: string;
+  /** Nome e cognome del destinatario: pre-popola il profilo utente alla registrazione. */
+  nomeCognome: string;
   ruolo: RuoloInvitabile;
   condominioId: string;
   unitaId: string | null;
@@ -28,6 +30,7 @@ export function createInvitiService(db: TypedSupabaseClient) {
     async invia(invito: NuovoInvito): Promise<void> {
       await invokeFunction<{ ok: true }>(db, 'invita-utente', {
         email: invito.email,
+        nome_cognome: invito.nomeCognome.trim(),
         ruolo: invito.ruolo,
         condominio_id: invito.condominioId,
         unita_id: invito.unitaId,
