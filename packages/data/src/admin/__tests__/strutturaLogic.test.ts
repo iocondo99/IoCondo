@@ -103,6 +103,40 @@ test('isAnagraficaAttiva e selezionaResidenteAttivo: preferisce proprietario att
   assert.equal(residente.nomeCognome, 'Luigi Proprietario');
 });
 
+test('selezionaResidenteAttivo: account eliminato mostra il nome conservato', () => {
+  const oggi = '2026-11-05';
+  const base = {
+    unita_id: 'u1',
+    tipo_possesso: 'PROPRIETARIO',
+    data_inizio: '2024-01-01',
+    data_fine: null,
+    quota_possesso: 100,
+    utente: null,
+  };
+
+  const conNome = selezionaResidenteAttivo(
+    [{ ...base, id: 'a1', utente_id: null, nome_cognome_storico: 'Anna Bianchi' }],
+    oggi,
+  );
+  assert.ok(conNome);
+  assert.equal(conNome.accountEliminato, true);
+  assert.equal(conNome.nomeCognome, 'Anna Bianchi');
+  assert.equal(conNome.utenteId, '');
+  assert.equal(conNome.telefono, null);
+
+  const senzaNome = selezionaResidenteAttivo([{ ...base, id: 'a2', utente_id: null }], oggi);
+  assert.ok(senzaNome);
+  assert.equal(senzaNome.nomeCognome, 'Ex condòmino');
+
+  const attivo = selezionaResidenteAttivo(
+    [{ ...base, id: 'a3', utente_id: 'usr1', utente: { id: 'usr1', nome_cognome: 'Mario Rossi' } }],
+    oggi,
+  );
+  assert.ok(attivo);
+  assert.equal(attivo.accountEliminato, false);
+  assert.equal(attivo.nomeCognome, 'Mario Rossi');
+});
+
 test('costruisciAlberoStruttura: raggruppa correttamente per palazzo e scala', () => {
   const palazzi: PalazzoRaw[] = [
     { id: 'p1', condominio_id: 'c1', nome_identificativo: 'Palazzo A', indirizzo: 'Via Roma 1' },

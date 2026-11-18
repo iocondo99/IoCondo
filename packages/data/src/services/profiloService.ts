@@ -10,7 +10,7 @@ export interface DettagliUnitaUtente {
   millesimi?: number | null;
 }
 
-import type { TypedSupabaseClient } from '@iocondo/supabase-client';
+import { invokeFunction, type TypedSupabaseClient } from '@iocondo/supabase-client';
 import type { INotifica } from '@iocondo/shared-types';
 import {
   risolviAssegnazioni,
@@ -165,6 +165,24 @@ export function createProfiloService(db: TypedSupabaseClient) {
 
     async segnaNotificaLetta(userId: string, id: string): Promise<void> {
       assertOk(await db.from('notifiche').update({ letta: true }).eq('utente_id', userId).eq('id', id));
+    },
+
+    /**
+     * Se l'utente collegato puo' eliminare il proprio account: 'OK', oppure il motivo per cui no
+     * ('SUPERADMIN', 'AMMINISTRATORE'). Se la funzione non e' ancora installata restituisce null.
+     */
+    async statoEliminazioneAccount(): Promise<string | null> {
+      const { data, error } = await (db.rpc as any)('stato_eliminazione_account');
+      if (error) return null;
+      return typeof data === 'string' ? data : null;
+    },
+
+    /**
+     * Elimina l'account dell'utente collegato (Edge Function `elimina-account`).
+     * Cancella accesso e profilo; i dati del condominio restano senza collegamento all'account.
+     */
+    async eliminaMioAccount(): Promise<void> {
+      await invokeFunction<{ ok: true }>(db, 'elimina-account', { conferma: 'ELIMINA' });
     },
 
     /**

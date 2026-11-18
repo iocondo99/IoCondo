@@ -762,13 +762,17 @@ function AdminStrutturaContenuto() {
                       <View style={styles.tabellaUnita}>
                         {scala.unita.map((unita) => {
                           const badgeStato = unita.residenteAttivo
-                            ? unita.residenteAttivo.tipoPossesso === 'PROPRIETARIO'
-                              ? 'success'
-                              : 'info'
+                            ? unita.residenteAttivo.accountEliminato
+                              ? 'neutral'
+                              : unita.residenteAttivo.tipoPossesso === 'PROPRIETARIO'
+                                ? 'success'
+                                : 'info'
                             : 'neutral';
 
                           const labelPossesso = unita.residenteAttivo
-                            ? `${unita.residenteAttivo.tipoPossesso === 'PROPRIETARIO' ? 'Proprietario' : 'Inquilino'}: ${unita.residenteAttivo.nomeCognome}`
+                            ? `${unita.residenteAttivo.tipoPossesso === 'PROPRIETARIO' ? 'Proprietario' : 'Inquilino'}: ${unita.residenteAttivo.nomeCognome}${
+                                unita.residenteAttivo.accountEliminato ? ' (account eliminato)' : ''
+                              }`
                             : 'Non assegnata';
 
                           return (
@@ -1421,6 +1425,15 @@ function AdminStrutturaContenuto() {
                       {unitaDettaglio.residenteAttivo.nomeCognome}
                     </Text>
                   </View>
+                  {unitaDettaglio.residenteAttivo.accountEliminato ? (
+                    <View style={styles.avvisoAccountEliminato}>
+                      <Icon name="info" size="indicator" color={colors.text.secondary} />
+                      <Text style={[textStyle('secondary', breakpoint), styles.testoAvvisoAccountEliminato]}>
+                        Questa persona ha eliminato il proprio account: il nominativo resta come storico dell’unità.
+                        Per un nuovo residente usa “Modifica / Subentro residente”.
+                      </Text>
+                    </View>
+                  ) : null}
                   <View style={styles.rigaDettaglio}>
                     <Text style={styles.etichettaDettaglio}>Tipo possesso:</Text>
                     <Badge
@@ -1611,6 +1624,17 @@ function AdminStrutturaContenuto() {
 }
 
 const styles = StyleSheet.create({
+  avvisoAccountEliminato: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
+    padding: space[3],
+    borderRadius: radii.control,
+    backgroundColor: colors.background,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
+  },
+  testoAvvisoAccountEliminato: { color: colors.text.secondary, flexShrink: 1 },
   pagina: {
     flex: 1,
     width: '100%',

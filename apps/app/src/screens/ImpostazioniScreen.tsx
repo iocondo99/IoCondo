@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, usePathname, useRouter, type Href } from 'expo-router';
 import {
   CHIAVE_PREFERENZE,
   PREFERENZE_NOTIFICHE_DEFAULT,
@@ -27,6 +27,8 @@ import {
   Checkbox,
   ConfirmDialog,
   Input,
+  ListRow,
+  ListRows,
   PageHeader,
   borderWidths,
   colors,
@@ -43,7 +45,7 @@ export function ImpostazioniScreen() {
   const router = useRouter();
   const toast = useToast();
   const { signOut } = useAuth();
-  const { profilo, condominio, vista, etichettaVista, riprova } = useProfilo();
+  const { profilo, condominio, vista, riprova } = useProfilo();
   const { breakpoint, isDesktop, isMobile } = useBreakpoint();
   const mostraDatiAppartamento = vista === 'RESIDENTE';
 
@@ -102,6 +104,50 @@ export function ImpostazioniScreen() {
 
   // Stato Dialog di Disconnessione
   const [dialogDisconnessione, setDialogDisconnessione] = useState(false);
+
+  // Eliminazione account (GDPR): visibile solo a chi puo' eliminarlo (non amministratori).
+  const [statoEliminazione, setStatoEliminazione] = useState<string | null>(null);
+  const [statoEliminazioneCaricato, setStatoEliminazioneCaricato] = useState(false);
+  const [dialogEliminazione, setDialogEliminazione] = useState(false);
+  const [testoConfermaEliminazione, setTestoConfermaEliminazione] = useState('');
+  const [erroreEliminazione, setErroreEliminazione] = useState<string | null>(null);
+
+  useEffect(() => {
+    let attivo = true;
+    services.profilo
+      .statoEliminazioneAccount()
+      .then((stato) => attivo && setStatoEliminazione(stato))
+      .catch(() => attivo && setStatoEliminazione(null))
+      .finally(() => attivo && setStatoEliminazioneCaricato(true));
+    return () => {
+      attivo = false;
+    };
+  }, [profilo?.id]);
+
+  const apriEliminazione = () => {
+    setTestoConfermaEliminazione('');
+    setErroreEliminazione(null);
+    setDialogEliminazione(true);
+  };
+
+  const handleEliminaAccount = async () => {
+    if (testoConfermaEliminazione.trim().toUpperCase() !== 'ELIMINA') {
+      setErroreEliminazione('Scrivi ELIMINA per confermare.');
+      throw new Error('conferma mancante');
+    }
+    setErroreEliminazione(null);
+    try {
+      await services.profilo.eliminaMioAccount();
+    } catch (err) {
+      setErroreEliminazione(
+        err instanceof Error && err.message ? err.message : 'Non è stato possibile eliminare l’account. Riprova più tardi.',
+      );
+      throw err;
+    }
+    setDialogEliminazione(false);
+    toast.show({ tone: 'success', message: 'Il tuo account è stato eliminato.' });
+    await signOut();
+  };
 
   // Caricamento preferenze da memoria locale (iocondo.preferenze.v1)
   useEffect(() => {
@@ -229,15 +275,34 @@ export function ImpostazioniScreen() {
     }
   };
 
+  // Sottosezioni di Impostazioni: ?sezione=sicurezza | password | elimina
+  const parametri = useLocalSearchParams<{ sezione?: string }>();
+  const percorso = usePathname();
+  const sezione =
+    parametri.sezione === 'sicurezza' || parametri.sezione === 'password' || parametri.sezione === 'elimina'
+      ? parametri.sezione
+      : null;
+  const vaiA = (prossima: 'sicurezza' | 'password' | 'elimina' | null) =>
+    router.push((prossima ? `${percorso}?sezione=${prossima}` : percorso) as Href);
+
   const breadcrumbs = [
     { label: 'Home', onPress: () => router.push('/') },
-    { label: 'Impostazioni' },
+    sezione ? { label: 'Impostazioni', onPress: () => vaiA(null) } : { label: 'Impostazioni' },
+    ...(sezione === 'sicurezza' ? [{ label: "Sicurezza dell'account" }] : []),
+    ...(sezione === 'password' || sezione === 'elimina'
+      ? [
+          { label: "Sicurezza dell'account", onPress: () => vaiA('sicurezza') },
+          { label: sezione === 'password' ? 'Aggiorna password' : 'Elimina account' },
+        ]
+      : []),
   ];
 
   return (
     <View style={styles.pagina}>
       <Breadcrumbs items={breadcrumbs} />
 
+      {sezione === null ? (
+        <>
       <PageHeader
         title="Impostazioni"
         subtitle="Gestisci le informazioni del tuo profilo, la sicurezza dell'account e le preferenze delle notifiche."
@@ -264,19 +329,10 @@ export function ImpostazioniScreen() {
                     <Text style={[textStyle('h4', breakpoint), styles.testoPrimario]}>
                       {profilo?.nome || 'Nominativo non inserito'}
                     </Text>
-                    <Badge
-                      status="condominiale"
-                      label={etichettaVista || 'Condòmino'}
-                    />
                   </View>
                   <Text style={[textStyle('secondary', breakpoint), styles.testoSecondario]}>
                     {profilo?.email ?? 'Indirizzo email non disponibile'}
                   </Text>
-                  {condominio ? (
-                    <Text style={[textStyle('secondary', breakpoint), styles.condominioBadge]}>
-                      Presso {condominio.nome}
-                    </Text>
-                  ) : null}
                 </View>
               </View>
 
@@ -405,52 +461,22 @@ export function ImpostazioniScreen() {
 
         {/* Colonna Destra: Sicurezza dell'Account & Preferenze Notifiche */}
         <View style={styles.colonnaImpostazioni}>
-          {/* Sicurezza Account */}
+          {/* Sicurezza Account: si apre in una sezione dedicata */}
           <Card title="Sicurezza dell'account">
             <View style={styles.sezioneDati}>
               <Text style={[textStyle('body', breakpoint), styles.descrizioneSezione]}>
-                Aggiorna la password con cui accedi alla piattaforma. Scegli una password robusta di almeno 8 caratteri.
+                {statoEliminazione === 'OK'
+                  ? 'Aggiorna la password di accesso o elimina il tuo account.'
+                  : 'Aggiorna la password con cui accedi alla piattaforma.'}
               </Text>
-
-              <View style={styles.formCampi}>
-                <Input
-                  label="Nuova password"
-                  placeholder="Almeno 8 caratteri"
-                  variant="password"
-                  value={nuovaPassword}
-                  onChangeText={(val) => {
-                    setNuovaPassword(val);
-                    if (errorePassword) setErrorePassword(undefined);
-                  }}
-                  error={errorePassword}
-                  autoComplete="new-password"
-                  disabled={salvataggioPassword}
+              <View style={styles.bloccoAzioneForm}>
+                <Button
+                  variant="secondary"
+                  label="Apri"
+                  icon="chevron-right"
+                  iconPosition="end"
+                  onPress={() => vaiA('sicurezza')}
                 />
-
-                <Input
-                  label="Conferma nuova password"
-                  placeholder="Ripeti la password scelta"
-                  variant="password"
-                  value={confermaPassword}
-                  onChangeText={(val) => {
-                    setConfermaPassword(val);
-                    if (erroreConferma) setErroreConferma(undefined);
-                  }}
-                  error={erroreConferma}
-                  autoComplete="new-password"
-                  disabled={salvataggioPassword}
-                />
-
-                <View style={styles.bloccoAzioneForm}>
-                  <Button
-                    variant="secondary"
-                    label="Aggiorna password"
-                    icon="lock"
-                    onPress={handleCambiaPassword}
-                    loading={salvataggioPassword}
-                    disabled={!nuovaPassword || !confermaPassword}
-                  />
-                </View>
               </View>
             </View>
           </Card>
@@ -518,6 +544,122 @@ export function ImpostazioniScreen() {
           </View>
         </View>
       </Card>
+        </>
+      ) : null}
+
+      {sezione === 'sicurezza' ? (
+        <>
+          <PageHeader title="Sicurezza dell'account" subtitle="Scegli cosa vuoi gestire." />
+          <View style={styles.sottoPagina}>
+            <Card>
+              <ListRows label="Opzioni di sicurezza dell'account">
+                <ListRow
+                  icon="lock"
+                  tile="blue"
+                  title="Aggiorna password"
+                  description="Cambia la password con cui accedi all’app."
+                  onPress={() => vaiA('password')}
+                />
+                {statoEliminazione === 'OK' ? (
+                  <ListRow
+                    icon="trash-2"
+                    tile="error"
+                    title="Elimina account"
+                    description="Cancella il tuo accesso e i tuoi dati personali."
+                    onPress={() => vaiA('elimina')}
+                  />
+                ) : null}
+              </ListRows>
+            </Card>
+          </View>
+        </>
+      ) : null}
+
+      {sezione === 'password' ? (
+        <>
+          <PageHeader title="Aggiorna password" subtitle="Scegli una nuova password per accedere alla piattaforma." />
+          <View style={styles.sottoPagina}>
+          <Card title="Nuova password">
+            <View style={styles.sezioneDati}>
+              <Text style={[textStyle('body', breakpoint), styles.descrizioneSezione]}>
+                Aggiorna la password con cui accedi alla piattaforma. Scegli una password robusta di almeno 8 caratteri.
+              </Text>
+
+              <View style={styles.formCampi}>
+                <Input
+                  label="Nuova password"
+                  placeholder="Almeno 8 caratteri"
+                  variant="password"
+                  value={nuovaPassword}
+                  onChangeText={(val) => {
+                    setNuovaPassword(val);
+                    if (errorePassword) setErrorePassword(undefined);
+                  }}
+                  error={errorePassword}
+                  autoComplete="new-password"
+                  disabled={salvataggioPassword}
+                />
+
+                <Input
+                  label="Conferma nuova password"
+                  placeholder="Ripeti la password scelta"
+                  variant="password"
+                  value={confermaPassword}
+                  onChangeText={(val) => {
+                    setConfermaPassword(val);
+                    if (erroreConferma) setErroreConferma(undefined);
+                  }}
+                  error={erroreConferma}
+                  autoComplete="new-password"
+                  disabled={salvataggioPassword}
+                />
+
+                <View style={styles.bloccoAzioneForm}>
+                  <Button
+                    variant="secondary"
+                    label="Aggiorna password"
+                    icon="lock"
+                    onPress={handleCambiaPassword}
+                    loading={salvataggioPassword}
+                    disabled={!nuovaPassword || !confermaPassword}
+                  />
+                </View>
+              </View>
+            </View>
+          </Card>
+          </View>
+        </>
+      ) : null}
+
+      {sezione === 'elimina' ? (
+        <>
+          <PageHeader title="Elimina account" subtitle="Cancella in modo definitivo il tuo accesso all’app." />
+          <View style={styles.sottoPagina}>
+            {statoEliminazione === 'OK' ? (
+        <Card title="Elimina il mio account">
+          <View style={[styles.rigaSessione, isDesktop && styles.rigaSessioneDesktop]}>
+            <View style={styles.infoSessione}>
+              <Text style={[textStyle('body', breakpoint), styles.descrizioneSezione]}>
+                Cancella il tuo accesso e i tuoi dati personali dall’app. I dati del condominio (contabilità, rate,
+                segnalazioni, assemblee e storico della tua unità) restano all’amministratore, come previsto dalla legge.
+                L’operazione non si può annullare.
+              </Text>
+            </View>
+            <View style={styles.bloccoAzioneSessione}>
+              <Button variant="destructive" label="Elimina account" icon="trash-2" onPress={apriEliminazione} />
+            </View>
+          </View>
+        </Card>
+            ) : statoEliminazioneCaricato ? (
+              <Card>
+                <Text style={[textStyle('body', breakpoint), styles.descrizioneSezione]}>
+                  L’eliminazione dell’account non è disponibile per il tuo profilo. Per assistenza contatta l’amministratore.
+                </Text>
+              </Card>
+            ) : null}
+          </View>
+        </>
+      ) : null}
 
       {/* Modale di conferma Disconnessione */}
       <ConfirmDialog
@@ -531,11 +673,38 @@ export function ImpostazioniScreen() {
         onConfirm={handleDisconnetti}
         onCancel={() => setDialogDisconnessione(false)}
       />
+
+      {/* Conferma eliminazione account */}
+      <ConfirmDialog
+        visible={dialogEliminazione}
+        title="Eliminare definitivamente il tuo account?"
+        description="Verranno cancellati il tuo accesso, il profilo, le notifiche e le preferenze. I dati del condominio collegati a te restano all’amministratore, senza collegamento al tuo account. Non potrai più accedere con questa email."
+        confirmLabel="Elimina account"
+        confirmLoadingLabel="Eliminazione in corso…"
+        cancelLabel="Annulla"
+        destructive
+        onConfirm={handleEliminaAccount}
+        onCancel={() => setDialogEliminazione(false)}
+      >
+        <Input
+          label="Per confermare scrivi ELIMINA"
+          value={testoConfermaEliminazione}
+          onChangeText={(t) => {
+            setTestoConfermaEliminazione(t);
+            if (erroreEliminazione) setErroreEliminazione(null);
+          }}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          error={erroreEliminazione ?? undefined}
+        />
+      </ConfirmDialog>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Sottosezioni di Impostazioni: larghezza contenuta, piu' leggibile su desktop.
+  sottoPagina: { width: '100%', maxWidth: 720, gap: space[6] },
   pagina: {
     alignSelf: 'stretch',
     gap: space[6],
@@ -571,9 +740,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[4],
-    paddingBottom: space[4],
-    borderBottomWidth: borderWidths.thin,
-    borderBottomColor: colors.border,
   },
   rigaIntestazioneProfiloMobile: {
     flexDirection: 'column',
@@ -601,9 +767,6 @@ const styles = StyleSheet.create({
     gap: space[2],
     marginTop: space[1],
     flexWrap: 'wrap',
-  },
-  condominioBadge: {
-    color: colors.text.muted,
   },
   bloccoAppartamento: {
     backgroundColor: colors.background,

@@ -165,10 +165,7 @@ export function createStrutturaService(db: TypedSupabaseClient) {
       const unitaIds = unita.map((u) => u.id);
 
       if (unitaIds.length > 0) {
-        const resAnagrafiche = unwrap(
-          await db
-            .from('anagrafiche_unita')
-            .select(`
+        const campi = `
               id,
               unita_id,
               utente_id,
@@ -180,10 +177,16 @@ export function createStrutturaService(db: TypedSupabaseClient) {
                 id,
                 nome_cognome,
                 telefono
-              )
-            `)
-            .in('unita_id', unitaIds)
-        );
+              )`;
+        // Con lo script 18 applicato si legge anche il nome conservato degli account eliminati;
+        // prima di applicarlo la colonna non esiste e si ripiega sulla lettura senza.
+        const conStorico = await db
+          .from('anagrafiche_unita')
+          .select(`${campi},\n              nome_cognome_storico`)
+          .in('unita_id', unitaIds);
+        const resAnagrafiche = conStorico.error
+          ? unwrap(await db.from('anagrafiche_unita').select(campi).in('unita_id', unitaIds))
+          : unwrap(conStorico);
         anagrafiche = resAnagrafiche as unknown as AnagraficaUnitaRaw[];
       }
 

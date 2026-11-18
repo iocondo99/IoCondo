@@ -54,7 +54,10 @@ export interface UnitaImmobiliareRaw {
 export interface AnagraficaUnitaRaw {
   id: string;
   unita_id: string;
-  utente_id: string;
+  /** null se la persona ha eliminato il proprio account (lo storico dell'unita' resta). */
+  utente_id: string | null;
+  /** Nome conservato al momento dell'eliminazione dell'account (script 18). */
+  nome_cognome_storico?: string | null;
   tipo_possesso: TipoPossesso | string;
   data_inizio: string;
   data_fine?: string | null;
@@ -84,8 +87,11 @@ export interface QuotaMillesimaleRaw {
 
 export interface ResidenteAttivoView {
   id: string;
+  /** Stringa vuota se l'account e' stato eliminato. */
   utenteId: string;
   nomeCognome: string;
+  /** true se la persona ha eliminato il proprio account: si mostra il nome conservato. */
+  accountEliminato: boolean;
   telefono: string | null;
   tipoPossesso: TipoPossesso;
   quotaPossesso: number;
@@ -216,11 +222,17 @@ export function selezionaResidenteAttivo(
   const quota = typeof scelta.quota_possesso === 'number' ? scelta.quota_possesso : Number(scelta.quota_possesso) || 100;
   const tipo = (scelta.tipo_possesso === 'INQUILINO' ? 'INQUILINO' : 'PROPRIETARIO') as TipoPossesso;
 
+  const accountEliminato = !scelta.utente_id;
+  const nomeCognome = accountEliminato
+    ? scelta.nome_cognome_storico?.trim() || 'Ex condòmino'
+    : scelta.utente?.nome_cognome || 'Residente registrato';
+
   return {
     id: scelta.id,
-    utenteId: scelta.utente_id,
-    nomeCognome: scelta.utente?.nome_cognome || 'Residente registrato',
-    telefono: scelta.utente?.telefono || null,
+    utenteId: scelta.utente_id ?? '',
+    nomeCognome,
+    accountEliminato,
+    telefono: accountEliminato ? null : scelta.utente?.telefono || null,
     tipoPossesso: tipo,
     quotaPossesso: quota,
   };

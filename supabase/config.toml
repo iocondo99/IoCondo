@@ -443,3 +443,7 @@ verify_jwt = false
 # Invio email applicative via SMTP Gmail: richiede un utente autenticato
 [functions.invia-email]
 verify_jwt = true
+
+# Eliminazione del proprio account: richiede l'utente autenticato
+[functions.elimina-account]
+verify_jwt = true
