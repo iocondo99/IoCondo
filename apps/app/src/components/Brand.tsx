@@ -9,6 +9,7 @@ import {
   space,
 } from '@iocondo/ui';
 import ioCondoLogo from '../images/ioCondoLogo.png';
+import ioCondoLogoNavy from '../images/ioCondoLogoNavy.png';
 
 export const BRAND_NAME = 'ioCondo';
 
@@ -20,12 +21,15 @@ interface BrandMarkProps {
   compact?: boolean;
   /** Prop mantenuta per compatibilità con Header/Sidebar. */
   noTagline?: boolean;
+  /** Logo blu senza riquadro di sfondo (es. header su smartphone). */
+  transparent?: boolean;
 }
 
 export function BrandMark({
   large = false,
   compact = false,
   noTagline = false,
+  transparent = false,
 }: BrandMarkProps) {
   return (
     <View
@@ -47,11 +51,11 @@ export function BrandMark({
       ) : (
         <View style={styles.fullContainer}>
           <Image
-            source={ioCondoLogo}
+            source={transparent ? ioCondoLogoNavy : ioCondoLogo}
             resizeMode="contain"
             accessibilityIgnoresInvertColors
             style={[
-              styles.logo,
+              transparent ? styles.logoTrasparente : styles.logo,
               large ? styles.logoLarge : noTagline ? styles.logoHeader : styles.logoRegular,
             ]}
           />
@@ -72,6 +76,9 @@ const styles = StyleSheet.create({
   logo: {
     borderRadius: radii.control,
     backgroundColor: colors.brand.navy,
+  },
+  logoTrasparente: {
+    backgroundColor: 'transparent',
   },
   logoRegular: {
     width: controlSizes.menuMinWidth - space[8],

@@ -77,7 +77,7 @@ export function Header() {
       role="banner"
       style={[styles.root, { minHeight: isMobile ? layout.compactHeaderHeight : layout.headerHeight }]}
     >
-      {isMobile ? <BrandMark tone="light" noTagline /> : null}
+      {isMobile ? <BrandMark tone="light" noTagline transparent /> : null}
       <View style={styles.spazio} />
 
       {!isMobile && condomini.length === 1 ? (
