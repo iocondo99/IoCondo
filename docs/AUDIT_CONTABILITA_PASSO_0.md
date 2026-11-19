@@ -2,7 +2,7 @@
 
 Documento di allineamento preventivo dello schema contabile (`RC-O6`), redatto in sola lettura confrontando lo schema esistente (`01_init_schema.sql`, `02_rls_policies.sql`, `03_backend_triggers.sql`, `05_security_hardening.sql`, `06_fix_missing_cases.sql`, `07`–`09`) con il **Modello Obiettivo** (Sezione 3 di `requisiti_contabile_completo.txt`) .
 
----
+--- 
 
 ## 1. Mappa delle Dipendenze nel Codice Esistente (`RC-O8`)
 
