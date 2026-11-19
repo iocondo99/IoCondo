@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { Redirect, Stack, useGlobalSearchParams, type Href } from 'expo-router';
 import { homeDi, safeReturnPath, scegliCondominio, scegliVista, vistePossibili } from '@iocondo/data';
 import { platformStorage } from '@iocondo/supabase-client/storage';
 import { SessionLoading } from '@/components/auth/SessionLoading';
+import { FasciaAmbiente } from '@/components/layout/FasciaAmbiente';
 import { useAuth } from '@/context/AuthContext';
 import { services } from '@/services';
 
@@ -78,5 +80,12 @@ export default function PublicLayout() {
     return <SessionLoading />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <View style={{ flex: 1 }}>
+      <FasciaAmbiente />
+      <View style={{ flex: 1 }}>
+        <Stack screenOptions={{ headerShown: false }} />
+      </View>
+    </View>
+  );
 }
