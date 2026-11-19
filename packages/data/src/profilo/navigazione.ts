@@ -25,6 +25,7 @@ const SUPER_ADMIN: readonly INavVoce[] = [
   voce('piani-abbonamenti', 'Piani e abbonamenti', 'layers', '/superadmin/piani-abbonamenti'),
   voce('fatture', 'Fatture', 'receipt', '/superadmin/fatture'),
   voce('telemetria', 'Telemetria', 'activity', '/superadmin/telemetria'),
+  voce('log', 'Registro attività', 'file-text', '/superadmin/log'),
   voce('impostazioni', 'Impostazioni', 'settings', '/superadmin/impostazioni'),
 ];
 

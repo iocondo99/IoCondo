@@ -56,3 +56,4 @@ export { formattaDataItaliana } from './admin/invitiAdminLogic';
 export type { PrioritaTicket, StatoTicket } from './segnalazioni/segnalazioniLogic';
 export { ordinaComunicazioni } from './comunicazioni/comunicazioniLogic';
 export { isEmailValida } from './admin/invitiAdminLogic';
+export * from './superadmin/logService';

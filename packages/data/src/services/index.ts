@@ -30,11 +30,13 @@ import { createRaccoltaDifferenziataService } from '../raccoltaDifferenziata/rac
 import { createPrenotazioniService } from '../prenotazioni/prenotazioniService';
 import { createSuperAdminService } from '../superadmin/superadminService';
 import { createTelemetriaService } from '../superadmin/telemetriaService';
+import { createLogService } from '../superadmin/logService';
 import { createCodaEmailService } from '../email/codaEmailService';
 
 /** Compone tutti i service su un client dato: il client lo crea l'app (nessun singleton qui). */
 export function createServices(db: TypedSupabaseClient) {
   return {
+    log: createLogService(db),
     adminDashboard: createAdminDashboardService(db),
     auth: createAuthService(db),
     condomini: createCondominiService(db),

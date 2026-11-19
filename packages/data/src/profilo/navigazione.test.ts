@@ -80,7 +80,7 @@ test('amministratore e super amministratore', () => {
     'dashboard', 'struttura', 'inviti', 'contabilita', 'manutenzione', 'comunicazioni', 'coda-email', 'documenti', 'assemblee', 'prenotazioni', 'raccolta-differenziata', 'moduli', 'impostazioni', 'assistenza',
   ]);
   assert.deepEqual(ids(vociDi({ vista: 'SUPER_ADMIN', ruoli: new Set(), moduli: tutti })), [
-    'amministratori', 'piani-abbonamenti', 'fatture', 'telemetria', 'impostazioni',
+    'amministratori', 'piani-abbonamenti', 'fatture', 'telemetria', 'log', 'impostazioni',
   ]);
 });
 
@@ -109,7 +109,7 @@ test('barra mobile: se mancano voci si passa alle successive; con 4 voci niente 
   const superVoci = vociDi({ vista: 'SUPER_ADMIN', ruoli: new Set(), moduli: tutti });
   const mobile = navigazioneMobile(superVoci, 'SUPER_ADMIN');
   assert.equal(mobile.barra.length, 4);
-  assert.deepEqual(ids(mobile.altre), ['impostazioni']);
+  assert.deepEqual(ids(mobile.altre), ['log', 'impostazioni']);
 });
 
 test('amministratore e super amministratore: i moduli residenti spenti non alterano le voci admin', () => {

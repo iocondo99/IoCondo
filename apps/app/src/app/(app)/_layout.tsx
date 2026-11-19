@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Redirect, Slot, usePathname, type Href } from "expo-router";
 import { SessionLoading } from "@/components/auth/SessionLoading";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/context/AuthContext";
 import { ProfiloProvider } from "@/context/ProfiloContext";
+import { ConfineErrori, avviaRaccoltaErrori } from "@/lib/logErrori";
 
 /**
  * Guardia delle pagine protette. Finché la sessione non è letta mostra il caricamento (niente lampo
@@ -14,6 +15,9 @@ import { ProfiloProvider } from "@/context/ProfiloContext";
 export default function ProtectedLayout() {
   const { status, passwordPending } = useAuth();
   const pathname = usePathname();
+
+  // Errori non gestiti dell'app: registrati solo con la sessione aperta (servono l'utente e i permessi).
+  useEffect(() => (status === "authenticated" ? avviaRaccoltaErrori() : undefined), [status]);
 
   if (status === "loading") return <SessionLoading />;
   if (status === "unauthenticated") {
@@ -40,7 +44,9 @@ export default function ProtectedLayout() {
   return (
     <ProfiloProvider>
       <AppShell>
-        <Slot />
+        <ConfineErrori ripiego={<SessionLoading message="Si è verificato un errore. Ricarica la pagina." />}>
+          <Slot />
+        </ConfineErrori>
       </AppShell>
     </ProfiloProvider>
   );

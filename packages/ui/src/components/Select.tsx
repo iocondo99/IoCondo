@@ -414,7 +414,7 @@ export function Select({
             >
             <View
               accessibilityLabel={label}
-              style={[styles.list, floating ? styles.listFloating : null]}
+              style={[styles.list, styles.listFloating, styles.listFloatingSize]}
               {...({ role: 'listbox' } as object)}
               {...keyboardProps(onListKeyDown)}
             >
@@ -592,6 +592,8 @@ const styles = StyleSheet.create({
   anchor: { position: 'relative', zIndex: 20 },
   // Lista nel livello sopra la pagina: posizione assoluta rispetto alla finestra.
   floatingWrap: { position: 'absolute' },
+  // La lista flottante occupa tutta la larghezza del riquadro: niente testo tagliato a sinistra.
+  listFloatingSize: { width: '100%', maxHeight: '100%', alignSelf: 'stretch' },
   listFloating: {
     ...Platform.select({
       web: { boxShadow: '0 8px 24px rgba(15, 23, 42, 0.16)' } as unknown as ViewStyle,
@@ -613,7 +615,7 @@ const styles = StyleSheet.create({
     paddingVertical: space[2],
     ...(Platform.OS !== 'web' ? { borderWidth: borderWidths.thin, borderColor: 'transparent' } : null),
   },
-  optionText: { flex: 1 },
+  optionText: { flex: 1, flexShrink: 1, minWidth: 0 },
   message: { flexDirection: 'row', alignItems: 'flex-start', gap: space[2] },
   messageText: { flex: 1 },
 });

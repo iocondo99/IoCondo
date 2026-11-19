@@ -514,6 +514,20 @@ serve(async (req) => {
     accodate += (inserted ?? []).length;
   }
 
+  if (accodate > 0) {
+    await db
+      .rpc('registra_evento_audit', {
+        p_azione: `EMAIL_ACCODATE_${payload.tipo_evento}`,
+        p_utente: callerUserId,
+        p_condominio: condominio.id,
+        p_tabella: payload.tipo_evento === 'BOLLETTINO_EMESSO' ? 'bollettini'
+          : payload.tipo_evento === 'CONVOCAZIONE_ASSEMBLEA' ? 'assemblee_testata' : 'bacheca_post',
+        p_record: uniqueIds.length === 1 ? uniqueIds[0] : null,
+        p_dettagli: { destinatari: accodate },
+      })
+      .then(() => undefined, () => undefined);
+  }
+
   const workerAvviato = accodate > 0 ? avviaWorkerInBackground(condominio.id) : false;
 
   return json({

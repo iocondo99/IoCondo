@@ -62,7 +62,7 @@ function parse(body: unknown): InvitoInput {
 serve(async (req) => {
   const input = parse(await req.json().catch(() => null));
   const redirectTo = `${appUrl()}/imposta-password`;
-  const { db } = await requireUser(req);
+  const { user, db } = await requireUser(req);
 
   // 1. Controlli e scrittura nel database, come l'utente che chiama.
   const { error: rpcError } = await db.rpc('crea_invito', {
@@ -82,6 +82,15 @@ serve(async (req) => {
 
   // 2. Email di invito (solo per chi non ha ancora un account confermato).
   const admin = adminClient();
+  await admin
+    .rpc('registra_evento_sicurezza', {
+      p_evento: 'INVITO_INVIATO',
+      p_utente: user.id,
+      p_condominio: input.condominio_id,
+      p_email: input.email,
+      p_dettagli: { ruolo: input.ruolo },
+    })
+    .then(() => undefined, () => undefined);
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(input.email, {
     redirectTo,
     // Il trigger handle_new_user legge nome_cognome da raw_user_meta_data e pre-popola public.utenti.

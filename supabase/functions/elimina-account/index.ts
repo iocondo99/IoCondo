@@ -46,6 +46,10 @@ serve(async (req) => {
     console.error('rimozione avatar non riuscita');
   }
 
+  await admin
+    .rpc('registra_evento_sicurezza', { p_evento: 'ACCOUNT_ELIMINATO', p_utente: user.id })
+    .then(() => undefined, () => undefined);
+
   // 3. Account: la rimozione da auth.users cancella il profilo e applica le regole del database
   //    (dati personali cancellati, dati del condominio conservati senza collegamento).
   const { error: erroreAuth } = await admin.auth.admin.deleteUser(user.id);
