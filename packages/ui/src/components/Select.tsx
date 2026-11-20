@@ -571,6 +571,7 @@ const styles = StyleSheet.create({
   scroll: { maxHeight: controlSizes.selectListMaxHeight },
   searchBox: {
     flexDirection: 'row',
+    minWidth: 0,
     alignItems: 'center',
     gap: space[2],
     paddingHorizontal: space[3],
@@ -580,6 +581,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
+    minWidth: 0,
+    width: '100%',
     color: colors.text.primary,
     paddingVertical: space[2],
     ...Platform.select({ web: { outlineStyle: 'none' } as unknown as ViewStyle, default: {} }),

@@ -31,6 +31,7 @@ import {
 } from '@iocondo/ui';
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
 import { useProfilo } from '@/context/ProfiloContext';
+import { Bidone, SettimanaRaccolta } from '@/components/raccolta/SettimanaRaccolta';
 import { useBlocco } from '@/hooks/useBlocco';
 import { services } from '@/services';
 
@@ -71,7 +72,6 @@ function RaccoltaDifferenziataContenuto() {
 
   const utenteId = profilo?.id ?? '';
   const condominioId = condominio?.id ?? '';
-  const condominioNome = condominio?.nome ?? '';
   const chiave = `${utenteId}|${condominioId}`;
 
   const { blocco, ricarica } = useBlocco(
@@ -163,7 +163,6 @@ function RaccoltaDifferenziataContenuto() {
     <View style={styles.pagina}>
       <PageHeader
         title="Raccolta differenziata"
-        subtitle={`Calendario settimanale dei ritiri — ${condominioNome}`}
       />
 
       {blocco.stato === 'caricamento' ? (
@@ -182,130 +181,31 @@ function RaccoltaDifferenziataContenuto() {
 
       {blocco.stato === 'pronto' && turni.length > 0 ? (
         <View style={styles.contenuto}>
-          {/* Evidenza immediata "Oggi e Domani" */}
-          <View style={[styles.grigliaEvidenza, isMobile && styles.grigliaEvidenzaMobile]}>
-            <RiquadroGiorno
-              etichetta={`Oggi — ${contesto.nomeOggi}`}
-              badge="Oggi"
-              badgeStatus="in-corso"
-              turni={turniOggi}
-              messaggioVuoto="Nessun ritiro previsto per oggi."
-              breakpoint={breakpoint}
-            />
-            <RiquadroGiorno
-              etichetta={`Domani — ${contesto.nomeDomani}`}
-              badge="Domani"
-              badgeStatus="info"
-              turni={turniDomani}
-              messaggioVuoto="Nessun ritiro previsto per domani."
-              breakpoint={breakpoint}
-            />
+          {/* Oggi e domani, in grande: è la domanda per cui si apre la pagina */}
+          <View style={[styles.oggiDomani, isMobile && styles.oggiDomaniMobile]}>
+            {[
+              { titolo: `Oggi, ${contesto.nomeOggi.toLowerCase()}`, lista: turniOggi },
+              { titolo: `Domani, ${contesto.nomeDomani.toLowerCase()}`, lista: turniDomani },
+            ].map((d) => (
+              <View key={d.titolo} style={[styles.oggiDomaniColonna, isMobile && styles.oggiDomaniColonnaMobile]}>
+                <Text accessibilityRole="header" aria-level={2} style={[textStyle('h3', breakpoint), styles.testoPrimario]}>
+                  {d.titolo}
+                </Text>
+                {d.lista.length === 0 ? (
+                  <Text style={[textStyle('body', breakpoint), styles.testoMuted]}>Nessun ritiro.</Text>
+                ) : (
+                  d.lista.map((t) => <Bidone key={t.id} turno={t} grande />)
+                )}
+              </View>
+            ))}
           </View>
 
-          {/* Calendario settimanale diviso a giorni */}
-          <Card title="Calendario settimanale">
-            <View style={styles.controlli}>
-              <SearchBar
-                value={ricerca}
-                onChangeText={setRicerca}
-                label="Cerca nei turni di raccolta"
-                placeholder="Cerca per tipologia di rifiuto o note (es. plastica, vetro, 7:00)…"
-              />
-              <FilterChips
-                label="Filtra per giorno della settimana"
-                options={OPZIONI_GIORNI}
-                value={giornoFiltro}
-                onChange={setGiornoFiltro}
-              />
-            </View>
-
-            {giorniDaMostrare.length === 0 ? (
-              <EmptyState
-                icon="calendar-days"
-                title="Nessun ritiro trovato"
-                description="Nessun turno di raccolta corrisponde ai criteri di ricerca selezionati."
-              />
-            ) : (
-              <View style={styles.listaGiorni}>
-                {giorniDaMostrare.map((g) => {
-                  const relativo = badgeGiornoRelativo(g.giorno, adesso);
-                  return (
-                    <View
-                      key={g.giorno}
-                      style={[
-                        styles.schedaGiorno,
-                        relativo === 'oggi' && styles.schedaGiornoOggi,
-                        relativo === 'domani' && styles.schedaGiornoDomani,
-                      ]}
-                    >
-                      <View style={styles.schedaGiornoHeader}>
-                        <View style={styles.schedaGiornoTitoloWrap}>
-                          <Text style={[textStyle('h3', breakpoint), styles.testoPrimario]}>
-                            {g.nome}
-                          </Text>
-                          {relativo === 'oggi' ? (
-                            <Badge status="in-corso" label="Oggi" />
-                          ) : null}
-                          {relativo === 'domani' ? (
-                            <Badge status="info" label="Domani" />
-                          ) : null}
-                        </View>
-                        {g.turni.length > 0 ? (
-                          <Badge
-                            status="neutral"
-                            label={`${g.turni.length} ${g.turni.length === 1 ? 'ritiro' : 'ritiri'}`}
-                          />
-                        ) : null}
-                      </View>
-
-                      {g.turni.length === 0 ? (
-                        <View style={styles.rigaVuotaGiorno}>
-                          <Icon name="calendar-days" size="indicator" color={colors.text.muted} />
-                          <Text style={[textStyle('secondary', breakpoint), styles.testoMuted]}>
-                            Nessun ritiro previsto per questo giorno.
-                          </Text>
-                        </View>
-                      ) : (
-                        <View style={styles.schedaGiornoCorpo}>
-                          {g.turni.map((t) => {
-                            const meta = metadatiTipoRifiuto(t.tipo_rifiuto);
-                            return (
-                              <View key={t.id} style={styles.elementoRitiro}>
-                                <View style={styles.elementoRitiroHeader}>
-                                  <Badge
-                                    status={meta.tono}
-                                    label={t.tipo_rifiuto}
-                                    icon={meta.icona}
-                                  />
-                                </View>
-                                {t.note?.trim() ? (
-                                  <View style={styles.notaRiga}>
-                                    <Icon
-                                      name="clock"
-                                      size="indicator"
-                                      color={colors.text.secondary}
-                                    />
-                                    <Text
-                                      style={[
-                                        textStyle('secondary', breakpoint),
-                                        styles.testoSecondario,
-                                      ]}
-                                    >
-                                      {t.note}
-                                    </Text>
-                                  </View>
-                                ) : null}
-                              </View>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </Card>
+          <View style={styles.settimanaSezione}>
+            <Text accessibilityRole="header" aria-level={2} style={[textStyle('h3', breakpoint), styles.testoPrimario]}>
+              La settimana
+            </Text>
+            <SettimanaRaccolta turni={turni} oggi={contesto.oggi} daLunedi />
+          </View>
         </View>
       ) : null}
     </View>
@@ -389,6 +289,12 @@ function RiquadroGiorno({
 }
 
 const styles = StyleSheet.create({
+  oggiDomani: { flexDirection: 'row', gap: space[8], alignItems: 'flex-start' },
+  oggiDomaniMobile: { flexDirection: 'column', gap: space[6] },
+  oggiDomaniColonna: { flex: 1, minWidth: 0, gap: space[3], maxWidth: 480 },
+  // In colonna flex: 1 divide l'altezza e i blocchi si sovrappongono: qui l'altezza è quella del contenuto.
+  oggiDomaniColonnaMobile: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', maxWidth: '100%', alignSelf: 'stretch' },
+  settimanaSezione: { gap: space[4] },
   pagina: {
     flex: 1,
     gap: space[6],

@@ -36,7 +36,6 @@ import {
   PageHeader,
   SearchBar,
   Select,
-  StatCard,
   Tabs,
   borderWidths,
   colors,
@@ -241,7 +240,6 @@ function AdminStrutturaContenuto() {
     () => [
       { value: 'PROPRIETARIO', label: 'Proprietario' },
       { value: 'INQUILINO', label: 'Inquilino / Affittuario' },
-      { value: 'USUFRUTTUARIO', label: 'Usufruttuario' },
     ],
     []
   );
@@ -353,7 +351,7 @@ function AdminStrutturaContenuto() {
     setUnitaResidenteTarget(unita);
     setUtenteSelezionatoId(unita.residenteAttivo?.utenteId || '');
     setTipoPossessoSelezionato(unita.residenteAttivo?.tipoPossesso || 'PROPRIETARIO');
-    setQuotaPossessoInput('100');
+    setQuotaPossessoInput(String(unita.residenteAttivo?.quotaPossesso ?? 100));
     setDataInizioInput(new Date().toISOString().slice(0, 10));
     setErroreFormResidente(null);
     setModaleResidenteAperta(true);
@@ -393,7 +391,7 @@ function AdminStrutturaContenuto() {
       await services.struttura.associaResidente({
         unitaId: unitaResidenteTarget.id,
         utenteId: utenteSelezionatoId,
-        tipoPossesso: tipoPossessoSelezionato === 'PROPRIETARIO' ? 'PROPRIETARIO' : 'INQUILINO',
+        tipoPossesso: tipoPossessoSelezionato === 'INQUILINO' ? 'INQUILINO' : 'PROPRIETARIO',
         quotaPossesso: quotaNum,
         dataInizio: dataInizioInput.trim() || undefined,
         condominioId: condominio?.id,
@@ -570,8 +568,18 @@ function AdminStrutturaContenuto() {
       }
       setModaleUnitaAperta(false);
       caricaDati();
-    } catch {
-      setErroreFormUnita('Errore durante il salvataggio dell’unità immobiliare.');
+    } catch (err: unknown) {
+      // Mostra il motivo reale (vincolo, permessi, unità duplicata…), non un messaggio generico.
+      const dettaglio =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : '';
+      console.error('Salvataggio unità non riuscito:', err);
+      setErroreFormUnita(
+        dettaglio ? `Salvataggio non riuscito: ${dettaglio}` : 'Salvataggio non riuscito. Riprova tra poco.',
+      );
     } finally {
       setSalvataggioUnitaInCorso(false);
     }
@@ -708,128 +716,72 @@ function AdminStrutturaContenuto() {
             </Card>
           ) : (
             palazziFiltrati.map((palazzo) => (
-              <Card
-                key={palazzo.id}
-                title={palazzo.nome}
-              >
+              <Card key={palazzo.id}>
                 <View style={styles.palazzoCorpo}>
-                  {/* Badge riepilogo edificio e azioni rapide */}
-                  <View style={styles.rigaRiepilogoEdificio}>
-                    <View style={styles.badgeEdificioGruppo}>
-                      <Badge
-                        status="info"
-                        label={`${palazzo.totaleUnita} ${palazzo.totaleUnita === 1 ? 'Unità' : 'Unità'}`}
-                      />
-                      <Badge
-                        status="neutral"
-                        label={`${palazzo.totaleMq} mq complessivi`}
-                      />
+                  <View style={[styles.palazzoTesta, isMobile && styles.palazzoTestaMobile]}>
+                    <View style={styles.palazzoNomi}>
+                      <Text accessibilityRole="header" aria-level={2} style={[textStyle('h3', breakpoint), styles.palazzoNome]}>
+                        {palazzo.nome}
+                      </Text>
+                      <Text style={[textStyle('secondary', breakpoint), styles.testoTenue]}>
+                        {[palazzo.indirizzo, `${palazzo.totaleUnita} unità`, `${palazzo.totaleMq.toLocaleString('it-IT')} mq`].filter(Boolean).join(', ')}
+                      </Text>
                     </View>
                     <View style={styles.azioniRapidePalazzo}>
                       <Button
                         variant="secondary"
                         icon="layers"
-                        label="+ Nuova scala"
+                        label="Aggiungi scala"
                         onPress={() => apriModaleNuovaScala(palazzo.id)}
-                        accessibilityHint={`Aggiungi una nuova scala o colonna nel ${palazzo.nome}`}
+                        accessibilityHint={`Aggiungi una scala o colonna in ${palazzo.nome}`}
                       />
                       <Button
                         variant="secondary"
                         icon="home"
-                        label="+ Nuova unità"
+                        label="Aggiungi unità"
                         onPress={() => apriModaleNuovaUnita(palazzo.id)}
-                        accessibilityHint={`Aggiungi una nuova unità immobiliare nel ${palazzo.nome}`}
+                        accessibilityHint={`Aggiungi un'unità immobiliare in ${palazzo.nome}`}
                       />
                     </View>
                   </View>
 
-                  {/* Elenco Scale/Colonne */}
                   {palazzo.scale.map((scala, idx) => (
                     <View key={scala.id || `gen-${idx}`} style={styles.sezioneScala}>
-                      <View style={styles.intestazioneScala}>
-                        <View style={styles.iconaScala}>
-                          <Icon name="layers" size="action" color={colors.brand.navy} />
-                        </View>
-                        <Text style={[textStyle('h4', breakpoint), styles.titoloScala]}>
-                          {scala.nome}
+                      <Text accessibilityRole="header" aria-level={3} style={[textStyle('h4', breakpoint), styles.titoloScala]}>
+                        {scala.nome}
+                        <Text style={[textStyle('secondary', breakpoint), styles.testoTenue]}>
+                          {`  ${scala.totaleUnita} unità`}
                         </Text>
-                        <Text style={[textStyle('secondary', breakpoint), styles.conteggioScala]}>
-                          ({scala.totaleUnita} {scala.totaleUnita === 1 ? 'unità' : 'unità'})
+                      </Text>
+
+                      {scala.unita.length === 0 ? (
+                        <Text style={[textStyle('secondary', breakpoint), styles.testoTenue]}>
+                          Nessuna unità in questa scala. Aggiungila con «Aggiungi unità».
                         </Text>
-                      </View>
-
-                      {/* Lista Unità della scala */}
-                      <View style={styles.tabellaUnita}>
-                        {scala.unita.map((unita) => {
-                          const badgeStato = unita.residenteAttivo
-                            ? unita.residenteAttivo.accountEliminato
-                              ? 'neutral'
-                              : unita.residenteAttivo.tipoPossesso === 'PROPRIETARIO'
-                                ? 'success'
-                                : 'info'
-                            : 'neutral';
-
-                          const labelPossesso = unita.residenteAttivo
-                            ? `${unita.residenteAttivo.tipoPossesso === 'PROPRIETARIO' ? 'Proprietario' : 'Inquilino'}: ${unita.residenteAttivo.nomeCognome}${
-                                unita.residenteAttivo.accountEliminato ? ' (account eliminato)' : ''
-                              }`
-                            : 'Non assegnata';
-
-                          return (
-                            <View key={unita.id} style={styles.rigaUnita}>
-                              {/* Dati identificativi */}
-                              <View style={styles.infoPrincipaleUnita}>
-                                <View style={styles.rigaIdentificativo}>
-                                  <View style={styles.badgeInterno}>
-                                    <Text style={[textStyle('label', breakpoint), styles.testoBadgeInterno]}>
-                                      Int. {unita.interno}
-                                    </Text>
-                                  </View>
-                                  <Text style={[textStyle('body', breakpoint), styles.tipologiaUnita]}>
-                                    {unita.tipologiaDescrizione}
-                                  </Text>
-                                </View>
-
-                                <View style={styles.dettagliSpaziali}>
-                                  <Text style={[textStyle('secondary', breakpoint), styles.testoSpaziale]}>
-                                    {unita.piano !== null ? `Piano ${unita.piano}` : 'Piano non spec.'}
-                                    {unita.mq !== null ? ` · ${unita.mq} mq` : ''}
-                                  </Text>
-                                  <View style={styles.badgeResidente}>
-                                    <Badge status={badgeStato} label={labelPossesso} />
-                                  </View>
-                                </View>
+                      ) : (
+                        <View style={styles.sezionePalazzo}>
+                          {raggruppaPerPiano(scala.unita).map(({ chiave, etichetta, unita: unitaPiano }) => (
+                            <View key={chiave} style={[styles.piano, isMobile && styles.pianoMobile]}>
+                              <View style={[styles.pianoEtichetta, isMobile && styles.pianoEtichettaMobile]}>
+                                <Text style={[textStyle('label', breakpoint), styles.pianoTesto]}>{etichetta}</Text>
                               </View>
-
-                              {/* Azioni riga */}
-                              <View style={styles.azioniUnita}>
-                                <Button
-                                  variant="secondary"
-                                  label="Dettagli"
-                                  onPress={() => setUnitaDettaglio(unita)}
-                                  accessibilityHint={`Visualizza dettagli completi dell’interno ${unita.interno}`}
-                                />
-                                <Button
-                                  variant="secondary"
-                                  icon={unita.residenteAttivo ? 'user-check' : 'user-plus'}
-                                  label={unita.residenteAttivo ? 'Residente' : 'Associa'}
-                                  onPress={() => apriModaleAssociaResidente(unita)}
-                                  accessibilityHint={`${unita.residenteAttivo ? 'Gestisci o modifica residente' : 'Associa condòmino'} per interno ${unita.interno}`}
-                                />
-                                <Button
-                                  variant="text"
-                                  label="Modifica"
-                                  icon="pencil"
-                                  onPress={() => apriModaleModificaUnita(unita)}
-                                  accessibilityHint={`Modifica unità immobiliare interno ${unita.interno}`}
-                                />
+                              <View style={[styles.porte, isMobile && styles.porteMobile]}>
+                                {unitaPiano.map((unita) => (
+                                  <Porta key={unita.id} unita={unita} onPress={() => setUnitaDettaglio(unita)} />
+                                ))}
                               </View>
                             </View>
-                          );
-                        })}
-                      </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
                   ))}
+
+                  <View style={styles.legenda}>
+                    <Legenda colore={colors.semantic.success.foreground} testo="Proprietario" />
+                    <Legenda colore={colors.semantic.info.foreground} testo="Inquilino" />
+                    <Legenda colore={colors.borderStrong} testo="Nessun residente" tratteggio />
+                  </View>
                 </View>
               </Card>
             ))
@@ -1009,69 +961,36 @@ function AdminStrutturaContenuto() {
 
       {/* 2. PageHeader */}
       <PageHeader
-        title="Struttura del Condominio"
-        subtitle={`Gestione edifici, scale, unità immobiliari e ripartizione tabelle millesimali per ${condominio?.nome ?? ''}.`}
+        title="Struttura"
+        subtitle={condominio?.nome ? `Edifici, scale, unità e millesimi di ${condominio.nome}.` : 'Edifici, scale, unità e millesimi.'}
+        action={{ label: 'Aggiungi edificio', icon: 'building-2', onPress: apriModalePalazzo }}
       />
 
-      {/* Pulsanti azioni rapide di testata */}
-      <View style={styles.barraAzioniPrimarie}>
-        <Button
-          variant="secondary"
-          icon="building-2"
-          label="Aggiungi edificio"
-          onPress={apriModalePalazzo}
-          accessibilityHint="Apre il modulo per inserire un nuovo palazzo"
-        />
-        <Button
-          variant="secondary"
-          icon="layers"
-          label="Nuova scala"
-          onPress={() => apriModaleNuovaScala()}
-          accessibilityHint="Apre il modulo per inserire una nuova scala o colonna"
-        />
-        <Button
-          variant="secondary"
-          icon="home"
-          label="Nuova unità"
-          onPress={() => apriModaleNuovaUnita()}
-          accessibilityHint="Apre il modulo per inserire una nuova unità immobiliare"
-        />
-      </View>
-
-      {/* 3. 3 StatCard obbligatorie */}
-      <View style={styles.grigliaStatCard}>
-        <View style={styles.colonnaStatCard}>
-          <StatCard
-            icon="building-2"
-            tile="blue"
-            title="Edifici e Palazzi"
-            value={`${dati.statistiche.totalePalazzi} ${dati.statistiche.totalePalazzi === 1 ? 'Palazzo' : 'Palazzi'}`}
-            description="Edifici nel condominio"
-          />
+      {/* Riepilogo: tre numeri e quanto del condominio ha un residente collegato */}
+      <View style={[styles.riepilogo, isMobile && styles.riepilogoMobile]}>
+        <View style={styles.riepilogoNumeri}>
+          <Numero valore={dati.statistiche.totalePalazzi} etichetta={dati.statistiche.totalePalazzi === 1 ? 'edificio' : 'edifici'} />
+          <Numero valore={dati.statistiche.totaleUnita} etichetta="unità" />
+          <Numero valore={dati.statistiche.totaleMq.toLocaleString('it-IT')} etichetta="mq" />
         </View>
-
-        <View style={styles.colonnaStatCard}>
-          <StatCard
-            icon="home"
-            tile="navy"
-            title="Totale unità immobiliari"
-            value={`${dati.statistiche.totaleUnita} Unità`}
-            description={`${dati.statistiche.totaleMq} mq complessivi`}
-          />
-        </View>
-
-        <View style={styles.colonnaStatCard}>
-          <StatCard
-            icon="users"
-            tile="teal"
-            title="Residenti associati"
-            value={`${dati.statistiche.residentiAssociati} Assegnate`}
-            description={`${
-              dati.statistiche.totaleUnita > 0
-                ? Math.round((dati.statistiche.residentiAssociati / dati.statistiche.totaleUnita) * 100)
-                : 0
-            }% unità con residente attivo`}
-          />
+        <View style={[styles.occupazione, isMobile && styles.occupazioneMobile]}>
+          <Text style={[textStyle('secondary', breakpoint), styles.occupazioneTesto]}>
+            {dati.statistiche.residentiAssociati} unità su {dati.statistiche.totaleUnita} hanno un residente collegato
+          </Text>
+          <View
+            style={styles.occupazioneBarra}
+            accessibilityRole="progressbar"
+            accessibilityValue={{ min: 0, max: dati.statistiche.totaleUnita, now: dati.statistiche.residentiAssociati }}
+          >
+            <View
+              style={[
+                styles.occupazioneRiempimento,
+                {
+                  width: `${dati.statistiche.totaleUnita > 0 ? Math.round((dati.statistiche.residentiAssociati / dati.statistiche.totaleUnita) * 100) : 0}%`,
+                },
+              ]}
+            />
+          </View>
         </View>
       </View>
 
@@ -1360,6 +1279,16 @@ function AdminStrutturaContenuto() {
               ...(unitaDettaglio
                 ? [
                     <Button
+                      key="residente"
+                      variant="secondary"
+                      label={unitaDettaglio.residenteAttivo ? 'Gestisci residente' : 'Collega residente'}
+                      onPress={() => {
+                        const target = unitaDettaglio;
+                        setUnitaDettaglio(null);
+                        apriModaleAssociaResidente(target);
+                      }}
+                    />,
+                    <Button
                       key="edit"
                       variant="primary"
                       label="Modifica dati"
@@ -1430,7 +1359,7 @@ function AdminStrutturaContenuto() {
                       <Icon name="info" size="indicator" color={colors.text.secondary} />
                       <Text style={[textStyle('secondary', breakpoint), styles.testoAvvisoAccountEliminato]}>
                         Questa persona ha eliminato il proprio account: il nominativo resta come storico dell’unità.
-                        Per un nuovo residente usa “Modifica / Subentro residente”.
+                        Per un nuovo residente usa “Gestisci residente”.
                       </Text>
                     </View>
                   ) : null}
@@ -1454,19 +1383,6 @@ function AdminStrutturaContenuto() {
                     <Text style={styles.valoreDettaglio}>
                       {unitaDettaglio.residenteAttivo.quotaPossesso}%
                     </Text>
-                  </View>
-                  <View style={{ marginTop: space[2] }}>
-                    <Button
-                      variant="secondary"
-                      icon="users"
-                      label="Modifica / Subentro residente"
-                      onPress={() => {
-                        const target = unitaDettaglio;
-                        setUnitaDettaglio(null);
-                        apriModaleAssociaResidente(target);
-                      }}
-                      accessibilityHint="Apre il modulo per gestire o cambiare il residente attivo"
-                    />
                   </View>
                 </View>
               ) : (
@@ -1623,7 +1539,157 @@ function AdminStrutturaContenuto() {
   );
 }
 
+/** Etichetta del piano come si dice a voce. */
+function nomePiano(piano: number | null): string {
+  if (piano === null) return 'Piano non indicato';
+  if (piano === 0) return 'Piano terra';
+  if (piano < 0) return `Interrato ${Math.abs(piano)}`;
+  return `${piano}° piano`;
+}
+
+/** Unità di una scala raggruppate per piano, dall'alto verso il basso (come la sezione di un palazzo). */
+function raggruppaPerPiano(unita: UnitaDettaglioView[]) {
+  const gruppi = new Map<string, { piano: number | null; unita: UnitaDettaglioView[] }>();
+  for (const u of unita) {
+    const chiave = u.piano === null ? 'nd' : String(u.piano);
+    const g = gruppi.get(chiave) ?? { piano: u.piano, unita: [] };
+    g.unita.push(u);
+    gruppi.set(chiave, g);
+  }
+  const confronta = (x: string, y: string) => x.localeCompare(y, 'it', { numeric: true });
+  return [...gruppi.entries()]
+    .sort(([, a], [, b]) => {
+      if (a.piano === null) return 1;
+      if (b.piano === null) return -1;
+      return b.piano - a.piano;
+    })
+    .map(([chiave, g]) => ({
+      chiave,
+      etichetta: nomePiano(g.piano),
+      unita: [...g.unita].sort((a, b) => confronta(a.interno, b.interno)),
+    }));
+}
+
+function Numero({ valore, etichetta }: { valore: number | string; etichetta: string }) {
+  const { breakpoint } = useBreakpoint();
+  return (
+    <View style={styles.numero}>
+      <Text style={styles.numeroValore}>{valore}</Text>
+      <Text style={[textStyle('secondary', breakpoint), styles.testoTenue]}>{etichetta}</Text>
+    </View>
+  );
+}
+
+function Legenda({ colore, testo, tratteggio }: { colore: string; testo: string; tratteggio?: boolean }) {
+  const { breakpoint } = useBreakpoint();
+  return (
+    <View style={styles.legendaVoce}>
+      <View style={[styles.legendaSegno, { borderLeftColor: colore }, tratteggio && styles.legendaSegnoTratteggio]} />
+      <Text style={[textStyle('support', breakpoint), styles.testoTenue]}>{testo}</Text>
+    </View>
+  );
+}
+
+/** Una "porta" della sezione: interno, tipologia e chi ci abita. Il bordo sinistro dice il tipo di possesso. */
+function Porta({ unita, onPress }: { unita: UnitaDettaglioView; onPress: () => void }) {
+  const { breakpoint } = useBreakpoint();
+  const [hover, setHover] = useState(false);
+  const r = unita.residenteAttivo;
+  const colore = !r || r.accountEliminato
+    ? colors.borderStrong
+    : r.tipoPossesso === 'PROPRIETARIO'
+      ? colors.semantic.success.foreground
+      : colors.semantic.info.foreground;
+  const chi = r
+    ? `${r.nomeCognome}${r.accountEliminato ? ' (account eliminato)' : ''}`
+    : 'Nessun residente';
+  const possesso = r ? (r.tipoPossesso === 'PROPRIETARIO' ? 'proprietario' : 'inquilino') : null;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Interno ${unita.interno}, ${unita.tipologiaDescrizione}, ${nomePiano(unita.piano)}. ${chi}${possesso ? `, ${possesso}` : ''}`}
+      accessibilityHint="Apre il dettaglio dell'unità"
+      onPress={onPress}
+      onHoverIn={() => setHover(true)}
+      onHoverOut={() => setHover(false)}
+      style={({ focused }: { focused?: boolean }) => [
+        styles.porta,
+        { borderLeftColor: colore },
+        !r && styles.portaLibera,
+        hover && styles.portaHover,
+        focused && styles.portaFocus,
+      ]}
+    >
+      <View style={styles.portaRiga}>
+        <Text style={[textStyle('label', breakpoint), styles.portaInterno]}>Int. {unita.interno}</Text>
+        {unita.mq !== null ? (
+          <Text style={[textStyle('support', breakpoint), styles.testoTenue]}>{unita.mq} mq</Text>
+        ) : null}
+      </View>
+      <Text style={[textStyle('support', breakpoint), styles.testoTenue]} numberOfLines={1}>
+        {unita.tipologiaDescrizione}
+      </Text>
+      <Text
+        style={[textStyle('secondary', breakpoint), r ? styles.portaChi : styles.portaChiVuoto]}
+        numberOfLines={1}
+      >
+        {chi}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  riepilogo: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: space[6], flexWrap: 'wrap', paddingBottom: space[2] },
+  riepilogoMobile: { flexDirection: 'column', alignItems: 'stretch', gap: space[4] },
+  riepilogoNumeri: { flexDirection: 'row', gap: space[8], flexWrap: 'wrap' },
+  numero: { gap: 2 },
+  numeroValore: { ...textStyle('h1'), fontSize: 32, lineHeight: 36, color: colors.brand.navy, fontVariant: ['tabular-nums'] },
+  occupazione: { gap: space[2], flexGrow: 1, flexShrink: 1, flexBasis: 280, maxWidth: 420 },
+  // In colonna flexBasis diventa un'altezza (280 px vuoti): su smartphone conta solo il contenuto.
+  occupazioneMobile: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', maxWidth: '100%' },
+  occupazioneTesto: { color: colors.text.secondary },
+  occupazioneBarra: { height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' },
+  occupazioneRiempimento: { height: '100%', backgroundColor: colors.semantic.success.foreground },
+  palazzoTesta: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: space[4], flexWrap: 'wrap' },
+  palazzoTestaMobile: { flexDirection: 'column', alignItems: 'stretch' },
+  palazzoNomi: { gap: space[1], flexShrink: 1, minWidth: 0 },
+  palazzoNome: { color: colors.brand.navy },
+  testoTenue: { color: colors.text.secondary },
+  sezionePalazzo: { borderLeftWidth: 2, borderLeftColor: colors.brand.navy, borderRadius: 2 },
+  piano: { flexDirection: 'row', alignItems: 'flex-start', gap: space[4], paddingVertical: space[3], paddingLeft: space[3], borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border },
+  pianoMobile: { flexDirection: 'column', gap: space[2] },
+  pianoEtichetta: { width: 120, paddingTop: space[3] },
+  pianoEtichettaMobile: { width: 'auto', paddingTop: 0 },
+  pianoTesto: { color: colors.text.secondary },
+  porte: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', gap: space[3] },
+  porteMobile: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: '100%' },
+  porta: {
+    width: 200,
+    minWidth: 0,
+    maxWidth: '100%',
+    flexGrow: 0,
+    gap: 2,
+    paddingVertical: space[3],
+    paddingHorizontal: space[3],
+    backgroundColor: colors.surface,
+    borderWidth: borderWidths.thin,
+    borderColor: colors.border,
+    borderLeftWidth: 4,
+    borderRadius: radii.control,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : null),
+  },
+  portaLibera: { backgroundColor: colors.background, borderStyle: 'dashed' },
+  portaHover: { borderColor: colors.borderStrong },
+  portaFocus: { ...(Platform.OS === 'web' ? ({ outlineWidth: 2, outlineStyle: 'solid', outlineColor: colors.focus, outlineOffset: 2 } as object) : { borderColor: colors.focus }) },
+  portaRiga: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space[2] },
+  portaInterno: { color: colors.text.primary },
+  portaChi: { color: colors.text.primary, marginTop: space[1] },
+  portaChiVuoto: { color: colors.text.muted, marginTop: space[1] },
+  legenda: { flexDirection: 'row', flexWrap: 'wrap', gap: space[5], paddingTop: space[1] },
+  legendaVoce: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  legendaSegno: { width: 4, height: 16, borderLeftWidth: 4 },
+  legendaSegnoTratteggio: { borderStyle: 'dashed' },
   avvisoAccountEliminato: {
     flexDirection: 'row',
     alignItems: 'flex-start',
