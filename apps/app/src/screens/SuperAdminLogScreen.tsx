@@ -301,21 +301,21 @@ function SuperAdminLogContenuto() {
             showLabel
           />
           <View style={[styles.rigaFiltri, isMobile && styles.rigaFiltriMobile]}>
-            <View style={styles.cellaFiltro}>
+            <View style={[styles.cellaFiltro, isMobile && styles.cellaFiltroMobile]}>
               <DatePicker label="Dal" value={dal} onChange={setDal} max={al ?? undefined} />
             </View>
-            <View style={styles.cellaFiltro}>
+            <View style={[styles.cellaFiltro, isMobile && styles.cellaFiltroMobile]}>
               <DatePicker label="Al" value={al} onChange={setAl} min={dal ?? undefined} />
             </View>
-            <View style={styles.cellaFiltro}>
+            <View style={[styles.cellaFiltro, isMobile && styles.cellaFiltroMobile]}>
               <Select label="Condominio" options={[{ value: '', label: 'Tutti' }, ...condomini]} value={condominioId} onChange={setCondominioId} floating />
             </View>
             {registro !== 'errori' ? (
-              <View style={styles.cellaFiltro}>
+              <View style={[styles.cellaFiltro, isMobile && styles.cellaFiltroMobile]}>
                 <Select label={registro === 'audit' ? 'Azione' : 'Evento'} options={opzioniAzioni} value={azione} onChange={setAzione} floating />
               </View>
             ) : null}
-            <View style={styles.cellaFiltro}>
+            <View style={[styles.cellaFiltro, isMobile && styles.cellaFiltroMobile]}>
               <Select label={etichettaCategoria} options={opzioniCategoria} value={categoria} onChange={setCategoria} floating />
             </View>
           </View>
@@ -435,6 +435,8 @@ const styles = StyleSheet.create({
   rigaFiltri: { flexDirection: 'row', flexWrap: 'wrap', gap: space[3] },
   rigaFiltriMobile: { flexDirection: 'column' },
   cellaFiltro: { flexGrow: 1, flexShrink: 1, flexBasis: 220, minWidth: 200 },
+  // Su smartphone i filtri sono in colonna: flexBasis diventerebbe un'altezza (spazi vuoti).
+  cellaFiltroMobile: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', minWidth: 0, width: '100%' },
   cella: { paddingRight: space[4], flexShrink: 1, minWidth: 0, ...({ wordBreak: 'break-word', overflowWrap: 'anywhere' } as object) },
   azioniFiltri: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3], flexWrap: 'wrap' },
   azioniFiltriMobile: { flexDirection: 'column', alignItems: 'stretch' },

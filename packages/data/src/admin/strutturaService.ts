@@ -104,6 +104,26 @@ export interface AssociaResidenteInput {
 
 const oggi = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * Chiude un'assegnazione al giorno prima di `data`. Se era iniziata quel giorno o dopo
+ * (es. inserita oggi per errore), non può finire prima di iniziare: si elimina.
+ * Lo storico delle modifiche resta comunque nel registro attività.
+ */
+async function chiudiAssegnazione(
+  db: TypedSupabaseClient,
+  a: { id: string; data_inizio: string },
+  data: string,
+): Promise<void> {
+  const ieri = new Date(`${data}T12:00:00`);
+  ieri.setDate(ieri.getDate() - 1);
+  const fine = ieri.toISOString().slice(0, 10);
+  if (a.data_inizio > fine) {
+    assertOk(await db.from('anagrafiche_unita').delete().eq('id', a.id));
+  } else {
+    assertOk(await db.from('anagrafiche_unita').update({ data_fine: fine }).eq('id', a.id));
+  }
+}
+
 export function createStrutturaService(db: TypedSupabaseClient) {
   return {
     /**
@@ -448,14 +468,33 @@ export function createStrutturaService(db: TypedSupabaseClient) {
 
     async associaResidente(input: AssociaResidenteInput): Promise<IAnagraficaUnita> {
       const data = input.dataInizio ?? oggi();
-      // Chiudi eventuale anagrafica attiva per la stessa unità
-      assertOk(
+      const attive = (unwrap(
         await db
           .from('anagrafiche_unita')
-          .update({ data_fine: data })
+          .select('id, utente_id, data_inizio, data_fine')
           .eq('unita_id', input.unitaId)
-          .is('data_fine', null)
-      );
+          // Attive anche quelle chiuse con una data da oggi in poi (restano valide fino a fine giornata).
+          .or(`data_fine.is.null,data_fine.gte.${data}`),
+      ) ?? []) as Array<{ id: string; utente_id: string | null; data_inizio: string; data_fine: string | null }>;
+
+      // Stessa persona: è una correzione (tipo o quota), non un subentro. Si aggiorna la riga attiva.
+      const stessa = attive.find((a) => a.utente_id === input.utenteId);
+      if (stessa) {
+        for (const a of attive) {
+          if (a.id !== stessa.id) await chiudiAssegnazione(db, a, data);
+        }
+        return unwrap(
+          await db
+            .from('anagrafiche_unita')
+            .update({ tipo_possesso: input.tipoPossesso, quota_possesso: input.quotaPossesso ?? 100, data_fine: null })
+            .eq('id', stessa.id)
+            .select('*')
+            .single(),
+        );
+      }
+
+      // Subentro: le assegnazioni ancora valide finiscono il giorno prima della nuova.
+      for (const a of attive) await chiudiAssegnazione(db, a, data);
 
       // Inserisci nuova anagrafica
       const nuova = unwrap(

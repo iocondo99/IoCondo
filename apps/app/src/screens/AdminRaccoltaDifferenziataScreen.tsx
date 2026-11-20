@@ -34,7 +34,6 @@ import {
   ResponsiveDataView,
   SearchBar,
   Select,
-  StatCard,
   Textarea,
   borderWidths,
   colors,
@@ -49,6 +48,7 @@ import {
 } from '@iocondo/ui';
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
 import { useProfilo } from '@/context/ProfiloContext';
+import { SettimanaRaccolta } from '@/components/raccolta/SettimanaRaccolta';
 import { services } from '@/services';
 
 const OPZIONI_FILTRO_GIORNI: readonly FilterOption[] = GIORNI_SETTIMANA.map((g) => ({
@@ -342,52 +342,25 @@ function AdminRaccoltaDifferenziataContenuto() {
     <View style={styles.pagina}>
       <PageHeader
         title="Raccolta differenziata"
-        subtitle={`Gestisci i giorni e gli orari di esposizione dei rifiuti — ${condominioNome}`}
+        subtitle={`Giorni e orari di esposizione dei contenitori a ${condominioNome}.`}
         breadcrumbs={[
           { label: 'Home', onPress: () => router.push('/admin/dashboard') },
           { label: 'Amministrazione' },
           { label: 'Raccolta differenziata' },
         ]}
         action={{
-          label: 'Nuovo turno',
+          label: 'Aggiungi ritiro',
           icon: 'calendar-plus',
           onPress: apriNuovoTurno,
         }}
       />
 
-      {/* Riepilogo StatCard */}
-      <View style={[styles.grigliaStat, isMobile && styles.grigliaStatMobile]}>
-        <View style={styles.statWrap}>
-          <StatCard
-            tile="blue"
-            icon="calendar-days"
-            title="Turni configurati"
-            value={String(stats.totaleTurni)}
-            description="Ritiri settimanali attivi"
-            loading={caricamento}
-          />
-        </View>
-        <View style={styles.statWrap}>
-          <StatCard
-            tile="navy"
-            icon="check-square"
-            title="Giorni coperti"
-            value={`${stats.giorniCoperti} / 7`}
-            description="Giorni con almeno un ritiro"
-            loading={caricamento}
-          />
-        </View>
-        <View style={styles.statWrap}>
-          <StatCard
-            tile="teal"
-            icon="clock"
-            title="Ritiri di oggi"
-            value={String(stats.turniOggi)}
-            description={contesto.nomeOggi}
-            loading={caricamento}
-          />
-        </View>
-      </View>
+      {!caricamento && !errore && turni.length > 0 ? (
+        <Text style={[textStyle('body', breakpoint), styles.testoSecondario]}>
+          {stats.totaleTurni} {stats.totaleTurni === 1 ? 'ritiro' : 'ritiri'} a settimana, in {stats.giorniCoperti} giorni su 7.
+          Tocca un ritiro per modificarlo; i condòmini vedono lo stesso calendario.
+        </Text>
+      ) : null}
 
       {caricamento ? (
         <LoadingState message="Caricamento dei turni di raccolta…" />
@@ -409,38 +382,16 @@ function AdminRaccoltaDifferenziataContenuto() {
       ) : null}
 
       {!caricamento && !errore && turni.length > 0 ? (
-        <Card title="Calendario settimanale dei ritiri">
-          <View style={styles.controlli}>
-            <SearchBar
-              value={ricerca}
-              onChangeText={setRicerca}
-              label="Cerca nei turni di raccolta"
-              placeholder="Cerca per tipologia di rifiuto o note…"
-            />
-            <FilterChips
-              label="Filtra per giorno della settimana"
-              options={OPZIONI_FILTRO_GIORNI}
-              value={giornoFiltro}
-              onChange={setGiornoFiltro}
-            />
-          </View>
-
-          <View style={styles.tabellaWrap}>
-            <ResponsiveDataView
-              label="Gestione turni raccolta differenziata"
-              rows={turniFiltrati}
-              columns={colonne}
-              getRowKey={(r) => r.id}
-              getRowLabel={(r) => `${nomeGiornoSettimana(r.giorno_settimana)} — ${r.tipo_rifiuto}`}
-              onRowPress={apriDettaglioTurno}
-              empty={{
-                title: 'Nessun turno trovato',
-                description: 'Prova a cambiare il giorno selezionato o i termini di ricerca.',
-                icon: 'calendar-days',
-              }}
-            />
-          </View>
-        </Card>
+        <SettimanaRaccolta
+          turni={turni}
+          oggi={contesto.oggi}
+          daLunedi
+          onPressTurno={apriDettaglioTurno}
+          onAggiungi={(giorno) => {
+            apriNuovoTurno();
+            setGiornoInput(String(giorno));
+          }}
+        />
       ) : null}
 
       {/* Modale Creazione / Modifica turno */}

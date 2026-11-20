@@ -1,326 +1,127 @@
 import React, { useRef, useState } from 'react';
-import {
-  type LayoutChangeEvent,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { type LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
-import {
-  borderWidths,
-  colors,
-  feedbackSizes,
-  focusRing,
-  radii,
-  space,
-  textStyle,
-  touchTarget,
-  useBreakpoint,
-  Button,
-  Icon,
-  type IconName,
-} from '@iocondo/ui';
+import { Button, Icon, focusRing, space, textStyle, useBreakpoint, type IconName } from '@iocondo/ui';
 import { BrandMark } from '@/components/Brand';
 
-interface RoleCardItem {
-  icon: IconName;
-  tile: keyof typeof colors.tile;
-  title: string;
-  roleBadge: string;
-  description: string;
-  highlights: string[];
+/*
+ * Landing di IoCondo. Idea guida: la pulsantiera del citofono, l'oggetto che ogni condominio
+ * italiano ha all'ingresso. Ogni "campanello" è un servizio: premendolo, il display mostra cosa fa.
+ * Il resto della pagina è quieto: testo, colonne, niente schede decorative.
+ */
+
+const P = {
+  intonaco: '#E9EDE9', // muro dell'androne, freddo e chiaro
+  inchiostro: '#0D3B66', // navy del marchio
+  ottone: '#A8873A', // placca del citofono
+  ottoneScuro: '#6E5622',
+  display: '#16302B', // display verde scuro del citofono
+  displayTesto: '#CFE8DA',
+  testo: '#1F2A37',
+  testoTenue: '#4B5563',
+  bianco: '#FFFFFF',
+} as const;
+
+interface Campanello {
+  chiave: string;
+  icona: IconName;
+  nome: string;
+  display: string;
 }
 
-const RUOLI_DATA: RoleCardItem[] = [
-  {
-    icon: 'users',
-    tile: 'blue',
-    title: 'Per i Condòmini',
-    roleBadge: 'Abitanti & Proprietari',
-    description:
-      'Tutto sotto controllo in un tocco: consulta la tua situazione contabile, leggi gli avvisi e vivi il palazzo con serenità.',
-    highlights: [
-      'Rate, scadenze e ripartizioni sempre trasparenti',
-      'Bacheca avvisi in evidenza per scala e stabile',
-      'Segnalazione guasti rapida sulle parti comuni',
-      'Prenotazione spazi comuni e raccolta differenziata',
-    ],
-  },
-  {
-    icon: 'package',
-    tile: 'teal',
-    title: 'Per il Portiere',
-    roleBadge: 'Presidio & Custodia',
-    description:
-      'Il compagno di lavoro quotidiano: traccia pacchi e consegne, gestisci le chiavi e registra anomalie all’istante.',
-    highlights: [
-      'Registro pacchi digitale con firma al ritiro',
-      'Segnalazione guasti sulle aree comuni in tempo reale',
-      'Nessun foglio volante né quaderno cartaceo',
-      'Notifiche immediate ai residenti all’arrivo dei corrieri',
-    ],
-  },
-  {
-    icon: 'building-2',
-    tile: 'navy',
-    title: 'Per l’Amministratore',
-    roleBadge: 'Gestione Professionale',
-    description:
-      'Massima efficienza e serenità legale: conduci le assemblee, tieni la contabilità e dialoga con i condòmini a prova di legge.',
-    highlights: [
-      'Assemblee con quorum costitutivi ex art. 1136 c.c.',
-      'Contabilità analitica e registri cronologici',
-      'Gestione fornitori convenzionati con link sicuri',
-      'Comunicazioni certificate multicanale',
-    ],
-  },
+const CAMPANELLI: Campanello[] = [
+  { chiave: 'rate', icona: 'coins', nome: 'Rate e spese', display: 'Quanto devi, entro quando, e come è stata divisa la spesa.' },
+  { chiave: 'avvisi', icona: 'bell', nome: 'Avvisi', display: 'Le comunicazioni dell’amministratore arrivano a te, non sulla bacheca dell’ascensore.' },
+  { chiave: 'guasti', icona: 'wrench', nome: 'Guasti', display: 'Segnali il guasto con una foto e segui l’intervento fino alla chiusura.' },
+  { chiave: 'spazi', icona: 'calendar-days', nome: 'Spazi comuni', display: 'Prenoti la sala o la lavanderia senza accavallarti con il vicino.' },
+  { chiave: 'raccolta', icona: 'recycle', nome: 'Raccolta', display: 'Stasera quale bidone si espone? Lo vedi a colpo d’occhio.' },
+  { chiave: 'assemblee', icona: 'file-text', nome: 'Assemblee', display: 'Convocazioni, presenze, voti e verbali nello stesso posto.' },
 ];
 
-interface FeatureCardItem {
-  icon: IconName;
-  tile: keyof typeof colors.tile;
-  title: string;
-  description: string;
-}
-
-const FUNZIONALITA_DATA: FeatureCardItem[] = [
+const RUOLI = [
   {
-    icon: 'bell',
-    tile: 'blue',
-    title: 'Bacheca & Avvisi',
-    description:
-      'Comunicazioni ufficiali dell’amministratore, avvisi fissati per palazzo e notifiche in tempo reale per non perdere nulla.',
+    titolo: 'Chi abita',
+    testo: 'Controlli rate e scadenze, leggi gli avvisi, segnali un guasto, prenoti uno spazio.',
   },
   {
-    icon: 'coins',
-    tile: 'teal',
-    title: 'Spese e Scadenze Chiare',
-    description:
-      'Nessuna sorpresa: visualizza importi dovuti, rateizzazioni e ripartizioni millesimali con chiarezza cristallina.',
+    titolo: 'Chi custodisce',
+    testo: 'Registri pacchi e consegne, avvisi il residente all’arrivo, annoti le anomalie del giro.',
   },
   {
-    icon: 'wrench',
-    tile: 'navy',
-    title: 'Guasti & Manutenzione',
-    description:
-      'Segnalazioni veloci con foto per scala e palazzo, tracciamento degli interventi e fornitori convenzionati.',
+    titolo: 'Chi amministra',
+    testo: 'Tieni la contabilità, convochi e gestisci le assemblee, scrivi a tutti i condòmini in un passaggio.',
   },
-  {
-    icon: 'calendar-days',
-    tile: 'violet',
-    title: 'Prenotazione Spazi Comuni',
-    description:
-      'Prenota campi da tennis, sale riunioni o lavanderia con verifica automatica delle sovrapposizioni.',
-  },
-  {
-    icon: 'recycle',
-    tile: 'teal',
-    title: 'Raccolta Differenziata',
-    description:
-      'Calendario settimanale e promemoria "Oggi e Domani" per sapere sempre quale bidone esporre ed evitare sanzioni.',
-  },
-  {
-    icon: 'file-text',
-    tile: 'navy',
-    title: 'Assemblee & Documenti Protetti',
-    description:
-      'Convocazioni, quorum legali ex art. 1136 c.c., votazioni nominali e verbali firmati consultabili con link protetti.',
-  },
-];
-
-interface TrustPillarItem {
-  icon: IconName;
-  title: string;
-  subtitle: string;
-}
-
-const TRUST_PILLARS: TrustPillarItem[] = [
-  {
-    icon: 'smartphone',
-    title: '100% Mobile-first',
-    subtitle: 'Nessun download obbligato: accessibile su smartphone, tablet e desktop',
-  },
-  {
-    icon: 'shield-check',
-    title: 'Zero pagamenti simulati',
-    subtitle: 'Solo canali ufficiali e sicurezza bancaria autentica',
-  },
-  {
-    icon: 'bell',
-    title: 'Notifiche in tempo reale',
-    subtitle: 'Avvisi istantanei per scadenze, interventi urgenti e bacheca',
-  },
-  {
-    icon: 'file-text',
-    title: 'Privacy ex art. 1130 c.c.',
-    subtitle: 'Protezione dati rigorosa, registri di anagrafe e accessi separati',
-  },
-];
+] as const;
 
 export function LandingScreen() {
   const router = useRouter();
-  const { breakpoint, isDesktop, isTablet, isMobile } = useBreakpoint();
+  const { breakpoint, isDesktop, isMobile } = useBreakpoint();
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
-  const [logoFocused, setLogoFocused] = useState(false);
-  // Larghezza naturale del CTA primario: il secondario sarà 50px più stretto (25px per lato).
-  const [primaryCtaWidth, setPrimaryCtaWidth] = useState<number | null>(null);
-  const sectionPositions = useRef<Record<string, number>>({});
+  const posizioni = useRef<Record<string, number>>({});
+  const [attivo, setAttivo] = useState<string>('rate');
 
-  const recordSectionY = (key: string) => (event: LayoutChangeEvent) => {
-    sectionPositions.current[key] = event.nativeEvent.layout.y;
+  const registra = (k: string) => (e: LayoutChangeEvent) => {
+    posizioni.current[k] = e.nativeEvent.layout.y;
   };
-
-  const scrollToSection = (key: string) => {
-    const y = sectionPositions.current[key] ?? 0;
-    const offset = 80;
-    scrollRef.current?.scrollTo({ y: Math.max(0, y - offset), animated: true });
-  };
+  const vai = (k: string) => scrollRef.current?.scrollTo({ y: Math.max(0, (posizioni.current[k] ?? 0) - 24), animated: true });
+  const accedi = () => router.push('/login');
+  const corrente = CAMPANELLI.find((c) => c.chiave === attivo) ?? CAMPANELLI[0]!;
 
   return (
     <View style={styles.root}>
-      {/* Top Navigation Bar fissa / in evidenza */}
-      <View role="banner" style={styles.header}>
-        <View style={styles.headerInner}>
-          <Pressable
-            accessible
-            role="link"
-            aria-label="ioCondo Home"
-            accessibilityLabel="ioCondo Home"
-            onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
-            onFocus={() => setLogoFocused(true)}
-            onBlur={() => setLogoFocused(false)}
-            style={[
-              styles.logoPressable,
-              logoFocused && focusRing,
-            ]}
-          >
-            <BrandMark noTagline />
-          </Pressable>
-
-          {/* Navigazione centrale visibile da tablet in su */}
-          {!isMobile && (
-            <View role="navigation" aria-label="Navigazione principale" style={styles.navLinks}>
-              <NavLink label="Funzionalità" onPress={() => scrollToSection('funzionalita')} />
-              <NavLink label="Per chi è" onPress={() => scrollToSection('ruoli')} />
-              <NavLink label="Vantaggi" onPress={() => scrollToSection('vantaggi')} />
+      <View role="banner" style={styles.barra}>
+        <View style={styles.barraInterna}>
+          <BrandMark noTagline />
+          {!isMobile ? (
+            <View role="navigation" aria-label="Sezioni della pagina" style={styles.nav}>
+              <LinkNav label="Servizi" onPress={() => vai('servizi')} />
+              <LinkNav label="Per chi è" onPress={() => vai('ruoli')} />
             </View>
-          )}
-
-          <View style={styles.headerActions}>
-            <Button
-              variant="primary"
-              label="Accedi"
-              icon="log-in"
-              iconPosition="end"
-              onPress={() => router.push('/login')}
-              accessibilityHint="Apre la schermata di accesso a ioCondo"
-            />
+          ) : null}
+          <View style={styles.barraAccedi}>
+            <Button variant="primary" label="Accedi" icon="log-in" iconPosition="end" onPress={accedi} />
           </View>
         </View>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* HERO SECTION */}
-        <View style={styles.heroSection}>
-          <View style={styles.heroInner}>
-            {/* Badge pillola con accento Teal */}
-            <View style={styles.pillBadge}>
-              <Icon name="sparkles" size="indicator" color={colors.tile.teal.foreground} />
-              <Text style={[textStyle('label', breakpoint), styles.pillBadgeText]}>
-                La nuova gestione condominiale digitale e trasparente
+      <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContenuto}>
+        {/* Apertura: frase a sinistra, citofono a destra */}
+        <View style={styles.androne}>
+          <View style={[styles.colonnaPagina, styles.apertura, !isDesktop && styles.aperturaImpilata]}>
+            <View style={[styles.aperturaTesto, isDesktop && styles.aperturaTestoDesktop]}>
+              <Text accessibilityRole="header" aria-level={1} style={[styles.titolo, isMobile && styles.titoloMobile]}>
+                Il tuo condominio, dal citofono in su.
+              </Text>
+              <Text style={[textStyle('body', breakpoint), styles.sottotitolo]}>
+                Rate, avvisi, guasti e assemblee del tuo palazzo in un unico posto, per chi ci abita, per il portiere e per l’amministratore.
+              </Text>
+              <View style={[styles.azioni, isMobile && styles.azioniMobile]}>
+                <Button variant="primary" label="Accedi al tuo condominio" onPress={accedi} fullWidth={isMobile} />
+              </View>
+              <Text style={[textStyle('secondary', breakpoint), styles.notaAccesso]}>
+                L’accesso arriva su invito del tuo amministratore.
               </Text>
             </View>
 
-            {/* Titolo H1 principale */}
-            <Text
-              accessibilityRole="header"
-              aria-level={1}
-              style={[
-                textStyle('h1', breakpoint),
-                styles.heroTitle,
-                isDesktop && styles.heroTitleDesktop,
-              ]}
-            >
-              La vita in condominio, finalmente semplice e senza stress
-            </Text>
-
-            {/* Sottotitolo chiaro ed empatico */}
-            <Text style={[textStyle('body', breakpoint), styles.heroSubtitle]}>
-              La piattaforma moderna che unisce condòmini, portieri e amministratori: comunicazioni
-              chiare, rate e spese sotto controllo, gestione rapida dei guasti e verbali a norma di
-              legge in un unico spazio intuitivo.
-            </Text>
-
-            {/* Gruppo pulsanti CTA */}
-            <View style={[styles.ctaGroup, !isDesktop && styles.ctaGroupMobile]}>
-              {/* Wrapper centrato: annulla l'alignSelf:'flex-start' interno del Button
-                  (a larghezza-contenuto) e tiene ciascun CTA centrato nella colonna. */}
-              <View
-                style={styles.ctaItem}
-                onLayout={(e) => setPrimaryCtaWidth(e.nativeEvent.layout.width)}
-              >
-                <Button
-                  variant="primary"
-                  label="Entra nel tuo condominio"
-                  icon="arrow-right"
-                  iconPosition="end"
-                  onPress={() => router.push('/login')}
-                />
-              </View>
-              <View
-                style={[
-                  styles.ctaItem,
-                  primaryCtaWidth != null
-                    ? { width: Math.max(touchTarget.comfortable, primaryCtaWidth - 50) }
-                    : null,
-                ]}
-              >
-                <Button
-                  variant="secondary"
-                  label="Scopri le funzionalità"
-                  icon="chevron-down"
-                  iconPosition="end"
-                  onPress={() => scrollToSection('funzionalita')}
-                  fullWidth={primaryCtaWidth != null}
-                />
-              </View>
-            </View>
+            <Citofono attivo={attivo} onScegli={setAttivo} testo={corrente.display} nome={corrente.nome} />
           </View>
         </View>
 
-        {/* METRICHE DI FIDUCIA E VANTAGGI */}
-        <View
-          onLayout={recordSectionY('vantaggi')}
-          style={styles.sectionContainer}
-        >
-          <View style={styles.trustCard}>
-            <View
-              style={[
-                styles.trustGrid,
-                isDesktop ? styles.trustGridDesktop : isTablet ? styles.trustGridTablet : styles.trustGridMobile,
-              ]}
-            >
-              {TRUST_PILLARS.map((pillar) => (
-                <View key={pillar.title} style={styles.trustItem}>
-                  <View style={styles.trustIconWrapper}>
-                    <Icon name={pillar.icon} size="action" color={colors.action.default} />
-                  </View>
-                  <View style={styles.trustTextGroup}>
-                    <Text style={[textStyle('h4', breakpoint), styles.trustTitle]}>
-                      {pillar.title}
+        {/* Servizi: elenco piano, due colonne su desktop */}
+        <View onLayout={registra('servizi')} style={styles.sezione}>
+          <View style={styles.colonnaPagina}>
+            <Text accessibilityRole="header" aria-level={2} style={[textStyle('h2', breakpoint), styles.titoloSezione]}>
+              Cosa trovi dentro
+            </Text>
+            <View style={[styles.elenco, isDesktop && styles.elencoDesktop]}>
+              {CAMPANELLI.map((c) => (
+                <View key={c.chiave} style={[styles.voce, isDesktop && styles.voceDesktop]}>
+                  <Icon name={c.icona} size="action" color={P.inchiostro} />
+                  <View style={styles.voceTesto}>
+                    <Text accessibilityRole="header" aria-level={3} style={[textStyle('h4', breakpoint), styles.voceTitolo]}>
+                      {c.nome}
                     </Text>
-                    <Text style={[textStyle('secondary', breakpoint), styles.trustSubtitle]}>
-                      {pillar.subtitle}
-                    </Text>
+                    <Text style={[textStyle('body', breakpoint), styles.voceDescrizione]}>{c.display}</Text>
                   </View>
                 </View>
               ))}
@@ -328,188 +129,41 @@ export function LandingScreen() {
           </View>
         </View>
 
-        {/* SEZIONE "PER CHI È" (I 3 RUOLI) */}
-        <View
-          onLayout={recordSectionY('ruoli')}
-          style={styles.sectionContainer}
-        >
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionBadge}>
-              <Text style={[textStyle('label', breakpoint), styles.sectionBadgeText]}>
-                PER CHI È
-              </Text>
-            </View>
-            <Text accessibilityRole="header" aria-level={2} style={[textStyle('h2', breakpoint), styles.sectionTitle]}>
-              Pensato su misura per ogni protagonista del condominio
+        {/* Ruoli: tre colonne di testo, separate da un filo, come i piani di un palazzo */}
+        <View onLayout={registra('ruoli')} style={[styles.sezione, styles.sezioneRuoli]}>
+          <View style={styles.colonnaPagina}>
+            <Text accessibilityRole="header" aria-level={2} style={[textStyle('h2', breakpoint), styles.titoloSezione]}>
+              Una sola app, tre modi di usarla
             </Text>
-            <Text style={[textStyle('body', breakpoint), styles.sectionSubtitle]}>
-              Un’unica piattaforma intelligente, con viste ed esperienze personalizzate in base al ruolo.
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.rolesGrid,
-              isDesktop ? styles.rolesGridDesktop : styles.rolesGridColumn,
-            ]}
-          >
-            {RUOLI_DATA.map((item) => {
-              const tileColor = colors.tile[item.tile];
-              return (
-                <View key={item.title} style={styles.roleCard}>
-                  <View style={styles.roleCardTop}>
-                    <View style={[styles.tileBox, { backgroundColor: tileColor.background }]}>
-                      <Icon name={item.icon} size="card" color={tileColor.foreground} />
-                    </View>
-                    <View style={styles.roleBadgePill}>
-                      <Text style={[textStyle('support', breakpoint), styles.roleBadgeText]}>
-                        {item.roleBadge}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text accessibilityRole="header" aria-level={3} style={[textStyle('h3', breakpoint), styles.roleTitle]}>
-                    {item.title}
+            <View style={[styles.ruoli, isDesktop && styles.ruoliDesktop]}>
+              {RUOLI.map((r, i) => (
+                <View key={r.titolo} style={[styles.ruolo, isDesktop && styles.ruoloDesktop, i > 0 && (isDesktop ? styles.ruoloFiloSx : styles.ruoloFiloSu)]}>
+                  <Text accessibilityRole="header" aria-level={3} style={[textStyle('h3', breakpoint), styles.ruoloTitolo]}>
+                    {r.titolo}
                   </Text>
-                  <Text style={[textStyle('secondary', breakpoint), styles.roleDescription]}>
-                    {item.description}
-                  </Text>
-
-                  <View style={styles.roleDivider} />
-
-                  <View style={styles.highlightsList}>
-                    {item.highlights.map((point) => (
-                      <View key={point} style={styles.highlightRow}>
-                        <View style={styles.checkCircle}>
-                          <Icon name="check" size="indicator" color={colors.action.default} />
-                        </View>
-                        <Text style={[textStyle('secondary', breakpoint), styles.highlightText]}>
-                          {point}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
+                  <Text style={[textStyle('body', breakpoint), styles.voceDescrizione]}>{r.testo}</Text>
                 </View>
-              );
-            })}
+              ))}
+            </View>
           </View>
         </View>
 
-        {/* GRIGLIA DELLE FUNZIONALITÀ CHIAVE (SHOWCASE) */}
-        <View
-          onLayout={recordSectionY('funzionalita')}
-          style={styles.sectionContainer}
-        >
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionBadge}>
-              <Text style={[textStyle('label', breakpoint), styles.sectionBadgeText]}>
-                FUNZIONALITÀ CHIAVE
-              </Text>
-            </View>
-            <Text accessibilityRole="header" aria-level={2} style={[textStyle('h2', breakpoint), styles.sectionTitle]}>
-              Tutto ciò che serve, a portata di click
+        {/* Chiusura */}
+        <View style={styles.sezione}>
+          <View style={[styles.colonnaPagina, styles.chiusura, isMobile && styles.chiusuraMobile]}>
+            <Text accessibilityRole="header" aria-level={2} style={[textStyle('h2', breakpoint), styles.titoloSezione, styles.chiusuraTitolo]}>
+              Hai ricevuto l’invito? Entra pure.
             </Text>
-            <Text style={[textStyle('body', breakpoint), styles.sectionSubtitle]}>
-              Strumenti coordinati, progettati secondo la legge e testati per essere usati da chiunque senza difficoltà.
+            <Button variant="primary" label="Accedi al tuo condominio" onPress={accedi} fullWidth={isMobile} />
+          </View>
+        </View>
+
+        <View role="contentinfo" style={styles.piede}>
+          <View style={[styles.colonnaPagina, styles.piedeRiga, isMobile && styles.piedeRigaMobile]}>
+            <BrandMark tone="light" noTagline />
+            <Text style={[textStyle('support', breakpoint), styles.piedeTesto]}>
+              © {new Date().getFullYear()} IoCondo
             </Text>
-          </View>
-
-          <View
-            style={[
-              styles.featuresGrid,
-              isDesktop
-                ? styles.featuresGridDesktop
-                : isTablet
-                ? styles.featuresGridTablet
-                : styles.featuresGridMobile,
-            ]}
-          >
-            {FUNZIONALITA_DATA.map((item) => {
-              const tileColor = colors.tile[item.tile];
-              return (
-                <View
-                  key={item.title}
-                  style={[
-                    styles.featureCard,
-                    isDesktop
-                      ? styles.featureCardDesktop
-                      : isTablet
-                      ? styles.featureCardTablet
-                      : styles.featureCardMobile,
-                  ]}
-                >
-                  <View style={[styles.tileBox, { backgroundColor: tileColor.background }]}>
-                    <Icon name={item.icon} size="card" color={tileColor.foreground} />
-                  </View>
-                  <Text accessibilityRole="header" aria-level={3} style={[textStyle('h4', breakpoint), styles.featureTitle]}>
-                    {item.title}
-                  </Text>
-                  <Text style={[textStyle('secondary', breakpoint), styles.featureDescription]}>
-                    {item.description}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* BANNER CTA FINALE */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.finalCtaCard}>
-            <View style={styles.finalCtaInner}>
-              <View style={styles.finalCtaBadge}>
-                <Icon name="sparkles" size="indicator" color={colors.tile.teal.background} />
-                <Text style={[textStyle('label', breakpoint), styles.finalCtaBadgeText]}>
-                  Inizia oggi
-                </Text>
-              </View>
-
-              <Text
-                accessibilityRole="header"
-                aria-level={2}
-                style={[textStyle('h2', breakpoint), styles.finalCtaTitle]}
-              >
-                Pronto a vivere il tuo condominio in modo digitale?
-              </Text>
-
-              <Text style={[textStyle('body', breakpoint), styles.finalCtaSubtitle]}>
-                Accedi subito con le tue credenziali e scopri tutte le comunicazioni, le rate e i servizi del tuo palazzo.
-              </Text>
-
-              <View style={styles.finalCtaButtonWrapper}>
-                <Button
-                  variant="primary"
-                  label="Accedi ora a ioCondo"
-                  icon="arrow-right"
-                  iconPosition="end"
-                  onPress={() => router.push('/login')}
-                  fullWidth={isMobile}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* FOOTER ISTITUZIONALE */}
-        <View role="contentinfo" style={styles.footer}>
-          <View style={styles.footerInner}>
-            <View style={styles.footerTopRow}>
-              <BrandMark tone="light" />
-              <Text style={[textStyle('secondary', breakpoint), styles.footerTagline]}>
-                Gestione condominiale moderna, trasparente e conforme alla legge.
-              </Text>
-            </View>
-
-            <View style={styles.footerDivider} />
-
-            <View style={[styles.footerBottomRow, isMobile && styles.footerBottomRowMobile]}>
-              <Text style={[textStyle('support', breakpoint), styles.footerCopyright]}>
-                © {new Date().getFullYear()} ioCondo. Tutti i diritti riservati.
-              </Text>
-              <Text style={[textStyle('support', breakpoint), styles.footerLegal]}>
-                Accessibilità conforme WCAG 2.2 AA · Trasparenza art. 1130 c.c.
-              </Text>
-            </View>
           </View>
         </View>
       </ScrollView>
@@ -517,444 +171,151 @@ export function LandingScreen() {
   );
 }
 
-interface NavLinkProps {
-  label: string;
-  onPress: () => void;
+/** La pulsantiera: display in alto, un campanello per servizio. */
+function Citofono({ attivo, onScegli, testo, nome }: { attivo: string; onScegli: (k: string) => void; testo: string; nome: string }) {
+  return (
+    <View style={styles.placca}>
+      <View style={styles.vite} />
+      <View aria-live="polite" style={styles.display}>
+        <Text style={styles.displayNome}>{nome}</Text>
+        <Text style={styles.displayTesto}>{testo}</Text>
+      </View>
+      <View role="group" aria-label="Servizi di IoCondo" style={styles.pulsanti}>
+        {CAMPANELLI.map((c) => (
+          <TastoCampanello key={c.chiave} c={c} premuto={c.chiave === attivo} onPress={() => onScegli(c.chiave)} />
+        ))}
+      </View>
+      <View style={[styles.vite, styles.viteBasso]} />
+    </View>
+  );
 }
 
-function NavLink({ label, onPress }: NavLinkProps) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const { breakpoint } = useBreakpoint();
-
+function TastoCampanello({ c, premuto, onPress }: { c: Campanello; premuto: boolean; onPress: () => void }) {
+  const [focus, setFocus] = useState(false);
   return (
     <Pressable
-      accessible
-      role="link"
-      accessibilityRole="link"
+      accessibilityRole="button"
+      accessibilityState={{ selected: premuto }}
+      aria-pressed={premuto}
       onPress={onPress}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      onHoverIn={() => setHovered(true)}
-      onHoverOut={() => setHovered(false)}
-      style={[
-        styles.navLink,
-        hovered && styles.navLinkHovered,
-        focused && focusRing,
-      ]}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
+      style={[styles.riga, focus && focusRing, noOutline]}
     >
-      <Text
-        style={[
-          textStyle('label', breakpoint),
-          styles.navLinkText,
-          hovered && styles.navLinkTextHovered,
-        ]}
-      >
-        {label}
-      </Text>
+      <View style={styles.targhetta}>
+        <Text style={styles.targhettaTesto} numberOfLines={1}>
+          {c.nome}
+        </Text>
+      </View>
+      <View style={[styles.bottone, premuto && styles.bottonePremuto]}>
+        <View style={[styles.spia, premuto && styles.spiaAccesa]} />
+      </View>
     </Pressable>
   );
 }
 
-const noOutline: ViewStyle | undefined =
-  Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as ViewStyle) : undefined;
+function LinkNav({ label, onPress }: { label: string; onPress: () => void }) {
+  const [hover, setHover] = useState(false);
+  const [focus, setFocus] = useState(false);
+  return (
+    <Pressable
+      accessibilityRole="link"
+      onPress={onPress}
+      onHoverIn={() => setHover(true)}
+      onHoverOut={() => setHover(false)}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
+      style={[styles.linkNav, focus && focusRing, noOutline]}
+    >
+      <Text style={[styles.linkNavTesto, hover && styles.linkNavHover]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+const noOutline: ViewStyle | undefined = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as ViewStyle) : undefined;
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    backgroundColor: colors.surface,
-    borderBottomWidth: borderWidths.thin,
-    borderBottomColor: colors.border,
-    zIndex: 10,
-  },
-  headerInner: {
+  root: { flex: 1, backgroundColor: P.bianco },
+  scroll: { flex: 1 },
+  scrollContenuto: { flexGrow: 1 },
+  colonnaPagina: { width: '100%', maxWidth: 1080, alignSelf: 'center', paddingHorizontal: space[6] },
+
+  barra: { backgroundColor: P.bianco, borderBottomWidth: 1, borderBottomColor: '#DDE3DE' },
+  barraInterna: { width: '100%', maxWidth: 1080, alignSelf: 'center', paddingHorizontal: space[6], height: 68, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[4] },
+  // Il Button si allinea in alto da solo (alignSelf): il contenitore lo riporta al centro della barra.
+  barraAccedi: { justifyContent: 'center', alignSelf: 'center' },
+  nav: { flexDirection: 'row', gap: space[2], marginLeft: 'auto', marginRight: space[4] },
+  linkNav: { paddingHorizontal: space[3], paddingVertical: space[2], borderRadius: 6 },
+  linkNavTesto: { ...textStyle('label'), color: P.testoTenue },
+  linkNavHover: { color: P.inchiostro, textDecorationLine: 'underline' },
+
+  androne: { backgroundColor: P.intonaco, paddingVertical: space[12] },
+  apertura: { flexDirection: 'row', alignItems: 'center', gap: space[12] },
+  aperturaImpilata: { flexDirection: 'column', alignItems: 'stretch', gap: space[10] },
+  aperturaTesto: { gap: space[5] },
+  aperturaTestoDesktop: { flex: 1, minWidth: 0 },
+  titolo: { ...textStyle('h1'), fontSize: 52, lineHeight: 56, letterSpacing: -1.2, fontWeight: '700', color: P.inchiostro, maxWidth: 560 },
+  titoloMobile: { fontSize: 36, lineHeight: 40, letterSpacing: -0.6 },
+  sottotitolo: { color: P.testo, maxWidth: 520, lineHeight: 26 },
+  azioni: { flexDirection: 'row', marginTop: space[2] },
+  azioniMobile: { flexDirection: 'column', alignItems: 'stretch' },
+  notaAccesso: { color: P.testoTenue },
+
+  placca: {
     width: '100%',
-    maxWidth: 1200,
+    maxWidth: 360,
     alignSelf: 'center',
-    height: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space[6],
-  },
-  logoPressable: {
-    borderRadius: radii.control,
-    minHeight: touchTarget.control,
-    justifyContent: 'center',
-    ...noOutline,
-  },
-  navLinks: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-  },
-  navLink: {
-    minHeight: touchTarget.control,
-    paddingHorizontal: space[4],
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: radii.control,
-    ...noOutline,
-  },
-  navLinkHovered: {
-    backgroundColor: colors.tile.blue.background,
-  },
-  navLinkText: {
-    color: colors.text.secondary,
-  },
-  navLinkTextHovered: {
-    color: colors.action.default,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: space[12],
-  },
-  heroSection: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderBottomWidth: borderWidths.thin,
-    borderBottomColor: colors.border,
-    paddingVertical: space[12],
-    paddingHorizontal: space[6],
-    alignItems: 'center',
-  },
-  heroInner: {
-    width: '100%',
-    maxWidth: 960,
-    alignItems: 'center',
-    textAlign: 'center',
-    gap: space[5],
-  },
-  pillBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    backgroundColor: colors.tile.teal.background,
-    borderColor: colors.brand.teal,
-    borderWidth: borderWidths.thin,
-    paddingVertical: space[1],
-    paddingHorizontal: space[3],
-    borderRadius: radii.full,
-  },
-  pillBadgeText: {
-    color: colors.tile.teal.foreground,
-  },
-  heroTitle: {
-    color: colors.text.primary,
-    textAlign: 'center',
-    lineHeight: 38,
-  },
-  heroTitleDesktop: {
-    fontSize: 40,
-    lineHeight: 48,
-  },
-  heroSubtitle: {
-    color: colors.text.secondary,
-    textAlign: 'center',
-    maxWidth: 720,
-  },
-  ctaGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    // alignItems vale per l'asse incrociato: in riga centra in verticale,
-    // in colonna (mobile/tablet) centra orizzontalmente i pulsanti a larghezza contenuto.
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: P.ottone,
+    borderRadius: 6,
+    paddingVertical: space[6],
+    paddingHorizontal: space[5],
     gap: space[4],
-    marginTop: space[3],
+    borderWidth: 1,
+    borderColor: P.ottoneScuro,
+    ...Platform.select({
+      web: { boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.18), 0 18px 30px -18px rgba(13,59,102,0.45)' } as unknown as ViewStyle,
+      default: { elevation: 6 },
+    }),
   },
-  ctaGroupMobile: {
-    flexDirection: 'column',
-    // Colonna stretta e centrata: i pulsanti restano a larghezza-contenuto
-    // (non full-width) e sono centrati orizzontalmente con spazio ai lati.
-    alignSelf: 'center',
-    alignItems: 'center',
-  },
-  // Ogni CTA sta in un contenitore che si centra nella colonna.
-  ctaItem: {
-    alignItems: 'center',
-  },
-  sectionContainer: {
-    width: '100%',
-    maxWidth: 1200,
-    alignSelf: 'center',
-    paddingHorizontal: space[6],
-    paddingTop: space[12],
-  },
-  trustCard: {
-    backgroundColor: colors.surface,
-    borderWidth: borderWidths.thin,
-    borderColor: colors.border,
-    borderRadius: radii.card,
-    padding: space[6],
-  },
-  trustGrid: {
-    gap: space[6],
-  },
-  trustGridDesktop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  trustGridTablet: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  trustGridMobile: {
-    flexDirection: 'column',
-  },
-  trustItem: {
-    flex: 1,
-    minWidth: 200,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: space[3],
-  },
-  trustIconWrapper: {
-    width: space[10],
-    height: space[10],
-    borderRadius: radii.control,
-    backgroundColor: colors.tile.blue.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  trustTextGroup: {
-    flex: 1,
-    gap: space[1],
-  },
-  trustTitle: {
-    color: colors.text.primary,
-  },
-  trustSubtitle: {
-    color: colors.text.secondary,
-  },
-  sectionHeader: {
-    alignItems: 'center',
-    textAlign: 'center',
-    marginBottom: space[8],
-    gap: space[3],
-  },
-  sectionBadge: {
-    backgroundColor: colors.tile.navy.background,
-    paddingVertical: space[1],
-    paddingHorizontal: space[3],
-    borderRadius: radii.badge,
-  },
-  sectionBadgeText: {
-    color: colors.brand.navy,
-    letterSpacing: 0.5,
-  },
-  sectionTitle: {
-    color: colors.text.primary,
-    textAlign: 'center',
-  },
-  sectionSubtitle: {
-    color: colors.text.secondary,
-    textAlign: 'center',
-    maxWidth: 640,
-  },
-  rolesGrid: {
-    gap: space[6],
-  },
-  rolesGridDesktop: {
-    flexDirection: 'row',
-  },
-  rolesGridColumn: {
-    flexDirection: 'column',
-  },
-  roleCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: borderWidths.thin,
-    borderColor: colors.border,
-    borderRadius: radii.card,
-    padding: space[6],
-    gap: space[4],
-  },
-  roleCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tileBox: {
-    width: feedbackSizes.tile,
-    height: feedbackSizes.tile,
-    borderRadius: radii.control,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleBadgePill: {
-    backgroundColor: colors.background,
-    borderWidth: borderWidths.thin,
-    borderColor: colors.border,
-    paddingHorizontal: space[3],
-    paddingVertical: space[1],
-    borderRadius: radii.full,
-  },
-  roleBadgeText: {
-    color: colors.text.secondary,
-  },
-  roleTitle: {
-    color: colors.text.primary,
-  },
-  roleDescription: {
-    color: colors.text.secondary,
-  },
-  roleDivider: {
-    height: borderWidths.thin,
-    backgroundColor: colors.border,
-  },
-  highlightsList: {
-    gap: space[3],
-  },
-  highlightRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: space[2],
-  },
-  checkCircle: {
-    width: space[5],
-    height: space[5],
-    borderRadius: radii.full,
-    backgroundColor: colors.tile.blue.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: space[1],
-  },
-  highlightText: {
-    flex: 1,
-    color: colors.text.primary,
-  },
-  featuresGrid: {
-    gap: space[6],
-  },
-  featuresGridDesktop: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  featuresGridTablet: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  featuresGridMobile: {
-    flexDirection: 'column',
-  },
-  featureCard: {
-    backgroundColor: colors.surface,
-    borderWidth: borderWidths.thin,
-    borderColor: colors.border,
-    borderRadius: radii.card,
-    padding: space[6],
-    gap: space[3],
-  },
-  featureCardDesktop: {
-    flexGrow: 1,
-    flexBasis: '30%',
-    maxWidth: '32%',
-  },
-  featureCardTablet: {
-    flexGrow: 1,
-    flexBasis: '47%',
-    maxWidth: '49%',
-  },
-  featureCardMobile: {
-    width: '100%',
-  },
-  featureTitle: {
-    color: colors.text.primary,
-  },
-  featureDescription: {
-    color: colors.text.secondary,
-  },
-  finalCtaCard: {
-    backgroundColor: colors.brand.navy,
-    borderRadius: radii.card,
-    padding: space[10],
-    alignItems: 'center',
-  },
-  finalCtaInner: {
-    width: '100%',
-    maxWidth: 720,
-    alignItems: 'center',
-    textAlign: 'center',
-    gap: space[4],
-  },
-  finalCtaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    paddingVertical: space[1],
-    paddingHorizontal: space[3],
-    borderRadius: radii.full,
-  },
-  finalCtaBadgeText: {
-    color: colors.tile.teal.background,
-  },
-  finalCtaTitle: {
-    color: colors.text.inverse,
-    textAlign: 'center',
-  },
-  finalCtaSubtitle: {
-    color: colors.tile.navy.background,
-    textAlign: 'center',
-  },
-  finalCtaButtonWrapper: {
-    marginTop: space[4],
-  },
-  footer: {
-    backgroundColor: colors.surface,
-    borderTopWidth: borderWidths.thin,
-    borderTopColor: colors.border,
-    marginTop: space[12],
-    paddingVertical: space[8],
-    paddingHorizontal: space[6],
-  },
-  footerInner: {
-    width: '100%',
-    maxWidth: 1200,
-    alignSelf: 'center',
-    gap: space[6],
-  },
-  footerTopRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: space[4],
-  },
-  footerTagline: {
-    color: colors.text.muted,
-  },
-  footerDivider: {
-    height: borderWidths.thin,
-    backgroundColor: colors.border,
-  },
-  footerBottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: space[4],
-  },
-  footerBottomRowMobile: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-  footerCopyright: {
-    color: colors.text.muted,
-  },
-  footerLegal: {
-    color: colors.text.muted,
-  },
+  vite: { width: 10, height: 10, borderRadius: 5, backgroundColor: P.ottoneScuro, alignSelf: 'center', opacity: 0.6 },
+  viteBasso: { marginTop: space[1] },
+  display: { backgroundColor: P.display, borderRadius: 4, padding: space[4], minHeight: 112, gap: space[2], borderWidth: 2, borderColor: P.ottoneScuro },
+  displayNome: { ...textStyle('label'), color: P.bianco, fontWeight: '600' },
+  displayTesto: { ...textStyle('secondary'), color: P.displayTesto, lineHeight: 20 },
+  pulsanti: { gap: space[2] },
+  riga: { flexDirection: 'row', alignItems: 'center', gap: space[3], borderRadius: 4, paddingVertical: 2 },
+  targhetta: { flex: 1, minWidth: 0, backgroundColor: '#F4F1E6', borderRadius: 2, paddingVertical: 6, paddingHorizontal: space[3], borderWidth: 1, borderColor: P.ottoneScuro },
+  targhettaTesto: { ...textStyle('secondary'), color: P.testo, fontWeight: '500' },
+  bottone: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#C9AE6A', borderWidth: 2, borderColor: P.ottoneScuro, alignItems: 'center', justifyContent: 'center' },
+  bottonePremuto: { backgroundColor: '#8F722F', transform: [{ scale: 0.94 }] },
+  spia: { width: 8, height: 8, borderRadius: 4, backgroundColor: P.ottoneScuro },
+  spiaAccesa: { backgroundColor: '#7CF0B0' },
+
+  sezione: { paddingVertical: space[12] },
+  sezioneRuoli: { backgroundColor: '#F5F7F5' },
+  titoloSezione: { color: P.inchiostro, marginBottom: space[8], maxWidth: 640 },
+  elenco: { gap: space[8] },
+  elencoDesktop: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space[12], rowGap: space[8] },
+  voce: { flexDirection: 'row', alignItems: 'flex-start', gap: space[4] },
+  voceDesktop: { width: '46%' },
+  voceTesto: { flex: 1, minWidth: 0, gap: space[1] },
+  voceTitolo: { color: P.testo },
+  voceDescrizione: { color: P.testoTenue, lineHeight: 24, maxWidth: 520 },
+
+  ruoli: { gap: 0 },
+  ruoliDesktop: { flexDirection: 'row' },
+  ruolo: { gap: space[2], paddingVertical: space[5] },
+  ruoloDesktop: { flex: 1, paddingVertical: 0, paddingHorizontal: space[6] },
+  ruoloFiloSx: { borderLeftWidth: 1, borderLeftColor: '#CBD3CD' },
+  ruoloFiloSu: { borderTopWidth: 1, borderTopColor: '#CBD3CD' },
+  ruoloTitolo: { color: P.inchiostro },
+
+  chiusura: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[6] },
+  chiusuraMobile: { flexDirection: 'column', alignItems: 'stretch' },
+  chiusuraTitolo: { marginBottom: 0, flexShrink: 1 },
+
+  piede: { backgroundColor: P.inchiostro, paddingVertical: space[8] },
+  piedeRiga: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[4] },
+  piedeRigaMobile: { flexDirection: 'column', alignItems: 'flex-start' },
+  piedeTesto: { color: '#C7D3E0' },
 });
