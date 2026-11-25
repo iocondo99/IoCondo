@@ -407,15 +407,28 @@ export function leggiCredenzialiGmail(): GmailCredenziali {
  * altro indirizzo. Se `from` è un semplice display name (senza <indirizzo>),
  * lo si abbina alla casella reale -> `Nome Mittente <casella-gmail>`.
  */
+export function stripHeaderControl(value: string): string {
+  return value.replace(/[\r\n\0]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function risolviFrom(from: string | undefined, fallbackReale: string): string {
-  const v = (from ?? '').trim();
-  if (!v) return fallbackReale;
-  if (v.includes('<') && v.includes('>')) return v; // già completo: casella esplicita
+  const fallbackPulito = stripHeaderControl(fallbackReale);
+  const v = stripHeaderControl(from ?? '');
+  if (!v) return fallbackPulito;
   // Estrae la casella reale dal fallback (puo' essere "Nome <casella>" o "casella").
-  const match = fallbackReale.match(/<([^>]+)>/);
-  const casella = (match ? match[1] : fallbackReale).trim();
-  const nomePulito = v.replace(/[\r\n<>"]/g, ' ').replace(/\s+/g, ' ').trim();
-  return `${nomePulito} <${casella}>`;
+  const match = fallbackPulito.match(/<([^>]+)>/);
+  const casella = stripHeaderControl(match ? match[1]! : fallbackPulito);
+  if (v.includes('<') && v.includes('>')) {
+    const inner = v.match(/<([^>]+)>/);
+    const addr = stripHeaderControl(inner?.[1] ?? '');
+    if (isEmailValida(addr)) {
+      const displayPart = stripHeaderControl(v.slice(0, v.indexOf('<')).replace(/["<>]/g, ''));
+      return displayPart ? `${displayPart} <${addr}>` : addr;
+    }
+    return fallbackPulito;
+  }
+  const nomePulito = stripHeaderControl(v.replace(/[<>"]/g, ''));
+  return nomePulito ? `${nomePulito} <${casella}>` : fallbackPulito;
 }
 
 /**
@@ -458,14 +471,27 @@ export async function inviaViaGmail(
   });
 
   try {
+    const toPulito = stripHeaderControl(messaggio.to).toLowerCase();
+    if (!isEmailValida(toPulito)) {
+      throw new Error('Destinatario email non valido');
+    }
+    const subjectPulito = stripHeaderControl(messaggio.subject);
+    if (!subjectPulito) {
+      throw new Error('Oggetto email non valido');
+    }
+    const replyToPulito = messaggio.replyTo ? stripHeaderControl(messaggio.replyTo).toLowerCase() : undefined;
+    if (replyToPulito && !isEmailValida(replyToPulito)) {
+      throw new Error('Reply-To non valido');
+    }
+
     await client.send({
       from: risolviFrom(messaggio.from, credenziali.from),
-      to: messaggio.to,
-      subject: messaggio.subject,
+      to: toPulito,
+      subject: subjectPulito,
       // denomailer: 'content' per il testo, 'html' per la versione HTML.
       content: compattaRighe(messaggio.text ?? "Questa email richiede un client che supporti l'HTML."),
       ...(messaggio.html ? { html: compattaHtml(messaggio.html) } : {}),
-      ...(messaggio.replyTo ? { replyTo: messaggio.replyTo } : {}),
+      ...(replyToPulito ? { replyTo: replyToPulito } : {}),
     });
   } finally {
     try {

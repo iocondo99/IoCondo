@@ -101,9 +101,13 @@ serve(async (req) => {
     const code = (inviteError as { code?: string }).code ?? '';
     const status = (inviteError as { status?: number }).status;
     if (code === 'email_exists' || code === 'user_already_exists') {
-      // Account gia' confermato: il ruolo e' stato assegnato da crea_invito, nessuna email da mandare.
+      // Risposta uniforme anti-enumerazione: `crea_invito` ha gia' associato il ruolo/invito su DB
+      // sia per account confermati sia per account pendenti; evitare oracoli `200` vs `502`.
       const { data: confermata } = await admin.rpc('email_confermata', { p_email: input.email });
-      if (confermata === true) return json({ ok: true });
+      if (confermata !== true) {
+        console.info('invita-utente: account esistente non ancora confermato, ruolo registrato senza nuova email auth');
+      }
+      return json({ ok: true });
     }
     console.error('invio invito non riuscito', code || status || 'sconosciuto');
     if (code === 'over_email_send_rate_limit' || status === 429) {

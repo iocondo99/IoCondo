@@ -34,12 +34,16 @@ function sleep(ms: number): Promise<void> {
 serve(async (req) => {
   const payload = ((await req.json().catch(() => ({}))) ?? {}) as InviaCodaPayload;
 
-  if (!isServiceCaller(req)) {
-    if (!isUuid(payload.condominio_id)) {
+  const db = adminClient();
+  const callerService = isServiceCaller(req);
+  const scopedCondominioId = isUuid(payload.condominio_id) ? payload.condominio_id : null;
+
+  if (!callerService) {
+    if (!scopedCondominioId) {
       throw new HttpError(401, 'Chiamante non autorizzato');
     }
     const { db: userDb } = await requireUser(req);
-    const { data: isAdmin } = await userDb.rpc('is_admin_of', { p_cond: payload.condominio_id });
+    const { data: isAdmin } = await userDb.rpc('is_admin_of', { p_cond: scopedCondominioId });
     if (isAdmin !== true) {
       throw new HttpError(403, 'Permesso negato: richiesto ruolo Amministratore');
     }
@@ -53,10 +57,8 @@ serve(async (req) => {
     throw new HttpError(500, 'Configurazione email (Gmail) incompleta lato server');
   }
 
-  const db = adminClient();
-
   if (payload.action === 'retry_failed') {
-    if (!isUuid(payload.condominio_id)) {
+    if (!scopedCondominioId) {
       throw new HttpError(400, 'condominio_id obbligatorio per riprova fallite');
     }
     const { error: resetErr } = await db
@@ -68,26 +70,36 @@ serve(async (req) => {
         ultimo_errore: null,
         updated_at: new Date().toISOString(),
       })
-      .eq('condominio_id', payload.condominio_id)
+      .eq('condominio_id', scopedCondominioId)
       .eq('stato', 'FAILED');
 
     if (resetErr) {
-      throw new HttpError(500, 'Errore ripristino email fallite', resetErr.message);
+      console.error('Errore ripristino email fallite:', resetErr.message);
+      throw new HttpError(500, 'Errore ripristino email fallite');
     }
   }
 
-  const requestedLimit = typeof payload.limit === 'number' ? payload.limit : 25;
+  const requestedLimit = typeof payload.limit === 'number' && Number.isFinite(payload.limit) ? payload.limit : 25;
   const limit = Math.min(Math.max(Math.floor(requestedLimit), 1), 25);
 
-  const { data: claimedRows, error: claimErr } = await db.rpc('claim_coda_email_batch', {
+  let { data: claimedRows, error: claimErr } = await db.rpc('claim_coda_email_batch', {
     p_limit: limit,
+    p_condominio_id: scopedCondominioId,
   });
 
-  if (claimErr) {
-    throw new HttpError(500, 'Errore prelievo batch coda email', claimErr.message);
+  // Fallback solo prima dell'applicazione SQL della firma a 2 argomenti su Postgres remoto.
+  if (claimErr && /claim_coda_email_batch/i.test(claimErr.message ?? '') && !callerService) {
+    throw new HttpError(503, 'Aggiornamento schema coda email richiesto sul database');
   }
 
-  const rows = (claimedRows ?? []) as RigaCodaRow[];
+  if (claimErr) {
+    console.error('Errore prelievo batch coda email:', claimErr.message);
+    throw new HttpError(500, 'Errore prelievo batch coda email');
+  }
+
+  const rows = ((claimedRows ?? []) as RigaCodaRow[]).filter(
+    (r) => !scopedCondominioId || r.condominio_id === scopedCondominioId,
+  );
   let sent = 0;
   let retried = 0;
   let failed = 0;

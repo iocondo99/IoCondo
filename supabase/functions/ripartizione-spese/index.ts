@@ -85,7 +85,10 @@ serve(async (req) => {
     .select('unita_id, valore_millesimale')
     .eq('tabella_id', tabella.id)
     .gt('valore_millesimale', 0);
-  if (qErr) throw new HttpError(500, 'Errore lettura quote', qErr.message);
+  if (qErr) {
+    console.error('Errore lettura quote:', qErr.message);
+    throw new HttpError(500, 'Errore lettura quote');
+  }
   const quote = (quoteRows ?? []) as { unita_id: string; valore_millesimale: number }[];
   if (quote.length === 0) throw new HttpError(422, 'La tabella non ha quote millesimali');
 
@@ -129,7 +132,8 @@ serve(async (req) => {
     .single();
   if (tErr || !testata) {
     if (tErr?.code === '42501') throw new HttpError(403, 'Permesso negato');
-    throw new HttpError(500, 'Errore creazione rata', tErr?.message);
+    console.error('Errore creazione rata:', tErr?.message ?? 'sconosciuto');
+    throw new HttpError(500, 'Errore creazione rata');
   }
 
   const righe = quote.map((q, i) => ({
@@ -142,7 +146,8 @@ serve(async (req) => {
   const { error: dErr } = await db.from('rate_dettaglio').insert(righe);
   if (dErr) {
     await db.from('rate_testata').delete().eq('id', testata.id); // rollback (cascade sui dettagli)
-    throw new HttpError(500, 'Errore inserimento quote', dErr.message);
+    console.error('Errore inserimento quote:', dErr.message);
+    throw new HttpError(500, 'Errore inserimento quote');
   }
 
   return json(

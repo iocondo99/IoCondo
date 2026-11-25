@@ -19,7 +19,10 @@ async function aggiornaRata(db: Db, rataId: string, delta: number) {
     .select('importo_dovuto, importo_pagato, stato, rata_testata_id')
     .eq('id', rataId)
     .single();
-  if (error || !rata) throw new HttpError(500, 'Rata non trovata', error?.message);
+  if (error || !rata) {
+    console.error('Rata non trovata in aggiornaRata:', error?.message ?? 'assente');
+    throw new HttpError(500, 'Rata non trovata');
+  }
 
   const dovuto = Number(rata.importo_dovuto);
   const pagato = Math.max(0, round2(Number(rata.importo_pagato) + delta));
@@ -37,7 +40,10 @@ async function aggiornaRata(db: Db, rataId: string, delta: number) {
     .from('rate_dettaglio')
     .update({ importo_pagato: pagato, stato, data_pagamento: saldata ? oggi() : null })
     .eq('id', rataId);
-  if (uErr) throw new HttpError(500, 'Errore aggiornamento rata', uErr.message);
+  if (uErr) {
+    console.error('Errore aggiornamento rata:', uErr.message);
+    throw new HttpError(500, 'Errore aggiornamento rata');
+  }
   return { stato, importo_pagato: pagato };
 }
 
@@ -47,7 +53,10 @@ async function onSucceeded(db: Db, pi: Stripe.PaymentIntent) {
     p_provider_ref: pi.id,
     p_importo: importo,
   });
-  if (error) throw new HttpError(500, 'Errore registrazione pagamento atomico', error.message);
+  if (error) {
+    console.error('Errore registrazione pagamento atomico:', error.message);
+    throw new HttpError(500, 'Errore registrazione pagamento atomico');
+  }
   return data;
 }
 
@@ -82,7 +91,8 @@ serve(async (req) => {
   try {
     event = await stripe.webhooks.constructEventAsync(raw, signature, WEBHOOK_SECRET, undefined, cryptoProvider);
   } catch (e) {
-    throw new HttpError(400, `Firma non valida: ${(e as Error).message}`);
+    console.error('Firma webhook Stripe non valida:', (e as Error).message);
+    throw new HttpError(400, 'Firma non valida');
   }
 
   const db = adminClient();

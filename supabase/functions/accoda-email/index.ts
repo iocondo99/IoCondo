@@ -156,10 +156,11 @@ async function preparaRigheBollettini(params: {
     const { data: bollettino } = await db
       .from('bollettini')
       .select(
-        'id, condominio_id, numero_progressivo, anno, destinatario_utente_id, destinatario_soggetto_id, intestazione_destinatario, totale_centesimi, data_scadenza, iban_accredito, causale_versamento',
+        'id, condominio_id, stato, numero_progressivo, anno, destinatario_utente_id, destinatario_soggetto_id, intestazione_destinatario, totale_centesimi, data_scadenza, iban_accredito, causale_versamento',
       )
       .eq('id', bollettinoId)
       .eq('condominio_id', condominioId)
+      .not('stato', 'in', '("BOZZA","ANNULLATO","RETTIFICATO")')
       .maybeSingle();
 
     if (!bollettino) continue;
@@ -183,12 +184,12 @@ async function preparaRigheBollettini(params: {
     if (!emailDest && bollettino.destinatario_soggetto_id) {
       const { data: sogg } = await db
         .from('soggetti_contabili')
-        .select('email, ragione_sociale_o_nome')
+        .select('email, nome_denominazione')
         .eq('id', bollettino.destinatario_soggetto_id)
         .maybeSingle();
       if (isEmailValida(sogg?.email)) {
         emailDest = sogg!.email.trim().toLowerCase();
-        if (!nomeDest && sogg?.ragione_sociale_o_nome) nomeDest = sogg.ragione_sociale_o_nome;
+        if (!nomeDest && sogg?.nome_denominazione) nomeDest = sogg.nome_denominazione;
       }
     }
 
@@ -263,9 +264,11 @@ async function preparaRigheAssemblea(params: {
 
   const { data: assemblea } = await db
     .from('assemblee_testata')
-    .select('id, condominio_id, data, luogo, link_meet, tipo')
+    .select('id, condominio_id, stato, data, luogo, link_meet, tipo')
     .eq('id', assembleaId)
     .eq('condominio_id', condominioId)
+    .neq('stato', 'BOZZA')
+    .neq('stato', 'ANNULLATA')
     .maybeSingle();
 
   if (!assemblea) throw new HttpError(404, 'Assemblea non trovata');
@@ -438,11 +441,12 @@ serve(async (req) => {
 
   const { data: condominio } = await db
     .from('condomini')
-    .select('id, nome, admin_id')
+    .select('id, nome, admin_id, attivo')
     .eq('id', payload.condominio_id)
     .maybeSingle();
 
   if (!condominio) throw new HttpError(404, 'Condominio non trovato');
+  if (condominio.attivo === false) throw new HttpError(403, 'Condominio sospeso');
 
   const amministratoreId = callerUserId ?? condominio.admin_id ?? null;
   let nomeCognomeAdmin: string | null = null;
@@ -509,7 +513,8 @@ serve(async (req) => {
       .upsert(batch, { onConflict: 'idempotency_key', ignoreDuplicates: true })
       .select('id');
     if (error) {
-      throw new HttpError(500, 'Errore inserimento coda email', error.message);
+      console.error('Errore inserimento coda email:', error.message);
+      throw new HttpError(500, 'Errore inserimento coda email');
     }
     accodate += (inserted ?? []).length;
   }

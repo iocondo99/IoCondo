@@ -65,7 +65,7 @@ test('generaTemplateBollettinoEmesso: include dati, escape HTML e nota footer', 
   assert.match(res.htmlBody, /IT60X0542811101000000123456/);
   assert.match(
     res.textBody,
-    /Inviato per conto di Laura Verdi\. Per rispondere utilizza il tasto Rispondi \(destinatario: laura\.verdi@studio\.it\)\./,
+    /Inviato per conto di Laura Verdi \(IoCondo\)\. Per rispondere utilizza il tasto Rispondi \(destinatario: laura\.verdi@studio\.it\)\./,
   );
 });
 

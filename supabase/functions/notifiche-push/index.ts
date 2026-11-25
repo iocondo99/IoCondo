@@ -82,8 +82,31 @@ serve(async (req) => {
       throw new HttpError(403, 'Permesso negato: richiesto ruolo Amministratore o Portiere');
     }
 
+    const { data: condo } = await db
+      .from('condomini')
+      .select('attivo')
+      .eq('id', payload.condominio_id)
+      .maybeSingle();
+    if (!condo || condo.attivo === false) {
+      throw new HttpError(403, 'Servizio condominio non attivo');
+    }
+
     condominioId = payload.condominio_id;
     unitaTargetId = isUuid(payload.unita_id) ? payload.unita_id : null;
+    if (payload.unita_id !== undefined && payload.unita_id !== null && !unitaTargetId) {
+      throw new HttpError(400, 'unita_id non valido');
+    }
+    if (unitaTargetId) {
+      const { data: unitaValida } = await db
+        .from('unita_immobiliari')
+        .select('id, palazzi!inner(condominio_id)')
+        .eq('id', unitaTargetId)
+        .eq('palazzi.condominio_id', condominioId)
+        .maybeSingle();
+      if (!unitaValida) {
+        throw new HttpError(403, 'Unità non appartenente al condominio specificato');
+      }
+    }
     autoreId = user.id;
     titolo = payload.titolo.trim();
     corpo = (payload.corpo ?? '').slice(0, 200);
@@ -155,7 +178,10 @@ serve(async (req) => {
     500,
   )) {
     const { error } = await db.from('notifiche').insert(rows);
-    if (error) throw new HttpError(500, 'Errore salvataggio notifiche', error.message);
+    if (error) {
+      console.error('Errore salvataggio notifiche:', error.message);
+      throw new HttpError(500, 'Errore salvataggio notifiche');
+    }
   }
 
   // --- Push Expo ---

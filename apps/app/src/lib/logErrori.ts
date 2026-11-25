@@ -1,18 +1,10 @@
 import React from 'react';
 import { Platform } from 'react-native';
+import { oscuraTestoSensibile } from '@iocondo/data';
 import { supabase } from './supabase';
 
 const VERSIONE_APP = '1.0.0';
-
-// Niente dati personali nel messaggio: email, numeri lunghi (IBAN, telefoni, codici) e token vengono oscurati.
-function oscura(testo: string): string {
-  return testo
-    .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
-    .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[token]')
-    .replace(/\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/gi, '[iban]')
-    .replace(/\d{7,}/g, '[numero]')
-    .slice(0, 1000);
-}
+const oscura = oscuraTestoSensibile;
 
 function paginaCorrente(): string | null {
   if (Platform.OS === 'web' && typeof window !== 'undefined') return window.location.pathname;
@@ -79,17 +71,17 @@ export class ConfineErrori extends React.Component<
   { children: React.ReactNode; ripiego?: React.ReactNode },
   { errore: boolean }
 > {
-  state = { errore: false };
+  override state = { errore: false };
 
   static getDerivedStateFromError() {
     return { errore: true };
   }
 
-  componentDidCatch(errore: unknown) {
+  override componentDidCatch(errore: unknown) {
     void registraErrore({ errore, codice: 'RENDER' });
   }
 
-  render() {
+  override render() {
     return this.state.errore ? (this.props.ripiego ?? null) : this.props.children;
   }
 }

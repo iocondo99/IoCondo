@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, type PressableStateCallbackType } from 'react-native';
+
+type WebPressState = PressableStateCallbackType & { focused?: boolean };
 import type { IRaccoltaDifferenziata } from '@iocondo/shared-types';
 import { GIORNI_SETTIMANA, metadatiTipoRifiuto, type CategoriaRifiuto, type GiornoSettimana } from '@iocondo/data';
 import { Icon, colors, radii, space, textStyle, useBreakpoint } from '@iocondo/ui';
@@ -69,7 +71,7 @@ export function Bidone({
       accessibilityLabel={`${turno.tipo_rifiuto}${turno.note ? `. ${turno.note}` : ''}`}
       accessibilityHint="Apre il turno per modificarlo o eliminarlo"
       onPress={onPress}
-      style={({ focused }: { focused?: boolean }) => [...stile, styles.premibile, focused && styles.focus]}
+      style={(state) => [...stile, styles.premibile, (state as WebPressState).focused && styles.focus]}
     >
       {contenuto}
     </Pressable>
@@ -140,7 +142,7 @@ function Aggiungi({ nomeGiorno, onPress }: { nomeGiorno: string; onPress: () => 
       onPress={onPress}
       onHoverIn={() => setHover(true)}
       onHoverOut={() => setHover(false)}
-      style={({ focused }: { focused?: boolean }) => [styles.aggiungi, styles.premibile, hover && styles.aggiungiHover, focused && styles.focus]}
+      style={(state) => [styles.aggiungi, styles.premibile, hover && styles.aggiungiHover, (state as WebPressState).focused && styles.focus]}
     >
       <Icon name="plus" size="indicator" color={colors.action.default} />
       <Text style={[textStyle('support', breakpoint), styles.aggiungiTesto]}>Aggiungi</Text>

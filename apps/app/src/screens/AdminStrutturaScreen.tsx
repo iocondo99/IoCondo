@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type PressableStateCallbackType,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import {
@@ -1612,12 +1613,12 @@ function Porta({ unita, onPress }: { unita: UnitaDettaglioView; onPress: () => v
       onPress={onPress}
       onHoverIn={() => setHover(true)}
       onHoverOut={() => setHover(false)}
-      style={({ focused }: { focused?: boolean }) => [
+      style={(state) => [
         styles.porta,
         { borderLeftColor: colore },
         !r && styles.portaLibera,
         hover && styles.portaHover,
-        focused && styles.portaFocus,
+        (state as PressableStateCallbackType & { focused?: boolean }).focused && styles.portaFocus,
       ]}
     >
       <View style={styles.portaRiga}>

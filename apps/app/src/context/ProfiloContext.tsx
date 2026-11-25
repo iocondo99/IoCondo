@@ -80,7 +80,12 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
   const [tentativo, setTentativo] = useState(0);
 
   useEffect(() => {
-    if (!userId) return undefined;
+    if (!userId) {
+      setCaricamento({ stato: 'caricamento' });
+      setPreferenze(null);
+      setStatoModuli({ stato: 'nessuno' });
+      return undefined;
+    }
     let attivo = true;
     setCaricamento({ stato: 'caricamento' });
     Promise.all([services.profilo.carica(userId, email), leggiPreferenze()])

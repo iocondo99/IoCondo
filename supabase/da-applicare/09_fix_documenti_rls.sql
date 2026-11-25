@@ -13,10 +13,29 @@ begin;
 -- Soluzione: La SELECT su documenti_metadata per l'amministratore del condominio
 -- associato alla cartella deve essere valutata direttamente senza subquery su se stessa.
 
-create or replace policy "documenti_select" on public.documenti_metadata
-    for select using (
-        public.is_admin_of(public.cond_of_cartella(cartella_id)) or
-        public.can_read_documento(id)
+drop policy if exists "documenti_select" on public.documenti_metadata;
+drop policy if exists documenti_metadata_select on public.documenti_metadata;
+create policy documenti_metadata_select on public.documenti_metadata
+    for select to authenticated
+    using (
+        public.is_superadmin()
+        or public.is_admin_of(public.cond_of_cartella(cartella_id))
+        or public.can_read_documento(id)
     );
 
 commit;
+
+-- =============================================================================
+-- SEZIONE VERIFICA (eseguire manualmente dopo l'applicazione)
+-- =============================================================================
+-- select policyname, roles, cmd, qual
+--   from pg_policies
+--  where schemaname = 'public' and tablename = 'documenti_metadata';
+
+-- =============================================================================
+-- SEZIONE ROLLBACK (eseguire manualmente solo in caso di ripristino)
+-- =============================================================================
+-- drop policy if exists documenti_metadata_select on public.documenti_metadata;
+-- create policy documenti_metadata_select on public.documenti_metadata
+--     for select to authenticated
+--     using (public.is_superadmin() or public.can_read_documento(id));

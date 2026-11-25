@@ -440,8 +440,15 @@ verify_jwt = false
 [functions.invita-utente]
 verify_jwt = false
 
-# Invio email applicative via SMTP Gmail: richiede un utente autenticato
+# Invio email applicative via SMTP Gmail: richiede un utente autenticato (Admin/SuperAdmin)
 [functions.invia-email]
+verify_jwt = true
+
+# Accodamento e worker invio coda email: richiede utente autenticato
+[functions.accoda-email]
+verify_jwt = true
+
+[functions.invia-coda-email]
 verify_jwt = true
 
 # Eliminazione del proprio account: richiede l'utente autenticato

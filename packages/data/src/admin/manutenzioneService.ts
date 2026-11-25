@@ -1,5 +1,6 @@
 import { assertOk, unwrap, type TypedSupabaseClient } from '@iocondo/supabase-client';
 import type { TablesInsert, TablesUpdate } from '@iocondo/shared-types';
+import { generaTokenHex256, sha256Hex } from '../security/tokenCrypto.ts';
 import {
   generaUrlMagicLink,
   trasformaTicketRawInView,
@@ -90,10 +91,7 @@ export interface InputModificaTicketAdmin {
 }
 
 function generaTokenSicuro(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, '');
-  }
-  return `${Math.random().toString(36).substring(2)}${Date.now().toString(36)}${Math.random().toString(36).substring(2)}`;
+  return generaTokenHex256();
 }
 
 /**
@@ -406,14 +404,15 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
       );
 
       const token = generaTokenSicuro();
+      const tokenHash = await sha256Hex(token);
       const giorni = input.giorniValidita ?? 14;
       const scadenza = new Date(Date.now() + giorni * 86_400_000).toISOString();
       const urlMagico = generaUrlMagicLink(token, input.baseUrl);
 
       const tokenPayload: TablesInsert<'fornitori_tokens'> = {
-        token,
+        token: tokenHash,
         ticket_intervento_id: intervento.id,
-        url_magico: urlMagico,
+        url_magico: null,
         data_scadenza: scadenza,
       };
 
@@ -555,12 +554,13 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
             resUrlMagico = primoToken.url_magico;
           } else {
             const token = generaTokenSicuro();
+            const tokenHash = await sha256Hex(token);
             const scadenza = new Date(Date.now() + 14 * 86_400_000).toISOString();
             const urlMagico = generaUrlMagicLink(token, input.baseUrl);
             await db.from('fornitori_tokens').insert({
-              token,
+              token: tokenHash,
               ticket_intervento_id: intId,
-              url_magico: urlMagico,
+              url_magico: null,
               data_scadenza: scadenza,
             });
             resUrlMagico = urlMagico;
@@ -580,12 +580,13 @@ export function createManutenzioneService(db: TypedSupabaseClient) {
               .single(),
           );
           const token = generaTokenSicuro();
+          const tokenHash = await sha256Hex(token);
           const scadenza = new Date(Date.now() + 14 * 86_400_000).toISOString();
           const urlMagico = generaUrlMagicLink(token, input.baseUrl);
           await db.from('fornitori_tokens').insert({
-            token,
+            token: tokenHash,
             ticket_intervento_id: resInt.id,
-            url_magico: urlMagico,
+            url_magico: null,
             data_scadenza: scadenza,
           });
           resUrlMagico = urlMagico;

@@ -7,11 +7,12 @@ import type {
   ITicketMessaggio,
   ITicketTestata,
 } from '@iocondo/shared-types';
+import { generaTokenHex256, sha256Hex } from '../security/tokenCrypto.ts';
 
 type StatoTicket = ITicketTestata['stato'];
 
 function newToken(): string {
-  return `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, '');
+  return generaTokenHex256();
 }
 
 /** Ticket guasti (UC-02): gestione admin e segnalazione condomino/portiere. */
@@ -134,21 +135,30 @@ export function createTicketService(db: TypedSupabaseClient) {
           .single(),
       );
       const token = newToken();
+      const tokenHash = await sha256Hex(token);
+      const urlMagico = `${input.baseUrl.replace(/\/$/, '')}/${encodeURIComponent(token)}`;
       const scadenza = new Date(Date.now() + (input.giorniValidita ?? 7) * 86_400_000).toISOString();
       const tokenRow = unwrap(
         await db
           .from('fornitori_tokens')
           .insert({
-            token,
+            token: tokenHash,
             ticket_intervento_id: intervento.id,
-            url_magico: `${input.baseUrl.replace(/\/$/, '')}/${token}`,
+            url_magico: null,
             data_scadenza: scadenza,
           })
           .select('*')
           .single(),
       );
       assertOk(await db.from('ticket_testata').update({ stato: 'LAVORAZIONE' }).eq('id', input.ticketId));
-      return { intervento, token: tokenRow };
+      return {
+        intervento,
+        token: {
+          ...tokenRow,
+          token,
+          url_magico: urlMagico,
+        },
+      };
     },
   };
 }
