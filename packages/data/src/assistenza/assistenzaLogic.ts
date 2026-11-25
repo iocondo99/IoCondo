@@ -249,10 +249,13 @@ export function validaModificaNumeroEmergenza(input: {
     erroreTitolo = 'Il titolo non può superare 120 caratteri.';
   }
 
+  const cifre = numero.replace(/\D/g, '');
   if (numero.length < 2) {
     erroreNumero = 'Inserisci un numero valido.';
   } else if (numero.length > 40) {
     erroreNumero = 'Il numero non può superare 40 caratteri.';
+  } else if (!/^\+?[\d\s().-]+$/.test(numero) || cifre.length < 2) {
+    erroreNumero = 'Il numero di telefono può contenere solo cifre, +, spazi, parentesi e trattini.';
   }
 
   return {

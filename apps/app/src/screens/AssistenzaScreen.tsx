@@ -28,6 +28,8 @@ import {
   useBreakpoint,
   useToast,
 } from '@iocondo/ui';
+import { useAppAttivo } from '@/components/layout/AppShell';
+import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
 import { useProfilo } from '@/context/ProfiloContext';
 import { services } from '@/services';
 
@@ -59,6 +61,18 @@ const FAQ_ITEMS = [
 ];
 
 export function AssistenzaScreen() {
+  const appAttivo = useAppAttivo();
+  const consentito = useAccessoConsentito();
+  const { profilo, condominio } = useProfilo();
+
+  if (!appAttivo || !consentito || !profilo?.id || !condominio?.id) {
+    return null;
+  }
+
+  return <AssistenzaContenuto />;
+}
+
+function AssistenzaContenuto() {
   const router = useRouter();
   const { condominio, vista, ruoli, profilo } = useProfilo();
   const { breakpoint, isDesktop } = useBreakpoint();
@@ -102,12 +116,20 @@ export function AssistenzaScreen() {
   }, [caricaDati]);
 
   const handleChiama = (numero: string) => {
-    const pulito = numero.replace(/\s+/g, '');
+    const pulito = numero.replace(/[\s().-]+/g, '');
+    if (!/^\+?[\d#*]{2,25}$/.test(pulito)) {
+      toast.show({ tone: 'error', message: 'Numero telefonico non valido.' });
+      return;
+    }
     void Linking.openURL(`tel:${pulito}`).catch(() => undefined);
   };
 
   const handleEmail = (email: string) => {
     const pulito = email.trim();
+    if (/[\r\n\0]/.test(pulito) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pulito)) {
+      toast.show({ tone: 'error', message: 'Indirizzo email non valido.' });
+      return;
+    }
     void Linking.openURL(`mailto:${pulito}`).catch(() => undefined);
   };
 

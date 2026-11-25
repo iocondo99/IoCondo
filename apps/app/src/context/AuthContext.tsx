@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import { platformStorage } from '@iocondo/supabase-client/storage';
 import {
+  CHIAVE_PREFERENZE,
   LINK_EXPIRED_MESSAGE,
   authFailureMessage,
   classifyAuthError,
@@ -191,6 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await services.auth.signOut();
       await setPromemoria(null);
+      await platformStorage.removeItem(CHIAVE_PREFERENZE).catch(() => undefined);
       return { ok: true };
     } catch (error) {
       return failure(error);

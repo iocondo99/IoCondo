@@ -14,6 +14,18 @@ import { services } from '@/services';
  * Chi è già autenticato viene reindirizzato alla sua destinazione o alla Home del suo ruolo,
  * evitando di rivedere la presentazione o il modulo di accesso.
  */
+function parsePreferenzeSafe(raw: string | null): { condominioId?: string; vista?: unknown } {
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as { condominioId?: string; vista?: unknown })
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function PublicLayout() {
   const { status, user } = useAuth();
   const { redirect } = useGlobalSearchParams<{ redirect?: string }>();
@@ -37,10 +49,10 @@ export default function PublicLayout() {
     ])
       .then(([profilo, preferenzeStr]) => {
         if (!active) return;
-        const preferenze = preferenzeStr ? JSON.parse(preferenzeStr) : {};
+        const preferenze = parsePreferenzeSafe(preferenzeStr);
         const condominioId = scegliCondominio(profilo, preferenze.condominioId);
         const viste = vistePossibili(profilo, condominioId);
-        const vista = scegliVista(profilo, condominioId, preferenze.vista);
+        const vista = scegliVista(profilo, condominioId, preferenze.vista as Parameters<typeof scegliVista>[2]);
         const target = returnTo.current;
         if (target) {
           const pathPulito = target.split('?')[0] ?? target;

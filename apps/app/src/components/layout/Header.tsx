@@ -20,6 +20,7 @@ import { BrandMark } from '@/components/Brand';
 import { useAuth } from '@/context/AuthContext';
 import { useProfilo } from '@/context/ProfiloContext';
 import { useNotifiche, type NotificaItemUI } from '@/hooks/useNotifiche';
+import { useAppAttivo } from './AppShell';
 
 /**
  * Header (sez. 5.2). Desktop: ricerca, condominio, vista, notifiche e profilo. Tablet: senza ricerca e con
@@ -29,9 +30,10 @@ export function Header() {
   const { isDesktop, isMobile, breakpoint } = useBreakpoint();
   const { user, signOut } = useAuth();
   const profilo = useProfilo();
+  const appAttivo = useAppAttivo();
   const router = useRouter();
   const toast = useToast();
-  const notifiche = useNotifiche(user?.id ?? null);
+  const notifiche = useNotifiche(appAttivo && user?.id ? user.id : null);
 
   const nome = profilo.profilo ? nomeVisibile(profilo.profilo) : (user?.email ?? 'Utente');
   const ruolo = profilo.etichettaVista;

@@ -21,7 +21,13 @@ export function useNotifiche(userId: string | null) {
   const attuale = useRef(0);
 
   const carica = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      setElenco([]);
+      setTotaleNonLette(0);
+      setCaricamento(false);
+      setErrore(false);
+      return;
+    }
     const questa = ++attuale.current;
     setErrore(false);
     try {

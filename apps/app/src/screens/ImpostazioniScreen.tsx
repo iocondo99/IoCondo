@@ -37,11 +37,25 @@ import {
   useBreakpoint,
   useToast,
 } from '@iocondo/ui';
+import { useAppAttivo } from '@/components/layout/AppShell';
+import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
 import { useAuth } from '@/context/AuthContext';
 import { useProfilo } from '@/context/ProfiloContext';
 import { services } from '@/services';
 
 export function ImpostazioniScreen() {
+  const appAttivo = useAppAttivo();
+  const consentito = useAccessoConsentito();
+  const { profilo } = useProfilo();
+
+  if (!appAttivo || !consentito || !profilo?.id) {
+    return null;
+  }
+
+  return <ImpostazioniContenuto />;
+}
+
+function ImpostazioniContenuto() {
   const router = useRouter();
   const toast = useToast();
   const { signOut } = useAuth();

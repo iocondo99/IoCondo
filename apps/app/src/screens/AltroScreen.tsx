@@ -17,16 +17,19 @@ import {
 } from '@iocondo/ui';
 import { NavLink } from '@/components/layout/NavLink';
 import { iconaDi } from '@/components/layout/navigation';
+import { useAppAttivo } from '@/components/layout/AppShell';
 import { useAuth } from '@/context/AuthContext';
 import { useProfilo } from '@/context/ProfiloContext';
 
 /** "Altro" dello smartphone: le voci che non stanno nella barra, condominio e vista, e "Esci". */
 export function AltroScreen() {
+  const appAttivo = useAppAttivo();
   const profilo = useProfilo();
   const { signOut } = useAuth();
   const router = useRouter();
   const toast = useToast();
   const { breakpoint } = useBreakpoint();
+  if (!appAttivo) return null;
   const altre = profilo.vista ? navigazioneMobile(profilo.voci, profilo.vista).altre : [];
   const condomini = profilo.profilo?.condomini ?? [];
 

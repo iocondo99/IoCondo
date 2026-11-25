@@ -68,14 +68,19 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Verifica formale di un indirizzo email. */
 export function isEmailValida(email: string | null | undefined): email is string {
   if (typeof email !== 'string') return false;
+  if (/[\r\n\0]/.test(email)) return false;
   const trimmed = email.trim();
   return trimmed.length <= 320 && EMAIL_REGEX.test(trimmed);
+}
+
+function pulisciOggettoEmail(testo: string): string {
+  return testo.replace(/[\r\n\0]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function pulisciNomeHeader(nomeCognome?: string | null): string {
   if (typeof nomeCognome !== 'string') return 'Amministratore Condominio';
   const pulito = nomeCognome
-    .replace(/[\r\n<>"]/g, ' ')
+    .replace(/[\r\n\0<>"]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   return pulito || 'Amministratore Condominio';
@@ -226,7 +231,7 @@ export function generaTemplateBollettinoEmesso(
   const saluto = dati.destinatarioNome?.trim()
     ? `Gentile ${dati.destinatarioNome.trim()},`
     : 'Gentile Condòmino,';
-  const oggetto = `Bollettino ${num} emesso (${importo}) - ${dati.condominioNome}`;
+  const oggetto = pulisciOggettoEmail(`Bollettino ${num} emesso (${importo}) - ${dati.condominioNome}`);
 
   const righeHtml = (dati.righeDescrizione ?? []).length
     ? `<ul style="margin:8px 0 16px 20px;padding:0;color:#475569;">${dati.righeDescrizione!
@@ -285,7 +290,7 @@ export function generaTemplateConvocazioneAssemblea(
   const saluto = dati.destinatarioNome?.trim()
     ? `Gentile ${dati.destinatarioNome.trim()},`
     : 'Gentile Condòmino,';
-  const oggetto = `Convocazione Assemblea ${tipoLabel} - ${dati.condominioNome}`;
+  const oggetto = pulisciOggettoEmail(`Convocazione Assemblea ${tipoLabel} - ${dati.condominioNome}`);
 
   const prima = dati.dataPrimaConvocazione
     ? formattaDataOraIt(dati.dataPrimaConvocazione)
@@ -356,7 +361,7 @@ export function generaTemplateComunicazioneImportante(
   const saluto = dati.destinatarioNome?.trim()
     ? `Gentile ${dati.destinatarioNome.trim()},`
     : 'Gentile Condòmino,';
-  const oggetto = `[Importante] ${dati.titolo} - ${dati.condominioNome}`;
+  const oggetto = pulisciOggettoEmail(`[Importante] ${dati.titolo} - ${dati.condominioNome}`);
   const corpoPulito = dati.corpo?.trim() || 'Consulta i dettagli della comunicazione nell’app IoCondo.';
 
   const contenutoHtml = `

@@ -12,6 +12,50 @@ import {
 } from './documentiAdminLogic.ts';
 
 export const DURATA_LINK_FIRMATO_SECONDI = 600;
+export const MAX_DOCUMENTO_BYTES = 50 * 1024 * 1024; // 50 MB (allineato al bucket documenti-condominio)
+const MIME_DOCUMENTI_CONSENTITI = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/jpeg',
+  'image/png',
+]);
+const ESTENSIONI_DOCUMENTI_CONSENTITE = /\.(pdf|doc|docx|xls|xlsx|jpe?g|png)$/i;
+
+export function sanitizzaNomeFileDb(nomeFile: string): string {
+  const soloNome = nomeFile
+    .replace(/[\r\n\0<>:"/\\|?*]+/g, ' ')
+    .replace(/\.\.+/g, '.')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return soloNome.slice(0, 180) || 'documento';
+}
+
+export function validaUploadDocumento(input: {
+  nomeFile: string;
+  tipoMime?: string | null;
+  dimensioneBytes?: number | null;
+}): string | null {
+  const nome = input.nomeFile.trim();
+  if (!nome || !ESTENSIONI_DOCUMENTI_CONSENTITE.test(nome)) {
+    return 'Formato file non consentito. Usa PDF, Word, Excel, JPEG o PNG.';
+  }
+  const mime = input.tipoMime?.split(';')[0]?.trim().toLowerCase();
+  if (mime && mime !== 'application/octet-stream' && !MIME_DOCUMENTI_CONSENTITI.has(mime)) {
+    return 'Tipo MIME del file non consentito.';
+  }
+  if (input.dimensioneBytes !== undefined && input.dimensioneBytes !== null) {
+    if (!Number.isFinite(input.dimensioneBytes) || input.dimensioneBytes <= 0) {
+      return 'Il file selezionato è vuoto o non valido.';
+    }
+    if (input.dimensioneBytes > MAX_DOCUMENTO_BYTES) {
+      return 'Il file supera la dimensione massima consentita di 50 MB.';
+    }
+  }
+  return null;
+}
 
 export interface CaricaDocumentoInput {
   condominioId: string;
@@ -309,7 +353,13 @@ export function createDocumentiAdminService(db: TypedSupabaseClient) {
       params: CaricaDocumentoInput,
     ): Promise<{ ok: boolean; documentoId?: string; errore?: string }> {
       try {
-        const sanitizedNome = params.nomeFile.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const erroreValidazione = validaUploadDocumento(params);
+        if (erroreValidazione) {
+          return { ok: false, errore: erroreValidazione };
+        }
+
+        const nomeDbPulito = sanitizzaNomeFileDb(params.nomeFile);
+        const sanitizedNome = nomeDbPulito.replace(/[^a-zA-Z0-9._-]/g, '_');
         // Path sicuro nello storage: {condominioId}/{cartellaId}/{timestamp}_{nomeFile}
         const storagePath = `${params.condominioId}/${params.cartellaId}/${Date.now()}_${sanitizedNome}`;
 
@@ -335,7 +385,7 @@ export function createDocumentiAdminService(db: TypedSupabaseClient) {
             cartella_id: params.cartellaId,
             unita_id: params.unitaId || null,
             url_storage: storagePath,
-            nome_file: params.nomeFile,
+            nome_file: nomeDbPulito,
             tipo_mime: params.tipoMime || null,
           });
 

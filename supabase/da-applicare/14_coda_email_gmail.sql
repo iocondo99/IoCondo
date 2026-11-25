@@ -55,7 +55,16 @@ create policy coda_email_select_admin
     using (public.is_admin_of(condominio_id));
 
 -- 4. Funzione atomica di prelievo batch per il worker (FOR UPDATE SKIP LOCKED)
-create or replace function public.claim_coda_email_batch(p_limit integer default 25)
+--    Quando invocata per conto di un singolo condominio (p_condominio_id NOT NULL)
+--    preleva e recupera esclusivamente le righe di quel condominio (isolamento multi-tenant).
+--    p_condominio_id IS NULL e' consentito solo per i worker schedulati service_role.
+drop function if exists public.claim_coda_email_batch(integer);
+drop function if exists public.claim_coda_email_batch(integer, uuid);
+
+create or replace function public.claim_coda_email_batch(
+    p_limit integer default 25,
+    p_condominio_id uuid default null
+)
 returns setof public.coda_email
 language plpgsql
 security definer
@@ -71,6 +80,7 @@ begin
            prossimo_tentativo_at = now(),
            updated_at = now()
      where stato = 'PROCESSING'
+       and (p_condominio_id is null or condominio_id = p_condominio_id)
        and coalesce(updated_at, prossimo_tentativo_at, created_at) < now() - interval '10 minutes';
 
     return query
@@ -78,6 +88,7 @@ begin
         select c.id
           from public.coda_email c
          where c.stato = 'PENDING'
+           and (p_condominio_id is null or c.condominio_id = p_condominio_id)
            and c.prossimo_tentativo_at <= now()
          order by c.prossimo_tentativo_at asc, c.created_at asc
          limit v_limit
@@ -92,8 +103,8 @@ begin
 end;
 $$;
 
-revoke all on function public.claim_coda_email_batch(integer) from public, anon, authenticated;
-grant execute on function public.claim_coda_email_batch(integer) to service_role;
+revoke all on function public.claim_coda_email_batch(integer, uuid) from public, anon, authenticated;
+grant execute on function public.claim_coda_email_batch(integer, uuid) to service_role;
 
 -- =============================================================================
 -- SEZIONE VERIFICA (eseguire manualmente dopo l'applicazione)
@@ -119,5 +130,5 @@ grant execute on function public.claim_coda_email_batch(integer) to service_role
 -- SEZIONE ROLLBACK (eseguire manualmente solo in caso di ripristino)
 -- =============================================================================
 -- drop policy if exists coda_email_select_admin on public.coda_email;
--- drop function if exists public.claim_coda_email_batch(integer);
+-- drop function if exists public.claim_coda_email_batch(integer, uuid);
 -- drop table if exists public.coda_email;

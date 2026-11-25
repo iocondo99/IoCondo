@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button, Card, EmptyState, ErrorState, Icon, Select, colors, radii, space, textStyle } from '@iocondo/ui';
 import { BrandMark } from '@/components/Brand';
@@ -6,6 +6,17 @@ import { SessionLoading } from '@/components/auth/SessionLoading';
 import { useAuth } from '@/context/AuthContext';
 import { useProfilo } from '@/context/ProfiloContext';
 import { AppLayout } from './AppLayout';
+
+const AppAttivoContext = createContext(false);
+
+/**
+ * `true` solo quando il profilo è caricato, ha almeno un ruolo e il condominio selezionato non è sospeso.
+ * Le schermate e l'header usano questo flag per bloccare ogni fetch operativo in background mentre
+ * `<Slot />` resta montato nascosto (`display: 'none'`).
+ */
+export function useAppAttivo(): boolean {
+  return useContext(AppAttivoContext);
+}
 
 /**
  * Prima del layout: caricamento del profilo, errore con "Riprova", account senza ruoli e
@@ -112,9 +123,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </View>
         </View>
       ) : null}
-      <View aria-hidden={!mostraLayout} style={mostraLayout ? styles.layout : styles.nascosto}>
-        <AppLayout>{children}</AppLayout>
-      </View>
+      <AppAttivoContext.Provider value={mostraLayout}>
+        <View aria-hidden={!mostraLayout} style={mostraLayout ? styles.layout : styles.nascosto}>
+          <AppLayout>{children}</AppLayout>
+        </View>
+      </AppAttivoContext.Provider>
     </>
   );
 }

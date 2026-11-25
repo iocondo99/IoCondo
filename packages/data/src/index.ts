@@ -50,6 +50,8 @@ export * from './superadmin/telemetriaLogic';
 export * from './superadmin/telemetriaService';
 export * from './email/codaEmailLogic';
 export * from './email/codaEmailService';
+export * from './security/redact';
+export * from './security/tokenCrypto';
 
 // Risoluzione ambiguità esportazioni duplicate
 export { formattaDataItaliana } from './admin/invitiAdminLogic';

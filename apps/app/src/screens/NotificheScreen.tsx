@@ -25,6 +25,8 @@ import {
   type DataColumn,
   type FilterOption,
 } from '@iocondo/ui';
+import { useAppAttivo } from '@/components/layout/AppShell';
+import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
 import { useAuth } from '@/context/AuthContext';
 import { useProfilo } from '@/context/ProfiloContext';
 import { services } from '@/services';
@@ -62,6 +64,18 @@ function etichettaTipo(tipo: string | null): string {
 
 /** Schermata completa del centro notifiche con storico, paginazione e navigazione al dettaglio. */
 export function NotificheScreen() {
+  const appAttivo = useAppAttivo();
+  const consentito = useAccessoConsentito();
+  const { user } = useAuth();
+
+  if (!appAttivo || !consentito || !user?.id) {
+    return null;
+  }
+
+  return <NotificheContenuto />;
+}
+
+function NotificheContenuto() {
   const { user } = useAuth();
   const profilo = useProfilo();
   const router = useRouter();

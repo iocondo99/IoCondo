@@ -14,7 +14,7 @@ import {
   type NuovoCondominioAdminInput,
   type PianoUnicoView,
   type RisultatoCreazioneCondominioAdmin,
-} from './superadminLogic';
+} from './superadminLogic.ts';
 
 export interface AggiornaPianoUnicoInput {
   id: string;
@@ -52,6 +52,34 @@ function parsePiano(row: {
     featureAttive,
     updatedAt: row.updated_at,
   };
+}
+
+interface UtenteVerificatoRow {
+  id: string;
+  nome_cognome: string | null;
+  telefono: string | null;
+}
+
+async function risolviUtenteVerificato(
+  db: TypedSupabaseClient,
+  emailPulita: string,
+): Promise<UtenteVerificatoRow | null> {
+  const { data, error } = await (db as any).rpc('risolvi_utente_verificato_da_email', {
+    p_email: emailPulita,
+  });
+
+  if (error) {
+    // Non ripiegare mai su lookup `public.utenti.email` modificabile dal client (`[ALTO-01]`).
+    if (error.code === 'PGRST202') {
+      throw new Error(
+        'Verifica email lato database non disponibile: applicare la migrazione `supabase/da-applicare/21_fix_sicurezza.sql`.',
+      );
+    }
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return row ? (row as UtenteVerificatoRow) : null;
 }
 
 export function createSuperAdminService(db: TypedSupabaseClient) {
@@ -215,9 +243,7 @@ export function createSuperAdminService(db: TypedSupabaseClient) {
       const nomePulito = nomeCognome.trim();
       const piano = await ensurePianoUnicoRow();
 
-      const esistente = unwrap(
-        await db.from('utenti').select('id, nome_cognome').eq('email', emailPulita).maybeSingle(),
-      );
+      const esistente = await risolviUtenteVerificato(db, emailPulita);
 
       if (esistente) {
         if (!esistente.nome_cognome && nomePulito) {
@@ -286,13 +312,7 @@ export function createSuperAdminService(db: TypedSupabaseClient) {
 
       const piano = await ensurePianoUnicoRow();
 
-      const esistente = unwrap(
-        await db
-          .from('utenti')
-          .select('id, nome_cognome, telefono')
-          .eq('email', emailPulita)
-          .maybeSingle(),
-      );
+      const esistente = await risolviUtenteVerificato(db, emailPulita);
 
       const condominioCreato = unwrap(
         await db

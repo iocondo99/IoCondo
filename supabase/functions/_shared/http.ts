@@ -1,21 +1,61 @@
-// Utility condivise da tutte le Edge Functions: CORS standard Supabase + risposte JSON + errori HTTP.
+// Utility condivise da tutte le Edge Functions: CORS restrittivo per origin + risposte JSON + errori HTTP.
 
-export const corsHeaders: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://app.iocondo.it',
+  'https://iocondo.it',
+];
+
+function allowedOrigins(): string[] {
+  const configured = [
+    Deno.env.get('APP_URL') ?? '',
+    ...(Deno.env.get('ALLOWED_ORIGINS') ?? '').split(','),
+  ]
+    .map((s) => s.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+  return [...new Set([...DEFAULT_ALLOWED_ORIGINS, ...configured])];
+}
+
+function isOriginConsentita(origin: string): boolean {
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+    return true;
+  }
+  const normalizzata = origin.replace(/\/$/, '');
+  return allowedOrigins().includes(normalizzata);
+}
+
+export function corsHeadersFor(req?: Request): Record<string, string> {
+  const reqOrigin = req?.headers.get('Origin')?.trim() ?? '';
+  const originHeader = reqOrigin && isOriginConsentita(reqOrigin)
+    ? reqOrigin
+    : (Deno.env.get('APP_URL')?.trim().replace(/\/$/, '') || 'https://app.iocondo.it');
+
+  return {
+    'Access-Control-Allow-Origin': originHeader,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
+
+export const corsHeaders: Record<string, string> = corsHeadersFor();
 
 /** Risposta al preflight CORS; ritorna null se la richiesta non e' OPTIONS. */
 export function handleOptions(req: Request): Response | null {
-  return req.method === 'OPTIONS' ? new Response('ok', { headers: corsHeaders }) : null;
+  return req.method === 'OPTIONS' ? new Response('ok', { headers: corsHeadersFor(req) }) : null;
 }
 
-export function json(body: unknown, status = 200): Response {
+export function json(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeadersFor(req), 'Content-Type': 'application/json' },
   });
+}
+
+function withCors(res: Response, req: Request): Response {
+  const headers = new Headers(res.headers);
+  const cors = corsHeadersFor(req);
+  for (const [k, v] of Object.entries(cors)) headers.set(k, v);
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
 }
 
 /** Errore con status HTTP, convertito in risposta dal wrapper `serve`. */
@@ -91,16 +131,22 @@ export function serve(handler: (req: Request) => Promise<Response>) {
     if (pre) return pre;
     try {
       if (req.method !== 'POST') throw new HttpError(405, 'Metodo non consentito');
-      return await handler(req);
+      const res = await handler(req);
+      return withCors(res, req);
     } catch (e) {
       if (e instanceof HttpError) {
-        if (e.status === 403 || e.status >= 500) await registraLog(req, e.status, e.message);
-        return json({ error: e.message, details: e.details ?? null }, e.status);
+        const dettaglioInterno = e.details ? `${e.message} [${String(e.details).slice(0, 300)}]` : e.message;
+        if (e.status >= 500 && e.details) {
+          console.error(`HttpError ${e.status}:`, dettaglioInterno);
+        }
+        if (e.status === 403 || e.status >= 500) await registraLog(req, e.status, dettaglioInterno);
+        // Non esporre mai `details` tecnici Postgres/stack al client.
+        return json({ error: e.message }, e.status, req);
       }
       const testo = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       console.error('Errore non gestito:', testo);
       await registraLog(req, 500, testo, 'NON_GESTITO');
-      return json({ error: 'Errore interno del server' }, 500);
+      return json({ error: 'Errore interno del server' }, 500, req);
     }
   });
 }

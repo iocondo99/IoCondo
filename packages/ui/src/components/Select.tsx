@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Icon } from '../Icon';
 import { placeMenu, type Placement } from './layoutMath';
+import { shadowStyle } from '../styles';
 import { borderWidths, colors, controlSizes, focusRingSize, radii, space, touchTarget } from '../tokens';
 import {
   cursorStyle,
@@ -82,7 +83,7 @@ export function Select({
   // Solo per `floating`: dove disegnare la lista sopra la pagina.
   const [placement, setPlacement] = useState<Placement | null>(null);
   const [query, setQuery] = useState('');
-  const searchRef = useRef<TextInput>(null);
+  const searchRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const screen = useWindowDimensions();
   const triggerRef = useRef<React.ComponentRef<typeof View>>(null);
   const optionRefs = useRef<Array<React.ComponentRef<typeof View> | null>>([]);
@@ -163,7 +164,7 @@ export function Select({
       focusOption(enabled[Math.min(at + 1, enabled.length - 1)]);
     } else if (key === 'ArrowUp') {
       event.preventDefault?.();
-      if (searchable && at <= 0) searchRef.current?.focus();
+      if (searchable && at <= 0) focusElement(searchRef.current);
       else focusOption(enabled[Math.max(at - 1, 0)]);
     } else if (key === 'Home') {
       event.preventDefault?.();
@@ -178,7 +179,7 @@ export function Select({
     setQuery('');
     const start = selected ? visibili.indexOf(selected) : enabled[0];
     // Con la ricerca il focus va sul campo: si scrive subito, la freccia giu' scende alle opzioni.
-    const focusIniziale = () => (searchable ? searchRef.current?.focus() : focusOption(start));
+    const focusIniziale = () => (searchable ? focusElement(searchRef.current) : focusOption(start));
     if (!floating) {
       setOpen(true);
       setFocused(true);
@@ -597,18 +598,7 @@ const styles = StyleSheet.create({
   floatingWrap: { position: 'absolute' },
   // La lista flottante occupa tutta la larghezza del riquadro: niente testo tagliato a sinistra.
   listFloatingSize: { width: '100%', maxHeight: '100%', alignSelf: 'stretch' },
-  listFloating: {
-    ...Platform.select({
-      web: { boxShadow: '0 8px 24px rgba(15, 23, 42, 0.16)' } as unknown as ViewStyle,
-      default: {
-        elevation: 8,
-        shadowColor: '#0f172a',
-        shadowOpacity: 0.16,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-      },
-    }),
-  },
+  listFloating: shadowStyle('modal'),
   option: {
     minHeight: touchTarget.comfortable,
     flexDirection: 'row',

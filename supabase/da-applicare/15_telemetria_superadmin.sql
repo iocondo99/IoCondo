@@ -22,11 +22,15 @@ create index if not exists idx_telemetria_oraria_bucket_desc
 
 -- 2. Tabella utenti unici attivi per fascia oraria (senza duplicati)
 create table if not exists public.telemetria_utenti_ora (
-    ora_bucket timestamptz not null,
-    utente_id  uuid not null,
-    created_at timestamptz not null default now(),
+    ora_bucket    timestamptz not null,
+    utente_id     uuid not null,
+    batch_count   integer not null default 0 check (batch_count >= 0),
+    created_at    timestamptz not null default now(),
     primary key (ora_bucket, utente_id)
 );
+
+alter table public.telemetria_utenti_ora
+    add column if not exists batch_count integer not null default 0;
 
 create index if not exists idx_telemetria_utenti_ora_utente
     on public.telemetria_utenti_ora (utente_id, ora_bucket desc);
@@ -64,7 +68,8 @@ create policy telemetria_utenti_ora_select_superadmin
     );
 
 -- 4. Funzione RPC batch per registrare i contatori aggregati dal client
---    Richiede utente autenticato; esegue UPSERT atomico per l'ora corrente.
+--    Richiede utente autenticato; applica clamp stretto (<= 500 per batch) e rate-limit
+--    per utente/ora (max 120 invii per fascia oraria) per prevenire poisoning/DoS.
 create or replace function public.registra_telemetria_batch(
     p_get integer default 0,
     p_insert integer default 0,
@@ -79,17 +84,29 @@ security definer
 set search_path = public
 as $$
 declare
-    v_uid    uuid := auth.uid();
-    v_bucket timestamptz := date_trunc('hour', now());
-    v_get    integer := least(greatest(coalesce(p_get, 0), 0), 100000);
-    v_insert integer := least(greatest(coalesce(p_insert, 0), 0), 100000);
-    v_put    integer := least(greatest(coalesce(p_put, 0), 0), 100000);
-    v_delete integer := least(greatest(coalesce(p_delete, 0), 0), 100000);
-    v_edge   integer := least(greatest(coalesce(p_edge, 0), 0), 100000);
-    v_errori integer := least(greatest(coalesce(p_errori, 0), 0), 100000);
+    v_uid         uuid := auth.uid();
+    v_bucket      timestamptz := date_trunc('hour', now());
+    v_get         integer := least(greatest(coalesce(p_get, 0), 0), 500);
+    v_insert      integer := least(greatest(coalesce(p_insert, 0), 0), 500);
+    v_put         integer := least(greatest(coalesce(p_put, 0), 0), 500);
+    v_delete      integer := least(greatest(coalesce(p_delete, 0), 0), 500);
+    v_edge        integer := least(greatest(coalesce(p_edge, 0), 0), 500);
+    v_errori      integer := least(greatest(coalesce(p_errori, 0), 0), 500);
+    v_batch_count integer := 0;
 begin
     if v_uid is null then
         raise exception 'Non autenticato' using errcode = '42501';
+    end if;
+
+    insert into public.telemetria_utenti_ora (ora_bucket, utente_id, batch_count)
+    values (v_bucket, v_uid, 1)
+    on conflict (ora_bucket, utente_id) do update
+       set batch_count = public.telemetria_utenti_ora.batch_count + 1
+    returning batch_count into v_batch_count;
+
+    -- Protezione anti-poisoning: ignora silenziosamente batch oltre 120 invii/ora per utente.
+    if v_batch_count > 120 then
+        return;
     end if;
 
     insert into public.telemetria_oraria (
@@ -120,10 +137,6 @@ begin
            edge_fn_count   = public.telemetria_oraria.edge_fn_count + excluded.edge_fn_count,
            errori_count    = public.telemetria_oraria.errori_count + excluded.errori_count,
            updated_at      = now();
-
-    insert into public.telemetria_utenti_ora (ora_bucket, utente_id)
-    values (v_bucket, v_uid)
-    on conflict (ora_bucket, utente_id) do nothing;
 end;
 $$;
 
@@ -161,9 +174,9 @@ declare
         'unita_immobiliari',
         'notifiche',
         'bacheca_post',
-        'ticket_guasti',
-        'assemblee',
-        'documenti',
+        'ticket_testata',
+        'assemblee_testata',
+        'documenti_metadata',
         'bollettini',
         'movimenti_contabili'
     ];

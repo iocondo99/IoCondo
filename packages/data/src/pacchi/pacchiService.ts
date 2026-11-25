@@ -107,29 +107,20 @@ export function createPacchiService(db: TypedSupabaseClient) {
   }
 
   /**
-   * Verifica se l'utente ha privilegi di gestione (PORTIERE o ADMIN) nel condominio.
+   * Verifica lato database se l'utente ha privilegi di gestione (PORTIERE o ADMIN)
+   * esattamente sul condominio richiesto (senza fidarsi di flag client).
    */
   async function verificaSePortiereOAdmin(
     userId: string,
     condominioId: string,
-    opzioni?: OpzioniElencoPacchi,
+    _opzioni?: OpzioniElencoPacchi,
   ): Promise<boolean> {
-    if (opzioni?.isPortiereOAdmin !== undefined) {
-      return opzioni.isPortiereOAdmin;
-    }
-
-    if (opzioni?.ruoli) {
-      const setRoles = new Set(opzioni.ruoli);
-      if (setRoles.has('PORTIERE') || setRoles.has('ADMIN')) {
-        return true;
-      }
-    }
-
     const [ruoliRes, ruoliPiattaformaRes, condRes] = await Promise.all([
       db
         .from('utente_entita_ruolo')
-        .select('ruolo_id, condominio_id')
-        .eq('utente_id', userId),
+        .select('ruolo_id, condominio_id, ruoli_piattaforma(codice)')
+        .eq('utente_id', userId)
+        .eq('condominio_id', condominioId),
       db
         .from('ruoli_piattaforma')
         .select('id, codice'),
@@ -153,13 +144,15 @@ export function createPacchiService(db: TypedSupabaseClient) {
     const ruoliRows = (ruoliRes.data ?? []) as Array<{
       ruolo_id: string;
       condominio_id: string | null;
+      ruoli_piattaforma?: { codice?: string } | Array<{ codice?: string }> | null;
     }>;
 
     return ruoliRows.some((r) => {
-      const cid = r.condominio_id;
-      const cod = mappaCodici.get(r.ruolo_id);
-      const matchCondo = cid === condominioId || !cid;
-      return matchCondo && (cod === 'PORTIERE' || cod === 'ADMIN');
+      const embeddedCod = Array.isArray(r.ruoli_piattaforma)
+        ? r.ruoli_piattaforma[0]?.codice
+        : r.ruoli_piattaforma?.codice;
+      const cod = mappaCodici.get(r.ruolo_id) ?? embeddedCod;
+      return r.condominio_id === condominioId && (cod === 'PORTIERE' || cod === 'ADMIN');
     });
   }
 
@@ -270,23 +263,33 @@ export function createPacchiService(db: TypedSupabaseClient) {
     if (unitaMancanti.size > 0) {
       promises.push(
         (async () => {
-          const [unitaRes, palazziRes] = await Promise.all([
-            db
-              .from('unita_immobiliari')
+          const idsMancanti = [...unitaMancanti];
+          const [unitaPortRes, palazziRes] = await Promise.all([
+            (db as any)
+              .from('unita_portineria')
               .select('id, interno, palazzo_id')
-              .in('id', [...unitaMancanti]),
+              .in('id', idsMancanti),
             db
               .from('palazzi')
               .select('id, nome_identificativo')
               .eq('condominio_id', condominioId),
           ]);
 
+          let unitaData = (unitaPortRes.data ?? []) as Array<{ id: string; interno: string; palazzo_id: string }>;
+          if (unitaPortRes.error || unitaData.length === 0) {
+            const unitaFallbackRes = await db
+              .from('unita_immobiliari')
+              .select('id, interno, palazzo_id')
+              .in('id', idsMancanti);
+            unitaData = (unitaFallbackRes.data ?? []) as Array<{ id: string; interno: string; palazzo_id: string }>;
+          }
+
           const palazziMap = new Map<string, string>();
           for (const p of (palazziRes.data ?? []) as Array<{ id: string; nome_identificativo: string }>) {
             palazziMap.set(p.id, p.nome_identificativo);
           }
 
-          for (const u of (unitaRes.data ?? []) as Array<{ id: string; interno: string; palazzo_id: string }>) {
+          for (const u of unitaData) {
             mappaUnita.set(u.id, {
               interno: u.interno,
               palazzoNome: palazziMap.get(u.palazzo_id) || '',
@@ -446,18 +449,33 @@ export function createPacchiService(db: TypedSupabaseClient) {
       palazziMap.set(p.id, p.nome_identificativo);
     }
 
-    const unitaRes = await db
-      .from('unita_immobiliari')
+    const palazzoIds = palazzi.map((p) => p.id);
+    const unitaPortRes = await (db as any)
+      .from('unita_portineria')
       .select('id, palazzo_id, interno, piano')
-      .in('palazzo_id', palazzi.map((p) => p.id))
+      .in('palazzo_id', palazzoIds)
       .order('interno', { ascending: true });
 
-    const unita = (unitaRes.data ?? []) as Array<{
+    let unita = (unitaPortRes.data ?? []) as Array<{
       id: string;
       palazzo_id: string;
       interno: string;
       piano: number | null;
     }>;
+
+    if (unitaPortRes.error || unita.length === 0) {
+      const unitaRes = await db
+        .from('unita_immobiliari')
+        .select('id, palazzo_id, interno, piano')
+        .in('palazzo_id', palazzoIds)
+        .order('interno', { ascending: true });
+      unita = (unitaRes.data ?? []) as Array<{
+        id: string;
+        palazzo_id: string;
+        interno: string;
+        piano: number | null;
+      }>;
+    }
 
     const opzioni: UnitaCondominioOpzione[] = unita.map((u) => {
       const palazzoNome = palazziMap.get(u.palazzo_id) || 'Palazzo';

@@ -72,7 +72,12 @@ function SuperAdminFattureContenuto() {
 
   const apriPdf = async (url: string) => {
     try {
-      await Linking.openURL(url);
+      const parsed = new URL(url.trim());
+      if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
+        toast.show({ tone: 'error', message: 'URL documento non sicuro o non valido.' });
+        return;
+      }
+      await Linking.openURL(parsed.toString());
     } catch {
       toast.show({ tone: 'error', message: 'Impossibile aprire il documento PDF.' });
     }

@@ -593,8 +593,8 @@ export function validaChiusuraTicket(input: {
 
   if (input.importoConsuntivo !== undefined && input.importoConsuntivo !== null && input.importoConsuntivo !== '') {
     const rawStr = String(input.importoConsuntivo).replace(',', '.').trim();
-    const val = parseFloat(rawStr);
-    if (Number.isNaN(val) || val < 0) {
+    const val = Number(rawStr);
+    if (!/^\d+(?:\.\d{1,2})?$/.test(rawStr) || !Number.isFinite(val) || val < 0) {
       errori.importoConsuntivo = 'Inserisci un importo valido positivo (es. 150.00).';
     } else {
       importoNumerico = Math.round(val * 100) / 100;

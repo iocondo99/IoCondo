@@ -163,6 +163,28 @@ export function createPrenotazioniService(db: TypedSupabaseClient) {
     },
 
     async elencoPrenotazioniCondominio(condominioId: string): Promise<PrenotazioneConDettagli[]> {
+      if (typeof (db as any).rpc === 'function') {
+        const rpcRes = await (db as any).rpc('elenco_slot_prenotazioni', {
+          p_condominio_id: condominioId,
+        });
+        if (!rpcRes.error && Array.isArray(rpcRes.data)) {
+          const mapped: PrenotazioneConDettagli[] = (rpcRes.data as Array<Record<string, unknown>>).map((row) => ({
+            id: String(row.id),
+            risorsa_id: String(row.risorsa_id),
+            utente_id: row.utente_id ? String(row.utente_id) : '',
+            data_inizio: String(row.data_inizio),
+            data_fine: String(row.data_fine),
+            costo_addebitato: Number(row.costo_addebitato) || 0,
+            created_at: String(row.created_at),
+            risorsa_nome: typeof row.risorsa_nome === 'string' ? row.risorsa_nome : 'Spazio comune',
+            tariffa_oraria: Number(row.tariffa_oraria) || 0,
+            utente_nome: typeof row.utente_nome === 'string' ? row.utente_nome : null,
+            utente_email: typeof row.utente_email === 'string' ? row.utente_email : null,
+          }));
+          return ordinaPrenotazioni(mapped);
+        }
+      }
+
       const { data, error } = await db
         .from('prenotazioni_spazi')
         .select(COLONNE_PRENOTAZIONE)

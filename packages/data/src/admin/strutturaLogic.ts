@@ -570,7 +570,7 @@ export function parseValoreMillesimale(testo: string): number | null {
   }
 
   const num = Number(normalizzato);
-  if (isNaN(num) || num < 0) return null;
+  if (!Number.isFinite(num) || num < 0) return null;
 
   return arrotonda3(num);
 }

@@ -13,7 +13,7 @@ import { ConfineErrori, avviaRaccoltaErrori } from "@/lib/logErrori";
  * recupero) porta alla schermata per sceglierla.
  */
 export default function ProtectedLayout() {
-  const { status, passwordPending } = useAuth();
+  const { status, passwordPending, user } = useAuth();
   const pathname = usePathname();
 
   // Errori non gestiti dell'app: registrati solo con la sessione aperta (servono l'utente e i permessi).
@@ -42,7 +42,7 @@ export default function ProtectedLayout() {
   }
 
   return (
-    <ProfiloProvider>
+    <ProfiloProvider key={user?.id ?? 'anon'}>
       <AppShell>
         <ConfineErrori ripiego={<SessionLoading message="Si è verificato un errore. Ricarica la pagina." />}>
           <Slot />
