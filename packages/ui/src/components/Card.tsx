@@ -9,9 +9,14 @@ import { useTextStyle } from './internal';
 export interface CardAction {
   /** Deve dire cosa succede (es. "Vedi tutte"). */
   label: string;
-  onPress: () => void;
+  onPress: () => void | Promise<unknown>;
   icon?: IconName;
   accessibilityHint?: string;
+  /** Operazione in corso: il pulsante mostra lo spinner e non si può premere di nuovo. */
+  loading?: boolean;
+  /** Testo letto durante il caricamento (es. "Ricalcolo in corso…"). */
+  loadingLabel?: string;
+  disabled?: boolean;
 }
 
 export interface CardProps {
@@ -49,6 +54,9 @@ export function Card({ title, headingLevel = 2, action, children, style }: CardP
                 iconPosition="end"
                 onPress={action.onPress}
                 accessibilityHint={action.accessibilityHint}
+                loading={action.loading}
+                loadingLabel={action.loadingLabel}
+                disabled={action.disabled}
               />
             </View>
           ) : null}

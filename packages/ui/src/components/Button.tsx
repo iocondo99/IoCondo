@@ -173,15 +173,20 @@ export function Button({
         const p = paletteFor(variant, { hovered: !!hovered, pressed, disabled });
         return (
           <View style={styles.content}>
-            {busy ? (
+            {/* Lo spinner prende il posto dell'icona, dallo stesso lato: il pulsante non si sposta. */}
+            {busy && iconPosition === 'start' ? (
               <View aria-hidden>
                 <ActivityIndicator size="small" color={p.text} />
               </View>
-            ) : icon && iconPosition === 'start' ? (
+            ) : !busy && icon && iconPosition === 'start' ? (
               <Icon name={icon} size="action" color={p.text} />
             ) : null}
             <Text style={[textStyle, styles.label, { color: p.text }]}>{shownLabel}</Text>
-            {!busy && icon && iconPosition === 'end' ? (
+            {busy && iconPosition === 'end' ? (
+              <View aria-hidden>
+                <ActivityIndicator size="small" color={p.text} />
+              </View>
+            ) : icon && iconPosition === 'end' ? (
               <Icon name={icon} size="action" color={p.text} />
             ) : null}
           </View>

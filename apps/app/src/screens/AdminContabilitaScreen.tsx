@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Modal as RNModal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   DatePicker,
@@ -17,7 +17,9 @@ import {
   NonAutorizzato,
   PageHeader,
   RadioGroup,
+  Pagination,
   ResponsiveDataView,
+  useBreakpoint,
   SearchBar,
   Select,
   StatCard,
@@ -68,6 +70,7 @@ import {
 } from '@iocondo/data';
 import { useAccessoConsentito } from '@/components/layout/GuardiaVista';
 import { useProfilo } from '@/context/ProfiloContext';
+import { usePaginaPiena } from '@/components/layout/AppLayout';
 import { services } from '@/services';
 
 type TabKey = 'registro' | 'preventivi' | 'bollettini' | 'morosita' | 'rendiconto';
@@ -76,6 +79,7 @@ type ModaleAttiva =
   | null
   | 'registra-spesa'
   | 'storna-movimento'
+  | 'modifica-movimento'
   | 'nuovo-preventivo'
   | 'approva-preventivo'
   | 'emetti-rate'
@@ -233,6 +237,10 @@ function AdminContabilitaContenuto() {
   const [esercizi, setEsercizi] = useState<IEsercizioContabile[]>([]);
   const [esercizioSelezionatoId, setEsercizioSelezionatoId] = useState<string>('');
   const [schedaAttiva, setSchedaAttiva] = useState<TabKey>('registro');
+  // Vista a pagina intera del registro (pulsante "Espandi"): elenco sintetico con le azioni di riga.
+  const [registroEspanso, setRegistroEspanso] = useState(false);
+  // Registro espanso: menu laterale nascosto e pagina a tutta larghezza.
+  usePaginaPiena(registroEspanso);
 
   // Dati contabili caricati dal dominio @iocondo/data
   const [vociCatalogo, setVociCatalogo] = useState<IVoceSpesaCatalogo[]>([]);
@@ -265,6 +273,7 @@ function AdminContabilitaContenuto() {
   // Modale attiva (una sola modale aperta alla volta come da Sez. 13 Design System)
   const [modaleAttiva, setModaleAttiva] = useState<ModaleAttiva>(null);
   const [operazioneInCorso, setOperazioneInCorso] = useState(false);
+  const [ricalcoloInCorso, setRicalcoloInCorso] = useState(false);
   const [dettaglio, setDettaglio] = useState<DettaglioSelezionato | null>(null);
 
   // Stato Form Modale 1: "Registra spesa"
@@ -351,12 +360,13 @@ function AdminContabilitaContenuto() {
 
   // Caricamento completo dei dati contabili
   const caricaDati = useCallback(
-    async (targetEsercizioId?: string) => {
+    async (targetEsercizioId?: string, opzioni?: { silenzioso?: boolean }) => {
       if (!condominio?.id) {
         setCaricamento(false);
         return;
       }
-      setCaricamento(true);
+      // Silenzioso: la pagina resta visibile e si aggiorna solo quando i dati sono pronti.
+      if (!opzioni?.silenzioso) setCaricamento(true);
       setErroreCaricamento(null);
 
       try {
@@ -784,6 +794,48 @@ function AdminContabilitaContenuto() {
     setMotivoStornoInput('');
     setErroreStornoInput(undefined);
     setModaleAttiva('storna-movimento');
+  };
+
+  // Modifica movimento: solo i dati descrittivi. Importi, segno e date restano bloccati
+  // (un movimento registrato si corregge con lo storno, non riscrivendolo).
+  const [movimentoInModifica, setMovimentoInModifica] = useState<RigaRegistroContabileView | null>(null);
+  const [modDescrizione, setModDescrizione] = useState('');
+  const [modFattura, setModFattura] = useState('');
+  const [modDelibera, setModDelibera] = useState('');
+  const [modErrore, setModErrore] = useState<string | null>(null);
+
+  const apriModaleModificaMovimento = (riga: RigaRegistroContabileView) => {
+    setMovimentoInModifica(riga);
+    setModDescrizione(riga.movimento.descrizione ?? '');
+    setModFattura(riga.movimento.numero_fattura ?? '');
+    setModDelibera((riga.movimento as { delibera_riferimento?: string | null }).delibera_riferimento ?? '');
+    setModErrore(null);
+    setModaleAttiva('modifica-movimento');
+  };
+
+  const handleConfermaModificaMovimento = async () => {
+    if (operazioneInCorso || !condominio?.id || !movimentoInModifica) return;
+    if (!modDescrizione.trim()) {
+      setModErrore('La descrizione è obbligatoria.');
+      return;
+    }
+    setOperazioneInCorso(true);
+    setModErrore(null);
+    try {
+      await services.contabilita.aggiornaMovimento(movimentoInModifica.movimento.id, condominio.id, {
+        descrizione: modDescrizione.trim(),
+        numeroFattura: modFattura.trim() || null,
+        deliberaRiferimento: modDelibera.trim() || null,
+      });
+      setModaleAttiva(null);
+      setMovimentoInModifica(null);
+      await caricaDati(esercizioAttivo?.id, { silenzioso: true });
+      toast.show({ tone: 'success', message: 'Movimento aggiornato.' });
+    } catch (err) {
+      setModErrore(err instanceof Error ? err.message : 'Impossibile aggiornare il movimento.');
+    } finally {
+      setOperazioneInCorso(false);
+    }
   };
 
   const handleConfermaStorno = async () => {
@@ -1259,10 +1311,11 @@ function AdminContabilitaContenuto() {
   };
 
   const handleRedigiRendicontoEConguagli = async () => {
-    if (!condominio?.id || !esercizioAttivo?.id) return;
+    if (!condominio?.id || !esercizioAttivo?.id || ricalcoloInCorso) return;
     setOperazioneInCorso(true);
+    setRicalcoloInCorso(true);
     try {
-      const redazione = await services.contabilita.redigiRendiconto({
+      await services.contabilita.redigiRendiconto({
         condominioId: condominio.id,
         esercizioId: esercizioAttivo.id,
         notaSintetica: notaSinteticaInput.trim() || undefined,
@@ -1273,14 +1326,13 @@ function AdminContabilitaContenuto() {
         esercizioId: esercizioAttivo.id,
         autoreId: profilo?.id ?? null,
       });
-      if (!notaSinteticaInput.trim() && redazione.notaPrecompilata) {
-        setNotaSinteticaInput(redazione.notaPrecompilata);
-      }
+      // La nota sintetica la scrive l'amministratore: il testo precompilato non si inserisce nel campo.
+      // Prima si ricaricano i dati, poi si avvisa: il messaggio arriva con la pagina già aggiornata.
+      await caricaDati(esercizioAttivo.id, { silenzioso: true });
       toast.show({
         tone: 'success',
         message: 'Rendiconto tripartito e prospetto conguagli per unità ricalcolati.',
       });
-      await caricaDati(esercizioAttivo.id);
     } catch (err) {
       toast.show({
         tone: 'error',
@@ -1288,6 +1340,7 @@ function AdminContabilitaContenuto() {
       });
     } finally {
       setOperazioneInCorso(false);
+      setRicalcoloInCorso(false);
     }
   };
 
@@ -1815,7 +1868,15 @@ function AdminContabilitaContenuto() {
         label: 'Registro',
         icon: 'file-text',
         content: (
-          <Card title="Registro Cronologico di Contabilità (Art. 1130 n. 7 c.c.)">
+          <Card
+            title="Registro Cronologico di Contabilità (Art. 1130 n. 7 c.c.)"
+            action={{
+              label: 'Espandi',
+              icon: 'external-link',
+              onPress: () => setRegistroEspanso(true),
+              accessibilityHint: 'Apre il registro a pagina intera, in forma sintetica',
+            }}
+          >
             <View style={styles.barraFiltri}>
               <SearchBar
                 label="Cerca nel registro contabile"
@@ -2068,7 +2129,10 @@ function AdminContabilitaContenuto() {
               action={{
                 label: 'Ricalcola rendiconto e conguagli',
                 icon: 'refresh-cw',
-                onPress: () => void handleRedigiRendicontoEConguagli(),
+                // Restituisce la promessa: il pulsante mostra lo spinner già al clic.
+                onPress: () => handleRedigiRendicontoEConguagli(),
+                loading: ricalcoloInCorso,
+                disabled: ricalcoloInCorso,
               }}
             >
               <View style={styles.grigliaDocumentiRendiconto}>
@@ -2368,6 +2432,23 @@ function AdminContabilitaContenuto() {
 
   return (
     <View style={styles.pagina}>
+      {registroEspanso ? (
+        <RegistroEspanso
+          righe={righeRegistroFiltrate}
+          totale={registro.length}
+          ricerca={ricercaRegistro}
+          onRicerca={setRicercaRegistro}
+          onIndietro={() => setRegistroEspanso(false)}
+          onDettaglio={(r) => {
+            setDettaglio({ tipo: 'movimento', riga: r });
+            setModaleAttiva('dettaglio-generico');
+          }}
+          onStorna={apriModaleStorno}
+          onModifica={apriModaleModificaMovimento}
+          onNuovaSpesa={apriModaleRegistraSpesa}
+        />
+      ) : (
+      <>
       {/* 1. PageHeader istituzionale */}
       <PageHeader
         breadcrumbs={breadcrumbs}
@@ -2495,6 +2576,8 @@ function AdminContabilitaContenuto() {
           value={schedaAttiva}
           onChange={(k) => setSchedaAttiva(k as TabKey)}
         />
+      )}
+      </>
       )}
 
       {/* ====================================================================
@@ -2652,6 +2735,46 @@ function AdminContabilitaContenuto() {
             value={motivoStornoInput}
             onChangeText={setMotivoStornoInput}
             error={erroreStornoInput}
+          />
+        </View>
+      </Modal>
+
+      {/* ====================================================================
+       * MODALE SUPPORTO: "Modifica movimento" (solo dati descrittivi)
+       * ==================================================================== */}
+      <Modal
+        visible={modaleAttiva === 'modifica-movimento'}
+        onClose={() => setModaleAttiva(null)}
+        title={movimentoInModifica ? `Modifica movimento #${movimentoInModifica.movimento.numero_progressivo ?? ''}` : 'Modifica movimento'}
+        description="Puoi correggere i dati descrittivi. Per cambiare importo o data usa lo storno e registra un nuovo movimento."
+        dismissible={!operazioneInCorso}
+        actions={
+          <ModalActions>
+            <Button variant="secondary" label="Annulla" onPress={() => setModaleAttiva(null)} disabled={operazioneInCorso} />
+            <Button
+              variant="primary"
+              label="Salva modifiche"
+              icon="check"
+              onPress={() => handleConfermaModificaMovimento()}
+              loading={operazioneInCorso}
+            />
+          </ModalActions>
+        }
+      >
+        <View style={styles.formModale}>
+          {modErrore ? <Alert tone="error" message={modErrore} /> : null}
+          {movimentoInModifica ? (
+            <Text style={styles.testoSecondario}>
+              {`${formattaDataItaliana(movimentoInModifica.movimento.data)}, ${movimentoInModifica.movimento.segno === '+' ? 'entrata' : 'uscita'} di ${formattaCentsItaliano(movimentoInModifica.movimento.importo_centesimi ?? Math.round(Number(movimentoInModifica.movimento.importo ?? 0) * 100), true)}`}
+            </Text>
+          ) : null}
+          <Input label="Descrizione *" value={modDescrizione} onChangeText={setModDescrizione} />
+          <Input label="Numero fattura" value={modFattura} onChangeText={setModFattura} placeholder="Es. 2026/145" />
+          <Input
+            label="Delibera di riferimento"
+            value={modDelibera}
+            onChangeText={setModDelibera}
+            placeholder="Es. Assemblea del 12/03/2026, punto 4"
           />
         </View>
       </Modal>
@@ -3115,7 +3238,311 @@ function AdminContabilitaContenuto() {
   );
 }
 
+/**
+ * Registro a pagina intera, in forma di tabella compatta (come un gestionale): azioni in testa
+ * alla riga, una colonna per dato, intestazioni ordinabili, scorrimento orizzontale su schermi stretti.
+ */
+type ColonnaReg = {
+  key: string;
+  titolo: string;
+  larghezza: number;
+  /** Colonne elastiche: si allargano per usare tutta l'ampiezza disponibile. */
+  elastica?: boolean;
+  destra?: boolean;
+  valore: (r: RigaRegistroContabileView) => string;
+  ordina?: (r: RigaRegistroContabileView) => string | number;
+};
+
+const centDi = (r: RigaRegistroContabileView) =>
+  r.movimento.importo_centesimi ?? Math.round(Number(r.movimento.importo ?? 0) * 100);
+
+const COLONNE_REGISTRO: readonly ColonnaReg[] = [
+  { key: 'n', titolo: 'N.', larghezza: 64, valore: (r) => String(r.movimento.numero_progressivo ?? '—'), ordina: (r) => r.movimento.numero_progressivo ?? 0 },
+  { key: 'data', titolo: 'Data', larghezza: 104, valore: (r) => formattaDataItaliana(r.movimento.data), ordina: (r) => r.movimento.data },
+  { key: 'descr', titolo: 'Descrizione', larghezza: 260, elastica: true, valore: (r) => r.movimento.descrizione ?? '—', ordina: (r) => (r.movimento.descrizione ?? '').toLowerCase() },
+  { key: 'tipo', titolo: 'Tipo', larghezza: 90, valore: (r) => (r.movimento.segno === '+' ? 'Entrata' : 'Uscita'), ordina: (r) => r.movimento.segno },
+  {
+    key: 'natura',
+    titolo: 'Natura',
+    larghezza: 120,
+    valore: (r) => (r.movimento.storno_di_id ? 'Storno' : r.movimento.tag_spesa === 'STRAORDINARIA' ? 'Straordinaria' : 'Ordinaria'),
+  },
+  { key: 'fatt', titolo: 'Fattura', larghezza: 120, valore: (r) => r.movimento.numero_fattura ?? '' },
+  { key: 'giust', titolo: 'Giustificativo', larghezza: 120, valore: (r) => (r.giustificativo.spesaCompleta ? 'Completo' : 'Incompleto') },
+  {
+    key: 'rit',
+    titolo: 'Ritardo',
+    larghezza: 84,
+    destra: true,
+    valore: (r) => (r.ritardoRegistrazione.inRitardo ? `${r.ritardoRegistrazione.giorniRitardo} gg` : ''),
+    ordina: (r) => (r.ritardoRegistrazione.inRitardo ? r.ritardoRegistrazione.giorniRitardo : 0),
+  },
+  {
+    key: 'imp',
+    titolo: 'Importo',
+    larghezza: 130,
+    destra: true,
+    valore: (r) => `${r.movimento.segno === '+' ? '' : '- '}${formattaCentsItaliano(centDi(r), true)}`,
+    ordina: (r) => (r.movimento.segno === '+' ? 1 : -1) * centDi(r),
+  },
+];
+const LARGHEZZA_AZIONI = 48;
+const PER_PAGINA_REGISTRO = 25;
+
+/** Menu a tendina delle azioni di una riga: un solo pulsante "Azioni ▾", voci in testo. */
+function MenuAzioniRiga({
+  etichetta,
+  aperto,
+  onToggle,
+  voci,
+}: {
+  etichetta: string;
+  aperto: boolean;
+  onToggle: (aperto: boolean) => void;
+  voci: ReadonlyArray<{ label: string; onPress: () => void; pericolosa?: boolean }>;
+}) {
+  const ancora = useRef<View>(null);
+  const [pos, setPos] = useState<{ x: number; y: number; h: number } | null>(null);
+  const apri = () => {
+    const nodo = ancora.current as unknown as { measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void } | null;
+    if (nodo?.measureInWindow) nodo.measureInWindow((x, y, _w, h) => { setPos({ x, y, h }); onToggle(true); });
+    else onToggle(true);
+  };
+  return (
+    <View ref={ancora} collapsable={false}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={etichetta}
+        aria-haspopup="menu"
+        aria-expanded={aperto}
+        onPress={() => (aperto ? onToggle(false) : apri())}
+        style={({ hovered }: { hovered?: boolean }) => [styles.menuPulsante, (hovered || aperto) && styles.menuPulsanteAttivo]}
+      >
+        {/* Tre puntini verticali */}
+        <View style={styles.menuPuntini} aria-hidden>
+          <View style={styles.menuPunto} />
+          <View style={styles.menuPunto} />
+          <View style={styles.menuPunto} />
+        </View>
+      </Pressable>
+      {aperto ? (
+        <RNModal transparent visible animationType="none" onRequestClose={() => onToggle(false)}>
+          <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={() => onToggle(false)} />
+          <View
+            role="menu"
+            style={[styles.menuLista, pos ? { position: 'absolute', left: pos.x, top: pos.y + pos.h + 2 } : styles.menuListaCentro]}
+          >
+            {voci.map((v) => (
+              <Pressable
+                key={v.label}
+                role="menuitem"
+                accessibilityRole="button"
+                onPress={() => {
+                  onToggle(false);
+                  v.onPress();
+                }}
+                style={({ hovered }: { hovered?: boolean }) => [styles.menuVoce, hovered && styles.menuVoceHover]}
+              >
+                <Text style={[styles.tabTesto, v.pericolosa && styles.tabTestoUscita]}>{v.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </RNModal>
+      ) : null}
+    </View>
+  );
+}
+
+function RegistroEspanso({
+  righe,
+  totale,
+  ricerca,
+  onRicerca,
+  onIndietro,
+  onDettaglio,
+  onStorna,
+  onModifica,
+  onNuovaSpesa,
+}: {
+  righe: readonly RigaRegistroContabileView[];
+  totale: number;
+  ricerca: string;
+  onRicerca: (v: string) => void;
+  onIndietro: () => void;
+  onDettaglio: (r: RigaRegistroContabileView) => void;
+  onStorna: (r: RigaRegistroContabileView) => void;
+  onModifica: (r: RigaRegistroContabileView) => void;
+  onNuovaSpesa: () => void;
+}) {
+  const [menuAperto, setMenuAperto] = useState<string | null>(null);
+  const [ordine, setOrdine] = useState<{ key: string; asc: boolean }>({ key: 'n', asc: false });
+  const [pagina, setPagina] = useState(1);
+  const [larghezzaDisponibile, setLarghezzaDisponibile] = useState(0);
+
+  const ordinate = useMemo(() => {
+    const col = COLONNE_REGISTRO.find((c) => c.key === ordine.key);
+    if (!col) return [...righe];
+    const chiave = col.ordina ?? col.valore;
+    return [...righe].sort((a, b) => {
+      const x = chiave(a);
+      const y = chiave(b);
+      const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'it', { numeric: true });
+      return ordine.asc ? c : -c;
+    });
+  }, [righe, ordine]);
+
+  useEffect(() => setPagina(1), [ricerca, righe.length]);
+  const pagine = Math.max(1, Math.ceil(ordinate.length / PER_PAGINA_REGISTRO));
+  const visibili = ordinate.slice((pagina - 1) * PER_PAGINA_REGISTRO, pagina * PER_PAGINA_REGISTRO);
+
+  // Le colonne elastiche si prendono lo spazio in più: la tabella riempie l'ampiezza della pagina.
+  const minima = LARGHEZZA_AZIONI + COLONNE_REGISTRO.reduce((t, c) => t + c.larghezza, 0);
+  const extra = Math.max(0, larghezzaDisponibile - minima);
+  const elastiche = COLONNE_REGISTRO.filter((c) => c.elastica).length || 1;
+  const larghezza = (c: ColonnaReg) => c.larghezza + (c.elastica ? extra / elastiche : 0);
+  const totaleTabella = Math.max(minima, larghezzaDisponibile);
+
+  const da = ordinate.length === 0 ? 0 : (pagina - 1) * PER_PAGINA_REGISTRO + 1;
+  const a = Math.min(pagina * PER_PAGINA_REGISTRO, ordinate.length);
+
+  return (
+    <>
+      <PageHeader
+        onBack={onIndietro}
+        title="Registro di contabilità"
+        action={{ label: 'Nuova spesa', icon: 'plus', onPress: onNuovaSpesa }}
+      />
+      <View style={styles.tabBarra}>
+        <View style={styles.tabRicerca}>
+          <SearchBar
+            label="Cerca nel registro contabile"
+            placeholder="Cerca per descrizione, fattura o numero…"
+            value={ricerca}
+            onChangeText={onRicerca}
+            compact
+          />
+        </View>
+      </View>
+
+      <View
+        style={styles.tabContenitore}
+        onLayout={(e) => setLarghezzaDisponibile(Math.floor(e.nativeEvent.layout.width) - 2)}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator>
+          <View style={{ width: totaleTabella }} accessibilityRole={'table' as never}>
+            <View style={[styles.tabRiga, styles.tabIntestazione]} accessibilityRole={'row' as never}>
+              <View style={[styles.tabCella, styles.tabCellaAzioni, { width: LARGHEZZA_AZIONI }]}>
+                <Text style={styles.tabTitolo}>Azioni</Text>
+              </View>
+              {COLONNE_REGISTRO.map((c) => {
+                const attiva = ordine.key === c.key;
+                return (
+                  <Pressable
+                    key={c.key}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Ordina per ${c.titolo}${attiva ? (ordine.asc ? ', crescente' : ', decrescente') : ''}`}
+                    onPress={() => setOrdine((o) => ({ key: c.key, asc: o.key === c.key ? !o.asc : true }))}
+                    style={[styles.tabCella, { width: larghezza(c) }, c.destra && styles.tabCellaDestra]}
+                  >
+                    <Text style={[styles.tabTitolo, attiva && styles.tabTitoloAttivo]} numberOfLines={1}>
+                      {c.titolo}
+                      {attiva ? (ordine.asc ? ' ↑' : ' ↓') : ''}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {visibili.length === 0 ? (
+              <View style={styles.tabVuota}>
+                <Text style={styles.testoSecondario}>Nessun movimento corrisponde alla ricerca.</Text>
+              </View>
+            ) : (
+              visibili.map((r, i) => (
+                <View
+                  key={r.movimento.id}
+                  style={[styles.tabRiga, i % 2 === 1 && styles.tabRigaAlterna]}
+                  accessibilityRole={'row' as never}
+                >
+                  <View style={[styles.tabCella, styles.tabCellaAzioni, { width: LARGHEZZA_AZIONI }]}>
+                    <MenuAzioniRiga
+                      etichetta={`Azioni sul movimento ${r.movimento.numero_progressivo ?? ''}`}
+                      aperto={menuAperto === r.movimento.id}
+                      onToggle={(v) => setMenuAperto(v ? r.movimento.id : null)}
+                      voci={[
+                        { label: 'Apri', onPress: () => onDettaglio(r) },
+                        ...(!r.movimento.storno_di_id
+                          ? [
+                              { label: 'Modifica', onPress: () => onModifica(r) },
+                              { label: 'Storna', onPress: () => onStorna(r), pericolosa: true },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </View>
+                  {COLONNE_REGISTRO.map((c) => {
+                    const v = c.valore(r);
+                    const avviso = (c.key === 'giust' && !r.giustificativo.spesaCompleta) || (c.key === 'rit' && v !== '');
+                    const uscita = c.key === 'imp' && r.movimento.segno !== '+';
+                    return (
+                      <View key={c.key} style={[styles.tabCella, { width: larghezza(c) }, c.destra && styles.tabCellaDestra]}>
+                        <Text
+                          style={[
+                            styles.tabTesto,
+                            c.key === 'imp' && styles.tabImporto,
+                            avviso && styles.tabTestoAvviso,
+                            uscita && styles.tabTestoUscita,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {v || '—'}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+
+        <View style={styles.tabPiede}>
+          <Text style={styles.testoSecondario}>
+            {`Visualizzati ${da}–${a} di ${ordinate.length}${ordinate.length !== totale ? ` (su ${totale} totali)` : ''}`}
+          </Text>
+          {pagine > 1 ? <Pagination page={pagina} pageCount={pagine} onChange={setPagina} label="Pagine del registro" /> : null}
+        </View>
+      </View>
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
+  menuPulsante: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: radii.full },
+  menuPulsanteAttivo: { backgroundColor: colors.border },
+  menuPuntini: { gap: 3, alignItems: 'center' },
+  menuPunto: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.text.secondary },
+  menuLista: { minWidth: 150, backgroundColor: colors.surface, borderWidth: borderWidths.thin, borderColor: colors.borderStrong, borderRadius: radii.control, paddingVertical: 4, ...({ boxShadow: '0 6px 16px rgba(15, 23, 42, 0.14)' } as object) },
+  menuListaCentro: { alignSelf: 'center', marginTop: '40%' },
+  menuVoce: { paddingVertical: space[2], paddingHorizontal: space[3] },
+  menuVoceHover: { backgroundColor: colors.background },
+  tabBarra: { flexDirection: 'row', justifyContent: 'flex-end' },
+  tabRicerca: { width: '100%', maxWidth: 420 },
+  tabContenitore: { width: '100%', borderWidth: borderWidths.thin, borderColor: colors.border, borderRadius: radii.control, backgroundColor: colors.surface, overflow: 'hidden' },
+  tabRiga: { flexDirection: 'row', alignItems: 'center', minHeight: 40, borderBottomWidth: borderWidths.thin, borderBottomColor: colors.border },
+  tabRigaAlterna: { backgroundColor: colors.background },
+  tabIntestazione: { minHeight: 40, backgroundColor: colors.background, borderBottomColor: colors.borderStrong },
+  tabCella: { paddingHorizontal: space[3], paddingVertical: space[1], justifyContent: 'center', borderRightWidth: borderWidths.thin, borderRightColor: colors.border, alignSelf: 'stretch' },
+  tabCellaAzioni: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2, paddingHorizontal: space[1] },
+  tabCellaDestra: { alignItems: 'flex-end' },
+  tabTitolo: { ...textStyle('support'), color: colors.text.secondary, fontWeight: '600' },
+  tabTitoloAttivo: { color: colors.text.primary },
+  tabTesto: { ...textStyle('support'), color: colors.text.primary },
+  tabImporto: { fontVariant: ['tabular-nums'], fontWeight: '600' },
+  tabTestoAvviso: { color: colors.semantic.warning.foreground },
+  tabTestoUscita: { color: colors.semantic.error.foreground },
+  tabVuota: { padding: space[6], alignItems: 'center' },
+  tabPiede: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: space[3], paddingVertical: space[2], paddingHorizontal: space[3] },
   pagina: {
     gap: space[6],
     width: '100%',
